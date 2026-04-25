@@ -1,0 +1,24 @@
+[Unit]
+Description=Sis DNS gateway
+Documentation=https://github.com/ersinkoc/sis
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sis
+Group=sis
+WorkingDirectory=/var/lib/sis
+ExecStart=/usr/local/bin/sis serve -config /etc/sis/sis.yaml
+Restart=on-failure
+RestartSec=3s
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sis /var/log/sis /etc/sis
+
+[Install]
+WantedBy=multi-user.target

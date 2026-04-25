@@ -1,0 +1,12 @@
+/dist/
+bin/
+data/
+webui/node_modules/
+webui/dist/
+coverage.out
+cookies.txt
+*.log
+*.pprof
+sis.yaml
+*.test
+.DS_Store
