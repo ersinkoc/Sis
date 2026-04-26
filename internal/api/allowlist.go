@@ -19,7 +19,7 @@ func (s *Server) allowlistGet(w http.ResponseWriter, _ *http.Request) {
 	}
 	domains, err := s.store.CustomLists().List("custom-allow")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "allowlist unavailable", err)
 		return
 	}
 	writeJSON(w, map[string]any{"domains": domains})
@@ -41,7 +41,7 @@ func (s *Server) allowlistAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.CustomLists().Add("custom-allow", domain); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "allowlist update failed", err)
 		return
 	}
 	if s.policy != nil {
@@ -73,7 +73,7 @@ func (s *Server) allowlistDelete(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "allowlist update failed", err)
 		return
 	}
 	if s.policy != nil {

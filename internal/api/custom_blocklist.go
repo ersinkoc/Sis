@@ -19,7 +19,7 @@ func (s *Server) customBlocklistGet(w http.ResponseWriter, _ *http.Request) {
 	}
 	domains, err := s.store.CustomLists().List("custom")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "custom blocklist unavailable", err)
 		return
 	}
 	writeJSON(w, map[string]any{"domains": domains})
@@ -41,7 +41,7 @@ func (s *Server) customBlocklistAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.CustomLists().Add("custom", domain); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "custom blocklist update failed", err)
 		return
 	}
 	if s.policy != nil {
@@ -73,7 +73,7 @@ func (s *Server) customBlocklistDelete(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "custom blocklist update failed", err)
 		return
 	}
 	if s.policy != nil {
