@@ -82,6 +82,21 @@ for _ in $(seq 1 50); do
       echo "${api_query_out}" >&2
       exit 1
     fi
+    logs_out=""
+    for _ in $(seq 1 20); do
+      logs_out="$(curl -fsS -b "${tmp}/cookies.txt" \
+        "http://${http_addr}/api/v1/logs/query?blocked=true&qname=blocked.example.com&limit=10")"
+      if [[ "${logs_out}" == *"blocked.example.com."* && "${logs_out}" == *'"blocked":true'* ]]; then
+        echo "smoke: query log API passed"
+        break
+      fi
+      sleep 0.1
+    done
+    if [[ "${logs_out}" != *'"blocked":true'* ]]; then
+      echo "smoke: query log API failed" >&2
+      echo "${logs_out}" >&2
+      exit 1
+    fi
     echo "smoke: auth setup, API summary, and API query policy passed"
     exit 0
   fi
