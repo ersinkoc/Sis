@@ -220,6 +220,9 @@ func Validate(c *Config) error {
 	if c.Auth.SessionTTL.Duration < 0 {
 		errf("auth.session_ttl", "must be >= 0")
 	}
+	if c.Auth.CookieName != "" && !validCookieName(c.Auth.CookieName) {
+		errf("auth.cookie_name", "must be a valid HTTP cookie name")
+	}
 	if c.Block.ResponseA != "" {
 		ip := net.ParseIP(c.Block.ResponseA)
 		if ip == nil || ip.To4() == nil {
@@ -289,6 +292,22 @@ func validClock(v string) bool {
 
 func validDomainPattern(v string) bool {
 	return v != "" && domainPattern.MatchString(v)
+}
+
+func validCookieName(v string) bool {
+	if v == "" {
+		return false
+	}
+	for _, r := range v {
+		if r < 0x21 || r > 0x7e {
+			return false
+		}
+		switch r {
+		case '(', ')', '<', '>', '@', ',', ';', ':', '\\', '"', '/', '[', ']', '?', '=', '{', '}':
+			return false
+		}
+	}
+	return true
 }
 
 func oneOf(v string, opts ...string) bool {

@@ -195,6 +195,13 @@ func TestValidateLoggingRequiresCreatableLogDir(t *testing.T) {
 	assertErrContains(t, err, "server.data_dir")
 }
 
+func TestValidateAuthCookieName(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Auth.CookieName = "bad name"
+	err := Validate(cfg)
+	assertErrContains(t, err, "auth.cookie_name")
+}
+
 func assertErrContains(t *testing.T, err error, want string) {
 	t.Helper()
 	if err == nil {
