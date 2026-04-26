@@ -25,7 +25,7 @@ func newRateLimiter(limit int, window time.Duration) *rateLimiter {
 }
 
 func (l *rateLimiter) allow(r *http.Request) bool {
-	if l == nil {
+	if l == nil || l.limit <= 0 || l.window <= 0 {
 		return true
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
