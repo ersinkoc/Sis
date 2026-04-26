@@ -188,11 +188,25 @@ func (s *fileStore) saveLocked() error {
 	if err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o640); err != nil {
+	dir := filepath.Dir(s.path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(s.path)+".*.tmp")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, s.path)
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.Write(raw); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(0o640); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, s.path)
 }
 
 func prefixOf(key string) string {

@@ -2,6 +2,9 @@ package store
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -126,6 +129,35 @@ func TestStatsPutDoesNotMutateInputRow(t *testing.T) {
 	}
 	if got.Bucket != "123" {
 		t.Fatalf("stored bucket = %q", got.Bucket)
+	}
+}
+
+func TestStoreSaveUsesRestrictedFinalFileWithoutTempLeftovers(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	if err := s.Clients().Upsert(&Client{Key: "192.0.2.10"}); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(filepath.Join(dir, "sis.db.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o640 {
+		t.Fatalf("mode = %o, want 640", got)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.Contains(entry.Name(), ".tmp") {
+			t.Fatalf("unexpected temp file %q", entry.Name())
+		}
 	}
 }
 
