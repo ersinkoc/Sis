@@ -72,6 +72,53 @@ func TestTopDomainsAndClients(t *testing.T) {
 	}
 }
 
+func TestCountersZeroValueIsUsable(t *testing.T) {
+	var c Counters
+	c.IncQuery()
+	c.IncCacheMiss()
+	c.IncBlocked()
+	c.ObserveLatency(time.Millisecond)
+	c.AddDomain("example.test.", true)
+	c.AddClient("client-a")
+	c.Upstream("resolver").IncRequest()
+
+	snap := c.Snapshot()
+	if snap.QueryTotal != 1 || snap.CacheMiss != 1 || snap.BlockedTotal != 1 {
+		t.Fatalf("unexpected snapshot totals: %#v", snap)
+	}
+	if got := c.TopDomains(1, true); len(got) != 1 || got[0].Key != "example.test." || got[0].Count != 1 {
+		t.Fatalf("blocked domains = %#v", got)
+	}
+	if got := c.TopClients(1); len(got) != 1 || got[0].Key != "client-a" || got[0].Count != 1 {
+		t.Fatalf("clients = %#v", got)
+	}
+	if snap.Upstreams["resolver"].Requests != 1 {
+		t.Fatalf("upstream snapshot = %#v", snap.Upstreams)
+	}
+}
+
+func TestNilCountersAreNoop(t *testing.T) {
+	var c *Counters
+	c.IncQuery()
+	c.IncCacheHit()
+	c.IncCacheMiss()
+	c.IncBlocked()
+	c.ObserveLatency(time.Millisecond)
+	c.AddDomain("example.test.", true)
+	c.AddClient("client-a")
+	c.Upstream("resolver").IncRequest()
+
+	if got := c.TopDomains(1, false); got != nil {
+		t.Fatalf("top domains = %#v", got)
+	}
+	if got := c.TopClients(1); got != nil {
+		t.Fatalf("top clients = %#v", got)
+	}
+	if snap := c.Snapshot(); snap.QueryTotal != 0 || len(snap.Upstreams) != 0 {
+		t.Fatalf("nil snapshot = %#v", snap)
+	}
+}
+
 func TestEmptyUpstreamIDIsNotStored(t *testing.T) {
 	c := New()
 	c.Upstream("").IncRequest()

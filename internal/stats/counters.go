@@ -61,49 +61,73 @@ func New() *Counters {
 
 // IncQuery increments total DNS query count.
 func (c *Counters) IncQuery() {
+	if c == nil {
+		return
+	}
 	c.QueryTotal.Add(1)
 }
 
 // IncCacheHit increments DNS cache hit count.
 func (c *Counters) IncCacheHit() {
+	if c == nil {
+		return
+	}
 	c.CacheHit.Add(1)
 }
 
 // IncCacheMiss increments DNS cache miss count.
 func (c *Counters) IncCacheMiss() {
+	if c == nil {
+		return
+	}
 	c.CacheMiss.Add(1)
 }
 
 // IncBlocked increments total blocked query count.
 func (c *Counters) IncBlocked() {
+	if c == nil {
+		return
+	}
 	c.BlockedTotal.Add(1)
 }
 
 // ObserveLatency records end-to-end DNS query latency.
 func (c *Counters) ObserveLatency(d time.Duration) {
+	if c == nil {
+		return
+	}
 	c.latency.Observe(d)
 }
 
 // AddDomain records one query for domain, optionally as blocked.
 func (c *Counters) AddDomain(domain string, blocked bool) {
-	if domain == "" {
+	if c == nil || domain == "" {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.domains == nil {
+		c.domains = make(map[string]uint64)
+	}
 	c.domains[domain]++
 	if blocked {
+		if c.blockedDomains == nil {
+			c.blockedDomains = make(map[string]uint64)
+		}
 		c.blockedDomains[domain]++
 	}
 }
 
 // AddClient records one query attributed to client.
 func (c *Counters) AddClient(client string) {
-	if client == "" {
+	if c == nil || client == "" {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.clients == nil {
+		c.clients = make(map[string]uint64)
+	}
 	c.clients[client]++
 }
 
@@ -115,6 +139,9 @@ type TopItem struct {
 
 // TopDomains returns the most queried domains, optionally restricted to blocked domains.
 func (c *Counters) TopDomains(n int, blocked bool) []TopItem {
+	if c == nil {
+		return nil
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if blocked {
@@ -125,6 +152,9 @@ func (c *Counters) TopDomains(n int, blocked bool) []TopItem {
 
 // TopClients returns the most active client keys.
 func (c *Counters) TopClients(n int) []TopItem {
+	if c == nil {
+		return nil
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return topN(c.clients, n)
@@ -132,7 +162,7 @@ func (c *Counters) TopClients(n int) []TopItem {
 
 // Upstream returns live counters for upstream id, creating them if needed.
 func (c *Counters) Upstream(id string) *UpstreamCounters {
-	if id == "" {
+	if c == nil || id == "" {
 		return newUpstreamCounters()
 	}
 	value, _ := c.upstreams.LoadOrStore(id, newUpstreamCounters())
@@ -141,6 +171,9 @@ func (c *Counters) Upstream(id string) *UpstreamCounters {
 
 // Snapshot returns a consistent point-in-time view of counter totals.
 func (c *Counters) Snapshot() Snapshot {
+	if c == nil {
+		return Snapshot{Upstreams: make(map[string]UpstreamSnapshot)}
+	}
 	out := Snapshot{
 		QueryTotal: c.QueryTotal.Load(), CacheHit: c.CacheHit.Load(),
 		CacheMiss: c.CacheMiss.Load(), BlockedTotal: c.BlockedTotal.Load(),
@@ -187,27 +220,42 @@ func topN(values map[string]uint64, n int) []TopItem {
 
 // IncRequest increments upstream request count.
 func (u *UpstreamCounters) IncRequest() {
+	if u == nil {
+		return
+	}
 	u.Requests.Add(1)
 }
 
 // IncError increments upstream error and consecutive error counts.
 func (u *UpstreamCounters) IncError() {
+	if u == nil {
+		return
+	}
 	u.Errors.Add(1)
 	u.ConsecutiveErrors.Add(1)
 }
 
 // MarkSuccess resets consecutive errors and marks the upstream healthy.
 func (u *UpstreamCounters) MarkSuccess() {
+	if u == nil {
+		return
+	}
 	u.ConsecutiveErrors.Store(0)
 	u.Healthy.Store(true)
 }
 
 // MarkUnhealthy marks the upstream unhealthy.
 func (u *UpstreamCounters) MarkUnhealthy() {
+	if u == nil {
+		return
+	}
 	u.Healthy.Store(false)
 }
 
 // ObserveLatency records one upstream forwarding latency.
 func (u *UpstreamCounters) ObserveLatency(d time.Duration) {
+	if u == nil {
+		return
+	}
 	u.Latency.Observe(d)
 }

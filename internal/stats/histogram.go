@@ -54,6 +54,9 @@ func NewHistogram() *Histogram {
 
 // Observe records one latency sample.
 func (h *Histogram) Observe(d time.Duration) {
+	if h == nil {
+		return
+	}
 	idx := len(histogramBounds)
 	for i, bound := range histogramBounds {
 		if d <= bound {
@@ -67,6 +70,9 @@ func (h *Histogram) Observe(d time.Duration) {
 
 // Snapshot returns current sample count and approximate quantiles.
 func (h *Histogram) Snapshot() HistogramSnapshot {
+	if h == nil {
+		return HistogramSnapshot{}
+	}
 	count := h.total.Load()
 	return HistogramSnapshot{
 		Count: count,
