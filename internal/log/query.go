@@ -73,6 +73,9 @@ func (q *Query) Reconfigure(c *config.Config) error {
 	}
 	q.mu.Lock()
 	oldRotator := q.rotator
+	if q.fanout == nil {
+		q.fanout = newFanout(256)
+	}
 	q.enabled = c.Logging.QueryLog
 	q.mode = mode
 	q.salt = salt
@@ -95,7 +98,12 @@ func (q *Query) Write(e *Entry) error {
 		entry.TS = time.Now().UTC()
 	}
 	q.applyPrivacy(&entry)
-	q.fanout.publish(entry)
+	q.mu.Lock()
+	fanout := q.fanout
+	q.mu.Unlock()
+	if fanout != nil {
+		fanout.publish(entry)
+	}
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if !q.enabled || q.enc == nil {

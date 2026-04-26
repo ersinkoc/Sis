@@ -148,6 +148,30 @@ func TestQueryWriteAfterCloseIsNoop(t *testing.T) {
 	}
 }
 
+func TestQueryZeroValueWriteIsNoop(t *testing.T) {
+	var q Query
+	if err := q.Write(&Entry{QName: "zero.example."}); err != nil {
+		t.Fatalf("zero-value write err = %v", err)
+	}
+}
+
+func TestQueryZeroValueReconfigureInitializesFanout(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Logging.QueryLog = false
+	var q Query
+	if err := q.Reconfigure(cfg); err != nil {
+		t.Fatal(err)
+	}
+	sub := q.Subscribe(1)
+	defer q.Unsubscribe(sub)
+	if err := q.Write(&Entry{QName: "zero-reconfigured.example."}); err != nil {
+		t.Fatal(err)
+	}
+	if got := <-sub; got.QName != "zero-reconfigured.example." {
+		t.Fatalf("subscription entry = %#v", got)
+	}
+}
+
 func TestRotatorWriteAfterFailedRotateFailsClosed(t *testing.T) {
 	dir := t.TempDir()
 	f, err := os.CreateTemp(dir, "active-*")
