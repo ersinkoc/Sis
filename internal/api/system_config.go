@@ -53,7 +53,7 @@ func (s *Server) configHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	snapshots, err := s.store.ConfigHistory().List(limit)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "config history unavailable", err)
 		return
 	}
 	out := make([]configHistoryView, 0, len(snapshots))

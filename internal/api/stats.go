@@ -20,7 +20,7 @@ func (s *Server) statsTimeseries(w http.ResponseWriter, r *http.Request) {
 	}
 	rows, err := s.store.Stats().List(bucket)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "stats unavailable", err)
 		return
 	}
 	limit, err := intQuery(r, "limit", 60, 1440)
