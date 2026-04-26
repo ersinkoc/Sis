@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -114,7 +115,10 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createSession(w http.ResponseWriter, r *http.Request, username string) error {
-	token := newToken()
+	token, err := newToken()
+	if err != nil {
+		return err
+	}
 	ttl := s.sessionTTL()
 	session := &store.Session{Token: token, Username: username, ExpiresAt: time.Now().Add(ttl)}
 	if s.store != nil {
@@ -192,10 +196,10 @@ func (s *Server) secureCookie(r *http.Request) bool {
 	return r != nil && r.TLS != nil
 }
 
-func newToken() string {
+func newToken() (string, error) {
 	var b [32]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		return time.Now().UTC().Format("20060102150405.000000000")
+		return "", fmt.Errorf("generate session token: %w", err)
 	}
-	return base64.RawURLEncoding.EncodeToString(b[:])
+	return base64.RawURLEncoding.EncodeToString(b[:]), nil
 }

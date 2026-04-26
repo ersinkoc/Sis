@@ -697,6 +697,16 @@ func TestLoginCookieSecureWhenTLSConfigured(t *testing.T) {
 	}
 }
 
+func TestNewTokenUsesURLSafeRandomBytes(t *testing.T) {
+	token, err := newToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token == "" || strings.ContainsAny(token, "+/=") {
+		t.Fatalf("unexpected token %q", token)
+	}
+}
+
 func TestGroupsCreate(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
