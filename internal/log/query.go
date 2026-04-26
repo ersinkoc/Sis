@@ -179,7 +179,11 @@ func (q *Query) Close() error {
 	if q.rotator == nil {
 		return nil
 	}
-	return q.rotator.Close()
+	rotator := q.rotator
+	q.rotator = nil
+	q.enc = nil
+	q.enabled = false
+	return rotator.Close()
 }
 
 func (q *Query) applyPrivacy(e *Entry) {

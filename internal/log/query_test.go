@@ -134,6 +134,20 @@ func TestRotatorWriteAfterCloseFails(t *testing.T) {
 	}
 }
 
+func TestQueryWriteAfterCloseIsNoop(t *testing.T) {
+	cfg := testConfig(t)
+	q, err := OpenQuery(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Write(&Entry{QName: "after-close.example."}); err != nil {
+		t.Fatalf("write after close err = %v", err)
+	}
+}
+
 func TestRotatorWriteAfterFailedRotateFailsClosed(t *testing.T) {
 	dir := t.TempDir()
 	f, err := os.CreateTemp(dir, "active-*")
@@ -200,6 +214,20 @@ func TestAuditReconfigureEnablesFileLogging(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(cfg.Server.DataDir, "logs", "sis-audit.log")); err != nil {
 		t.Fatalf("audit log should exist after enable: %v", err)
+	}
+}
+
+func TestAuditWriteAfterCloseIsNoop(t *testing.T) {
+	cfg := testConfig(t)
+	a, err := OpenAudit(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Auditf("after-close", "target", nil, nil); err != nil {
+		t.Fatalf("audit after close err = %v", err)
 	}
 }
 

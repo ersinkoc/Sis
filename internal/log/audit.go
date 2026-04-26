@@ -102,5 +102,9 @@ func (a *Audit) Close() error {
 	if a.rotator == nil {
 		return nil
 	}
-	return a.rotator.Close()
+	rotator := a.rotator
+	a.rotator = nil
+	a.enc = nil
+	a.enabled = false
+	return rotator.Close()
 }
