@@ -25,3 +25,11 @@ func TestHolderConcurrentGetReplace(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestNilHolderIsSafe(t *testing.T) {
+	var h *Holder
+	if h.Get() != nil {
+		t.Fatal("nil holder returned config")
+	}
+	h.Replace(&Config{Server: Server{DataDir: "ignored"}})
+}
