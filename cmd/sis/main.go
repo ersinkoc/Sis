@@ -725,13 +725,18 @@ func dumpDebug(dataDir string) error {
 		return err
 	}
 	stamp := time.Now().UTC().Format("20060102-150405")
-	goroutines, err := os.Create(filepath.Join(dir, "goroutine-"+stamp+".txt"))
+	goroutines, err := os.OpenFile(filepath.Join(dir, "goroutine-"+stamp+".txt"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o640)
 	if err != nil {
 		return err
 	}
-	_ = pprof.Lookup("goroutine").WriteTo(goroutines, 2)
-	_ = goroutines.Close()
-	heap, err := os.Create(filepath.Join(dir, "heap-"+stamp+".pprof"))
+	if err := pprof.Lookup("goroutine").WriteTo(goroutines, 2); err != nil {
+		_ = goroutines.Close()
+		return err
+	}
+	if err := goroutines.Close(); err != nil {
+		return err
+	}
+	heap, err := os.OpenFile(filepath.Join(dir, "heap-"+stamp+".pprof"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o640)
 	if err != nil {
 		return err
 	}

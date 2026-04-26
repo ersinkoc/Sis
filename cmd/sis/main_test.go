@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -86,6 +87,29 @@ func TestUpsertConfigUserTrimsUsernameAndRejectsWeakPassword(t *testing.T) {
 	}
 	if err := upsertConfigUser(path, "operator", "short", false); err == nil || !strings.Contains(err.Error(), "at least 8 chars") {
 		t.Fatalf("weak password err = %v", err)
+	}
+}
+
+func TestDumpDebugWritesRestrictedFiles(t *testing.T) {
+	dir := t.TempDir()
+	if err := dumpDebug(dir); err != nil {
+		t.Fatal(err)
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "dbg", "*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 2 {
+		t.Fatalf("debug files = %#v", matches)
+	}
+	for _, path := range matches {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != 0o640 {
+			t.Fatalf("%s mode = %o, want 640", path, got)
+		}
 	}
 }
 
