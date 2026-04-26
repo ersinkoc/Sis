@@ -112,6 +112,47 @@ func TestAggregatorFlushUsesSingleTimestampForRollups(t *testing.T) {
 	}
 }
 
+func TestAggregatorFlushHandlesCounterReset(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	counters := New()
+	counters.IncQuery()
+	agg := NewAggregator(counters, st.Stats())
+	agg.now = func() time.Time { return time.Unix(60, 0).UTC() }
+	if err := agg.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	agg.counters = New()
+	agg.counters.IncQuery()
+	if err := agg.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	row, err := st.Stats().Get("1m", "60")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row.Counters["queries"] != 1 {
+		t.Fatalf("queries after reset = %d, want 1", row.Counters["queries"])
+	}
+}
+
+func TestAggregatorFlushInitializesClock(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	counters := New()
+	counters.IncQuery()
+	agg := &Aggregator{counters: counters, store: st.Stats()}
+	if err := agg.Flush(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type flakyStatsStore struct {
 	failPut bool
 	rows    map[string]*store.StatsRow

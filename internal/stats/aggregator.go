@@ -28,6 +28,9 @@ func (a *Aggregator) Run(ctx context.Context) {
 	if a == nil || a.counters == nil || a.store == nil {
 		return
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for {
@@ -46,6 +49,9 @@ func (a *Aggregator) Flush() error {
 		return errors.New("stats aggregator is not configured")
 	}
 	snap := a.counters.Snapshot()
+	if a.now == nil {
+		a.now = time.Now
+	}
 	now := a.now().UTC()
 	bucket := now.Truncate(time.Minute).Unix()
 	queries := snap.QueryTotal
@@ -53,10 +59,10 @@ func (a *Aggregator) Flush() error {
 	cacheMiss := snap.CacheMiss
 	blocked := snap.BlockedTotal
 	if a.hasLast {
-		queries -= a.last.QueryTotal
-		cacheHit -= a.last.CacheHit
-		cacheMiss -= a.last.CacheMiss
-		blocked -= a.last.BlockedTotal
+		queries = deltaCounter(snap.QueryTotal, a.last.QueryTotal)
+		cacheHit = deltaCounter(snap.CacheHit, a.last.CacheHit)
+		cacheMiss = deltaCounter(snap.CacheMiss, a.last.CacheMiss)
+		blocked = deltaCounter(snap.BlockedTotal, a.last.BlockedTotal)
 	}
 	row := &store.StatsRow{Counters: map[string]uint64{
 		"queries":    queries,
@@ -76,6 +82,13 @@ func (a *Aggregator) Flush() error {
 	a.last = snap
 	a.hasLast = true
 	return nil
+}
+
+func deltaCounter(current, previous uint64) uint64 {
+	if current < previous {
+		return current
+	}
+	return current - previous
 }
 
 func (a *Aggregator) addRollup(granularity string, bucket int64, delta map[string]uint64) error {
