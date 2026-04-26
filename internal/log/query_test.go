@@ -134,6 +134,26 @@ func TestRotatorWriteAfterCloseFails(t *testing.T) {
 	}
 }
 
+func TestRotatorWriteAfterFailedRotateFailsClosed(t *testing.T) {
+	dir := t.TempDir()
+	f, err := os.CreateTemp(dir, "active-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &Rotator{
+		path:     filepath.Join(dir, "missing", "sis-query.log"),
+		maxBytes: 1,
+		cur:      f,
+		curSize:  1,
+	}
+	if _, err := r.Write([]byte("trigger-rotate")); err == nil {
+		t.Fatal("expected rotate error")
+	}
+	if _, err := r.Write([]byte("after-failed-rotate")); !errors.Is(err, os.ErrClosed) {
+		t.Fatalf("write after failed rotate err = %v", err)
+	}
+}
+
 func TestAuditSeparateFile(t *testing.T) {
 	cfg := testConfig(t)
 	a, err := OpenAudit(cfg)

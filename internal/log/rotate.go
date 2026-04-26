@@ -69,6 +69,7 @@ func (r *Rotator) Rotate() error {
 	if err := r.cur.Close(); err != nil {
 		return err
 	}
+	r.cur = nil
 	stamp := time.Now().UTC().Format("20060102-150405.000000000")
 	rotated := fmt.Sprintf("%s.%s", r.path, stamp)
 	if err := os.Rename(r.path, rotated); err != nil && !os.IsNotExist(err) {
