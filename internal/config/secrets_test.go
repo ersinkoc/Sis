@@ -31,3 +31,17 @@ func TestEnsureLogSaltOnlyHashedMode(t *testing.T) {
 		t.Fatalf("unexpected salt for full mode: changed=%v salt=%q", changed, cfg.Privacy.LogSalt)
 	}
 }
+
+func TestRedactedCopyHidesSecretsWithoutMutatingSource(t *testing.T) {
+	cfg := &Config{
+		Privacy: Privacy{LogSalt: "salt"},
+		Auth:    Auth{Users: []User{{Username: "admin", PasswordHash: "hash"}}},
+	}
+	redacted := RedactedCopy(cfg)
+	if redacted.Auth.Users[0].PasswordHash != "redacted" || redacted.Privacy.LogSalt != "redacted" {
+		t.Fatalf("redacted copy = %#v", redacted)
+	}
+	if cfg.Auth.Users[0].PasswordHash != "hash" || cfg.Privacy.LogSalt != "salt" {
+		t.Fatalf("source mutated = %#v", cfg)
+	}
+}

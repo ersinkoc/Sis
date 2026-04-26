@@ -839,6 +839,9 @@ func TestSettingsPatch(t *testing.T) {
 	if len(history) != 1 || !bytes.Contains([]byte(history[0].YAML), []byte("log_mode: hashed")) {
 		t.Fatalf("expected config history snapshot, got %#v", history)
 	}
+	if bytes.Contains([]byte(history[0].YAML), []byte(holder.Get().Privacy.LogSalt)) {
+		t.Fatalf("stored history leaked log salt: %s", history[0].YAML)
+	}
 	historyReq := httptest.NewRequest(http.MethodGet, "/api/v1/system/config/history", nil)
 	addSessionCookie(t, st, historyReq)
 	historyRec := httptest.NewRecorder()

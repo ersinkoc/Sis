@@ -76,7 +76,7 @@ func (s *Server) applyConfig(w http.ResponseWriter, next *config.Config, action,
 }
 
 func appendConfigHistory(st store.Store, cfg *config.Config) error {
-	raw, err := yaml.Marshal(cfg)
+	raw, err := yaml.Marshal(config.RedactedCopy(cfg))
 	if err != nil {
 		return err
 	}

@@ -819,7 +819,7 @@ func appendRuntimeConfigHistory(st store.Store, cfg *config.Config) error {
 	if st == nil || cfg == nil {
 		return nil
 	}
-	raw, err := yaml.Marshal(cfg)
+	raw, err := yaml.Marshal(config.RedactedCopy(cfg))
 	if err != nil {
 		return err
 	}
