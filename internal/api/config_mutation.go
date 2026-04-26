@@ -16,7 +16,7 @@ func (s *Server) applyConfig(w http.ResponseWriter, next *config.Config, action,
 		return false
 	}
 	if _, err := config.EnsureLogSalt(next); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "config update failed", err)
 		return false
 	}
 	if err := config.Validate(next); err != nil {
@@ -25,13 +25,13 @@ func (s *Server) applyConfig(w http.ResponseWriter, next *config.Config, action,
 	}
 	if s.configPath != "" {
 		if err := (&config.Loader{Path: s.configPath}).Save(next); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			s.internalError(w, "config update failed", err)
 			return false
 		}
 	}
 	if s.store != nil {
 		if err := appendConfigHistory(s.store, next); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			s.internalError(w, "config update failed", err)
 			return false
 		}
 	}
@@ -43,13 +43,13 @@ func (s *Server) applyConfig(w http.ResponseWriter, next *config.Config, action,
 	}
 	if s.queryLog != nil {
 		if err := s.queryLog.Reconfigure(next); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			s.internalError(w, "config update failed", err)
 			return false
 		}
 	}
 	if s.audit != nil {
 		if err := s.audit.Reconfigure(next); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			s.internalError(w, "config update failed", err)
 			return false
 		}
 	}

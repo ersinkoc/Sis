@@ -627,6 +627,9 @@ func TestLoginFailsWhenSessionCannotBePersisted(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
+	if strings.Contains(rec.Body.String(), "store: closed") {
+		t.Fatalf("login leaked internal error: %s", rec.Body.String())
+	}
 	if len(rec.Result().Cookies()) != 0 {
 		t.Fatalf("unexpected cookies: %#v", rec.Result().Cookies())
 	}

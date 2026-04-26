@@ -45,7 +45,7 @@ func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 	}
 	hash, err := hashPassword(req.Password)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "setup failed", err)
 		return
 	}
 	next := *cfg
@@ -53,7 +53,7 @@ func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 	next.Auth.Users = []config.User{{Username: req.Username, PasswordHash: hash}}
 	if s.configPath != "" {
 		if err := (&config.Loader{Path: s.configPath}).Save(&next); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			s.internalError(w, "setup failed", err)
 			return
 		}
 	}
@@ -62,7 +62,7 @@ func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 		_ = s.audit.Auditf("auth.setup", req.Username, nil, map[string]string{"username": req.Username})
 	}
 	if err := s.createSession(w, r, req.Username); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "setup failed", err)
 		return
 	}
 	writeJSON(w, map[string]any{"username": req.Username})
@@ -89,7 +89,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.createSession(w, r, user.Username); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "login failed", err)
 		return
 	}
 	writeJSON(w, map[string]any{"username": user.Username})
