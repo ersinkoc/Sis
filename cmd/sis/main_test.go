@@ -113,6 +113,13 @@ func TestDumpDebugWritesRestrictedFiles(t *testing.T) {
 	}
 }
 
+func TestRunQueryRejectsInvalidProto(t *testing.T) {
+	err := runQuery([]string{"-proto", "bad", "test", "example.com"})
+	if err == nil || !strings.Contains(err.Error(), "proto must be udp or tcp") {
+		t.Fatalf("invalid proto err = %v", err)
+	}
+}
+
 func writeUserTestConfig(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()

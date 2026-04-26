@@ -472,6 +472,10 @@ func runQuery(args []string) error {
 	if len(rest) == 0 || rest[0] != "test" || len(rest) < 2 {
 		return fmt.Errorf("usage: sis query [-server addr] [-proto udp|tcp] [-api url -cookie value] test <domain> [type]")
 	}
+	*proto = strings.ToLower(strings.TrimSpace(*proto))
+	if *proto != "udp" && *proto != "tcp" {
+		return fmt.Errorf("proto must be udp or tcp")
+	}
 	qtype := uint16(mdns.TypeA)
 	qtypeName := "A"
 	if len(rest) > 2 {
