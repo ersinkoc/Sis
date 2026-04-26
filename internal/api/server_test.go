@@ -33,6 +33,19 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestSecurityHeaders(t *testing.T) {
+	s := New(testHolder(), slog.New(slog.NewTextHandler(io.Discard, nil)))
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Header().Get("Content-Security-Policy") == "" {
+		t.Fatal("missing content security policy")
+	}
+	if rec.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("cache-control = %q", rec.Header().Get("Cache-Control"))
+	}
+}
+
 func TestHTTPServerTimeouts(t *testing.T) {
 	server := newHTTPServer(http.NewServeMux())
 	if server.ReadHeaderTimeout != 5*time.Second {
