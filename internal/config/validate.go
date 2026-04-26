@@ -178,6 +178,8 @@ func Validate(c *Config) error {
 	}
 	if c.Server.DNS.UDPSize < 0 {
 		errf("server.dns.udp_size", "must be >= 0")
+	} else if c.Server.DNS.UDPSize > 65535 {
+		errf("server.dns.udp_size", "must be <= 65535")
 	}
 	usernames := map[string]struct{}{}
 	for i, user := range c.Auth.Users {

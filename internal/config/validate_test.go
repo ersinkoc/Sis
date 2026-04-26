@@ -154,6 +154,13 @@ func TestValidateListenerAddresses(t *testing.T) {
 	assertErrContains(t, err, "server.http.listen")
 }
 
+func TestValidateDNSUDPSizeUpperBound(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Server.DNS.UDPSize = 65536
+	err := Validate(cfg)
+	assertErrContains(t, err, "server.dns.udp_size")
+}
+
 func TestValidateNonNegativeRuntimeNumbers(t *testing.T) {
 	cfg := validConfig(t)
 	cfg.Server.DNS.UDPWorkers = -1
