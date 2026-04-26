@@ -326,6 +326,13 @@ func (s *Server) internalError(w http.ResponseWriter, msg string, err error) {
 	http.Error(w, msg, http.StatusInternalServerError)
 }
 
+func (s *Server) gatewayError(w http.ResponseWriter, msg string, err error) {
+	if s != nil && s.log != nil && err != nil {
+		s.log.Error(msg, "error", err)
+	}
+	http.Error(w, msg, http.StatusBadGateway)
+}
+
 func decodeJSON(r *http.Request, target any) error {
 	defer r.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(r.Body, maxJSONBodySize+1))

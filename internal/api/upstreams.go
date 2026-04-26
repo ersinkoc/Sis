@@ -46,7 +46,7 @@ func (s *Server) upstreamTest(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	resp, err := s.upstream.Test(ctx, r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		s.gatewayError(w, "upstream test failed", err)
 		return
 	}
 	writeJSON(w, map[string]any{

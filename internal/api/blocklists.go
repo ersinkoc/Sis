@@ -23,7 +23,7 @@ func (s *Server) blocklistSync(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	result, err := s.syncer.ForceSync(ctx, r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		s.gatewayError(w, "blocklist sync failed", err)
 		return
 	}
 	writeJSON(w, map[string]any{

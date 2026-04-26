@@ -18,6 +18,7 @@ import (
 	"github.com/ersinkoc/sis/internal/policy"
 	"github.com/ersinkoc/sis/internal/stats"
 	"github.com/ersinkoc/sis/internal/store"
+	"github.com/ersinkoc/sis/internal/upstream"
 )
 
 func TestHealthz(t *testing.T) {
@@ -1056,6 +1057,33 @@ func TestUpstreamPatchInvalidURLFailsValidation(t *testing.T) {
 	s.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpstreamTestHidesRuntimeErrorDetails(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config:   validAPIConfig(t),
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:    st,
+		Upstream: upstream.NewPool(nil),
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/upstreams/missing/test", nil)
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if bytes.Contains(rec.Body.Bytes(), []byte("missing")) {
+		t.Fatalf("runtime detail leaked: %s", rec.Body.String())
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("upstream test failed")) {
+		t.Fatalf("unexpected body: %s", rec.Body.String())
 	}
 }
 
