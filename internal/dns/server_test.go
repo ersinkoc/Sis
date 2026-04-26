@@ -50,6 +50,16 @@ func TestServerShutdownIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestServerStartRequiresConfigAndPipeline(t *testing.T) {
+	if err := NewServer(nil, NewPipeline(nil)).Start(context.Background()); err == nil {
+		t.Fatal("expected missing config error")
+	}
+	holder := config.NewHolder(&config.Config{})
+	if err := NewServer(holder, nil).Start(context.Background()); err == nil {
+		t.Fatal("expected missing pipeline error")
+	}
+}
+
 func TestPackUDPResponseTruncatesOversizedMessage(t *testing.T) {
 	req := query("large.example.", mdns.TypeTXT)
 	resp := new(mdns.Msg)

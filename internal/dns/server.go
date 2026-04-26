@@ -3,6 +3,7 @@ package dns
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"runtime"
@@ -40,6 +41,12 @@ func (s *Server) Start(ctx context.Context) error {
 			s.cleanupStarted()
 		}
 	}()
+	if s.cfg == nil || s.cfg.Get() == nil {
+		return errors.New("dns server config is required")
+	}
+	if s.pipeline == nil {
+		return errors.New("dns server pipeline is required")
+	}
 	cfg := s.cfg.Get()
 	workers := cfg.Server.DNS.UDPWorkers
 	if workers <= 0 {
