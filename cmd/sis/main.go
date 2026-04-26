@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -793,7 +794,7 @@ func seedConfigClients(st store.Store, cfg *config.Config) error {
 		}
 		client, err := st.Clients().Get(configured.Key)
 		if err != nil {
-			if err != store.ErrNotFound {
+			if !errors.Is(err, store.ErrNotFound) {
 				return err
 			}
 			client = &store.Client{

@@ -2,6 +2,7 @@ package store
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -311,7 +312,7 @@ func (ss *sessionStore) DeleteExpired() error {
 			return err
 		}
 		if !session.ExpiresAt.IsZero() && session.ExpiresAt.Before(now) {
-			if err := ss.s.delete(key); err != nil && err != ErrNotFound {
+			if err := ss.s.delete(key); err != nil && !errors.Is(err, ErrNotFound) {
 				return err
 			}
 		}
