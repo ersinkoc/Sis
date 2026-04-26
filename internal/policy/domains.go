@@ -23,6 +23,9 @@ func NewDomains() *Domains {
 
 // Add inserts a domain or wildcard suffix into the set.
 func (d *Domains) Add(domain string) bool {
+	if d == nil {
+		return false
+	}
 	labels, ok := labelsFor(domain)
 	if !ok {
 		return false

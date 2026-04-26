@@ -40,3 +40,22 @@ func TestDomainsRejectsOverlongDomain(t *testing.T) {
 		t.Fatal("expected overlong domain to be rejected")
 	}
 }
+
+func TestNilDomainsAreSafe(t *testing.T) {
+	var d *Domains
+	if d.Add("example.com") {
+		t.Fatal("nil domains should reject add")
+	}
+	if d.Match("example.com") {
+		t.Fatal("nil domains should not match")
+	}
+	if d.Delete("example.com") {
+		t.Fatal("nil domains should reject delete")
+	}
+	if d.Len() != 0 {
+		t.Fatalf("nil domains len = %d", d.Len())
+	}
+	if entries := d.Entries("", 10); len(entries) != 0 {
+		t.Fatalf("nil domains entries = %#v", entries)
+	}
+}
