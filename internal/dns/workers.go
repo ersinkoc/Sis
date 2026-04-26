@@ -56,6 +56,11 @@ func (p *workerPool) Submit(job func(), block bool) bool {
 		go job()
 		return true
 	}
+	select {
+	case <-p.done:
+		return false
+	default:
+	}
 	if block {
 		select {
 		case p.jobs <- job:
