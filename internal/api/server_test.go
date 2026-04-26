@@ -558,6 +558,46 @@ func TestLoginRejectsBadCredentialsAndMalformedJSON(t *testing.T) {
 	if trailingRec.Code != http.StatusBadRequest {
 		t.Fatalf("trailing JSON login status = %d body=%s", trailingRec.Code, trailingRec.Body.String())
 	}
+	largeReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(bytes.Repeat([]byte(" "), maxJSONBodySize+1)))
+	largeRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(largeRec, largeReq)
+	if largeRec.Code != http.StatusBadRequest {
+		t.Fatalf("large body login status = %d body=%s", largeRec.Code, largeRec.Body.String())
+	}
+}
+
+func TestLoginFailsWhenSessionCannotBePersisted(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash, err := HashPassword("secret123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	holder := config.NewHolder(&config.Config{
+		Auth: config.Auth{
+			FirstRun: false, CookieName: "sis_session",
+			Users: []config.User{{Username: "admin", PasswordHash: hash}},
+		},
+	})
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"username":"admin","password":"secret123"}`))
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if len(rec.Result().Cookies()) != 0 {
+		t.Fatalf("unexpected cookies: %#v", rec.Result().Cookies())
+	}
 }
 
 func TestLogoutDeletesSessionAndClearsCookie(t *testing.T) {

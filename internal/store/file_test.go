@@ -105,3 +105,44 @@ func TestCustomListSessionStatsAndConfigHistory(t *testing.T) {
 		t.Fatalf("history = %#v", history)
 	}
 }
+
+func TestSessionDeleteExpired(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	expired := &Session{Token: "expired", Username: "admin", ExpiresAt: time.Now().Add(-time.Minute)}
+	active := &Session{Token: "active", Username: "admin", ExpiresAt: time.Now().Add(time.Minute)}
+	if err := s.Sessions().Upsert(expired); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Sessions().Upsert(active); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Sessions().DeleteExpired(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Sessions().Get("expired"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expired session err = %v", err)
+	}
+	if _, err := s.Sessions().Get("active"); err != nil {
+		t.Fatalf("active session err = %v", err)
+	}
+}
+
+func TestStoreWritesAfterCloseFail(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Clients().Upsert(&Client{Key: "192.168.1.10"}); !errors.Is(err, ErrClosed) {
+		t.Fatalf("upsert after close err = %v", err)
+	}
+	if err := s.CustomLists().Add("custom", "example.com"); !errors.Is(err, ErrClosed) {
+		t.Fatalf("custom list add after close err = %v", err)
+	}
+}

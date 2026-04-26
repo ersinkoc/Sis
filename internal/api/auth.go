@@ -60,7 +60,10 @@ func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 	if s.audit != nil {
 		_ = s.audit.Auditf("auth.setup", req.Username, nil, map[string]string{"username": req.Username})
 	}
-	s.createSession(w, r, req.Username)
+	if err := s.createSession(w, r, req.Username); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, map[string]any{"username": req.Username})
 }
 
@@ -84,7 +87,10 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid username or password", http.StatusUnauthorized)
 		return
 	}
-	s.createSession(w, r, user.Username)
+	if err := s.createSession(w, r, user.Username); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, map[string]any{"username": user.Username})
 }
 
@@ -107,14 +113,17 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"username": session.Username, "expires_at": session.ExpiresAt})
 }
 
-func (s *Server) createSession(w http.ResponseWriter, r *http.Request, username string) {
+func (s *Server) createSession(w http.ResponseWriter, r *http.Request, username string) error {
 	token := newToken()
 	ttl := s.sessionTTL()
 	session := &store.Session{Token: token, Username: username, ExpiresAt: time.Now().Add(ttl)}
 	if s.store != nil {
-		_ = s.store.Sessions().Upsert(session)
+		if err := s.store.Sessions().Upsert(session); err != nil {
+			return err
+		}
 	}
 	s.setSessionCookie(w, r, session)
+	return nil
 }
 
 func (s *Server) sessionFromRequest(r *http.Request) (*store.Session, bool) {

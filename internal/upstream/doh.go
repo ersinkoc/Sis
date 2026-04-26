@@ -16,6 +16,8 @@ import (
 	mdns "github.com/miekg/dns"
 )
 
+const maxDNSMessageSize = 65535
+
 // DoHClient forwards DNS messages to a single DNS-over-HTTPS upstream.
 type DoHClient struct {
 	id        string
@@ -104,9 +106,12 @@ func (c *DoHClient) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, erro
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("upstream %s: HTTP %d", c.id, resp.StatusCode)
 	}
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxDNSMessageSize+1))
 	if err != nil {
 		return nil, err
+	}
+	if len(body) > maxDNSMessageSize {
+		return nil, fmt.Errorf("upstream %s: response too large", c.id)
 	}
 	var out mdns.Msg
 	if err := out.Unpack(body); err != nil {

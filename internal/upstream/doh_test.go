@@ -90,6 +90,21 @@ func TestDoHClientBootstrapDial(t *testing.T) {
 	}
 }
 
+func TestDoHClientRejectsOversizedResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/dns-message")
+		_, _ = w.Write(make([]byte, maxDNSMessageSize+1))
+	}))
+	defer server.Close()
+
+	client := NewDoHClient(config.Upstream{ID: "test", URL: server.URL})
+	msg := new(mdns.Msg)
+	msg.SetQuestion("example.com.", mdns.TypeA)
+	if _, err := client.Forward(context.Background(), msg); err == nil {
+		t.Fatal("expected oversized response error")
+	}
+}
+
 func TestDoHHost(t *testing.T) {
 	if got := dohHost("https://cloudflare-dns.com/dns-query"); got != "cloudflare-dns.com" {
 		t.Fatalf("host = %q", got)

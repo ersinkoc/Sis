@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,6 +22,8 @@ import (
 	"github.com/ersinkoc/sis/internal/upstream"
 	"github.com/ersinkoc/sis/internal/webui"
 )
+
+const maxJSONBodySize = 1 << 20
 
 // Server serves the authenticated management API and embedded WebUI.
 type Server struct {
@@ -299,7 +302,14 @@ func writeJSONStatus(w http.ResponseWriter, status int, value any) {
 
 func decodeJSON(r *http.Request, target any) error {
 	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
+	raw, err := io.ReadAll(io.LimitReader(r.Body, maxJSONBodySize+1))
+	if err != nil {
+		return err
+	}
+	if len(raw) > maxJSONBodySize {
+		return fmt.Errorf("JSON body must be <= %d bytes", maxJSONBodySize)
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(target); err != nil {
 		return err
