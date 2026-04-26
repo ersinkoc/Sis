@@ -39,6 +39,22 @@ func TestValidateUnknownBlocklistPath(t *testing.T) {
 	assertErrContains(t, err, "groups[0].blocklists[0]")
 }
 
+func TestValidateBlocklistURLAndRefresh(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Blocklists[0].URL = "ftp://example.com/list.txt"
+	cfg.Blocklists[0].RefreshInterval = Duration{Duration: -time.Second}
+	err := Validate(cfg)
+	assertErrContains(t, err, "blocklists[0].url")
+	assertErrContains(t, err, "blocklists[0].refresh_interval")
+}
+
+func TestValidateUpstreamTimeout(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Upstreams[0].Timeout = Duration{Duration: -time.Second}
+	err := Validate(cfg)
+	assertErrContains(t, err, "upstreams[0].timeout")
+}
+
 func TestValidateSchedulePaths(t *testing.T) {
 	cfg := validConfig(t)
 	cfg.Groups[0].Schedules = []Schedule{{
@@ -83,11 +99,13 @@ func TestValidateClients(t *testing.T) {
 		{Key: "192.168.1.10", Group: "missing"},
 		{Key: "192.168.1.10"},
 		{Group: "default"},
+		{Key: "aa:bb:cc:dd:ee:ff", Type: "device"},
 	}
 	err := Validate(cfg)
 	assertErrContains(t, err, "clients[0].group")
 	assertErrContains(t, err, "clients[1].key")
 	assertErrContains(t, err, "clients[2].key")
+	assertErrContains(t, err, "clients[3].type")
 }
 
 func TestValidateCacheTTLOrder(t *testing.T) {
@@ -95,6 +113,55 @@ func TestValidateCacheTTLOrder(t *testing.T) {
 	cfg.Cache.MinTTL = Duration{Duration: 2 * time.Hour}
 	err := Validate(cfg)
 	assertErrContains(t, err, "cache.min_ttl")
+}
+
+func TestValidateBlockResponseIPs(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Block.ResponseA = "::1"
+	cfg.Block.ResponseAAAA = "192.0.2.1"
+	err := Validate(cfg)
+	assertErrContains(t, err, "block.response_a")
+	assertErrContains(t, err, "block.response_aaaa")
+}
+
+func TestValidateListenerAddresses(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Server.DNS.Listen = []string{"bad address"}
+	cfg.Server.HTTP.Listen = "also bad"
+	err := Validate(cfg)
+	assertErrContains(t, err, "server.dns.listen[0]")
+	assertErrContains(t, err, "server.http.listen")
+}
+
+func TestValidateNonNegativeRuntimeNumbers(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Server.DNS.UDPWorkers = -1
+	cfg.Server.DNS.TCPWorkers = -1
+	cfg.Server.DNS.UDPSize = -1
+	cfg.Cache.MaxEntries = -1
+	cfg.Cache.MinTTL = Duration{Duration: -time.Second}
+	cfg.Cache.MaxTTL = Duration{Duration: -time.Second}
+	cfg.Cache.NegativeTTL = Duration{Duration: -time.Second}
+	cfg.Block.ResponseTTL = Duration{Duration: -time.Second}
+	cfg.Logging.RotateSizeMB = -1
+	cfg.Logging.RetentionDays = -1
+	cfg.Auth.SessionTTL = Duration{Duration: -time.Second}
+	err := Validate(cfg)
+	for _, want := range []string{
+		"server.dns.udp_workers",
+		"server.dns.tcp_workers",
+		"server.dns.udp_size",
+		"cache.max_entries",
+		"cache.min_ttl",
+		"cache.max_ttl",
+		"cache.negative_ttl",
+		"block.response_ttl",
+		"logging.rotate_size_mb",
+		"logging.retention_days",
+		"auth.session_ttl",
+	} {
+		assertErrContains(t, err, want)
+	}
 }
 
 func assertErrContains(t *testing.T, err error, want string) {

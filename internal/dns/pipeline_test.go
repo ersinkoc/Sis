@@ -32,8 +32,8 @@ func TestPipelinePlaceholderCaches(t *testing.T) {
 	}
 	secondReq := query("example.com.", mdns.TypeA)
 	second := p.Handle(context.Background(), &Request{Msg: secondReq, Proto: "udp"})
-	if second.Source != "cache" {
-		t.Fatalf("second source = %q", second.Source)
+	if second.Source == "cache" {
+		t.Fatalf("SERVFAIL placeholder should not be cached, source = %q", second.Source)
 	}
 }
 

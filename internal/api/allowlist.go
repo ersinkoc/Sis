@@ -35,21 +35,22 @@ func (s *Server) allowlistAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if req.Domain == "" {
-		http.Error(w, "domain is required", http.StatusBadRequest)
+	domain, ok := normalizeDomainInput(req.Domain)
+	if !ok {
+		http.Error(w, "invalid domain", http.StatusBadRequest)
 		return
 	}
-	if err := s.store.CustomLists().Add("custom-allow", req.Domain); err != nil {
+	if err := s.store.CustomLists().Add("custom-allow", domain); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if s.policy != nil {
-		s.policy.AddCustomAllow(req.Domain)
+		s.policy.AddCustomAllow(domain)
 	}
 	if s.audit != nil {
-		_ = s.audit.Auditf("allowlist.add", req.Domain, nil, map[string]string{"domain": req.Domain})
+		_ = s.audit.Auditf("allowlist.add", domain, nil, map[string]string{"domain": domain})
 	}
-	writeJSONStatus(w, http.StatusCreated, map[string]string{"domain": req.Domain})
+	writeJSONStatus(w, http.StatusCreated, map[string]string{"domain": domain})
 }
 
 func (s *Server) allowlistDelete(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +63,12 @@ func (s *Server) allowlistDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid domain", http.StatusBadRequest)
 		return
 	}
-	if err := s.store.CustomLists().Remove("custom-allow", domain); err != nil {
+	normalized, ok := normalizeDomainInput(domain)
+	if !ok {
+		http.Error(w, "invalid domain", http.StatusBadRequest)
+		return
+	}
+	if err := s.store.CustomLists().Remove("custom-allow", normalized); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			http.NotFound(w, r)
 			return
@@ -71,10 +77,10 @@ func (s *Server) allowlistDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.policy != nil {
-		s.policy.RemoveCustomAllow(domain)
+		s.policy.RemoveCustomAllow(normalized)
 	}
 	if s.audit != nil {
-		_ = s.audit.Auditf("allowlist.delete", domain, map[string]string{"domain": domain}, nil)
+		_ = s.audit.Auditf("allowlist.delete", normalized, map[string]string{"domain": normalized}, nil)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -35,21 +35,22 @@ func (s *Server) customBlocklistAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if req.Domain == "" {
-		http.Error(w, "domain is required", http.StatusBadRequest)
+	domain, ok := normalizeDomainInput(req.Domain)
+	if !ok {
+		http.Error(w, "invalid domain", http.StatusBadRequest)
 		return
 	}
-	if err := s.store.CustomLists().Add("custom", req.Domain); err != nil {
+	if err := s.store.CustomLists().Add("custom", domain); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if s.policy != nil {
-		s.policy.AddCustomBlock(req.Domain)
+		s.policy.AddCustomBlock(domain)
 	}
 	if s.audit != nil {
-		_ = s.audit.Auditf("custom-blocklist.add", req.Domain, nil, map[string]string{"domain": req.Domain})
+		_ = s.audit.Auditf("custom-blocklist.add", domain, nil, map[string]string{"domain": domain})
 	}
-	writeJSONStatus(w, http.StatusCreated, map[string]string{"domain": req.Domain})
+	writeJSONStatus(w, http.StatusCreated, map[string]string{"domain": domain})
 }
 
 func (s *Server) customBlocklistDelete(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +63,12 @@ func (s *Server) customBlocklistDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid domain", http.StatusBadRequest)
 		return
 	}
-	if err := s.store.CustomLists().Remove("custom", domain); err != nil {
+	normalized, ok := normalizeDomainInput(domain)
+	if !ok {
+		http.Error(w, "invalid domain", http.StatusBadRequest)
+		return
+	}
+	if err := s.store.CustomLists().Remove("custom", normalized); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			http.NotFound(w, r)
 			return
@@ -71,10 +77,10 @@ func (s *Server) customBlocklistDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.policy != nil {
-		s.policy.RemoveCustomBlock(domain)
+		s.policy.RemoveCustomBlock(normalized)
 	}
 	if s.audit != nil {
-		_ = s.audit.Auditf("custom-blocklist.delete", domain, map[string]string{"domain": domain}, nil)
+		_ = s.audit.Auditf("custom-blocklist.delete", normalized, map[string]string{"domain": normalized}, nil)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

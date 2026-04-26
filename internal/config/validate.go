@@ -36,7 +36,12 @@ func Validate(c *Config) error {
 		if b.URL != "" {
 			if u, err := url.Parse(b.URL); err != nil || u.Scheme == "" {
 				errf(fmt.Sprintf("blocklists[%d].url", i), "must be a valid URL")
+			} else if !oneOf(u.Scheme, "http", "https", "file") {
+				errf(fmt.Sprintf("blocklists[%d].url", i), "must use http, https, or file scheme")
 			}
+		}
+		if b.RefreshInterval.Duration < 0 {
+			errf(fmt.Sprintf("blocklists[%d].refresh_interval", i), "must be >= 0")
 		}
 	}
 
@@ -87,6 +92,9 @@ func Validate(c *Config) error {
 				errf(path+".group", "unknown group %q", client.Group)
 			}
 		}
+		if client.Type != "" && !oneOf(client.Type, "ip", "mac") {
+			errf(path+".type", "must be ip or mac")
+		}
 	}
 	if c.Server.HTTP.TLS {
 		if c.Server.HTTP.CertFile == "" {
@@ -94,6 +102,16 @@ func Validate(c *Config) error {
 		}
 		if c.Server.HTTP.KeyFile == "" {
 			errf("server.http.key_file", "required when tls is true")
+		}
+	}
+	for i, addr := range c.Server.DNS.Listen {
+		if _, err := net.ResolveUDPAddr("udp", addr); err != nil {
+			errf(fmt.Sprintf("server.dns.listen[%d]", i), "invalid address %q", addr)
+		}
+	}
+	if c.Server.HTTP.Listen != "" {
+		if _, err := net.ResolveTCPAddr("tcp", c.Server.HTTP.Listen); err != nil {
+			errf("server.http.listen", "invalid address %q", c.Server.HTTP.Listen)
 		}
 	}
 
@@ -128,6 +146,9 @@ func Validate(c *Config) error {
 				errf(fmt.Sprintf("%s.bootstrap[%d]", path, j), "invalid IP %q", ip)
 			}
 		}
+		if u.Timeout.Duration < 0 {
+			errf(path+".timeout", "must be >= 0")
+		}
 	}
 	if len(c.Auth.Users) == 0 && !c.Auth.FirstRun {
 		errf("auth.users", "non-empty unless auth.first_run is true")
@@ -137,6 +158,15 @@ func Validate(c *Config) error {
 	}
 	if c.Server.DNS.RateLimitBurst < 0 {
 		errf("server.dns.rate_limit_burst", "must be >= 0")
+	}
+	if c.Server.DNS.UDPWorkers < 0 {
+		errf("server.dns.udp_workers", "must be >= 0")
+	}
+	if c.Server.DNS.TCPWorkers < 0 {
+		errf("server.dns.tcp_workers", "must be >= 0")
+	}
+	if c.Server.DNS.UDPSize < 0 {
+		errf("server.dns.udp_size", "must be >= 0")
 	}
 	usernames := map[string]struct{}{}
 	for i, user := range c.Auth.Users {
@@ -154,6 +184,42 @@ func Validate(c *Config) error {
 	}
 	if c.Cache.MinTTL.Duration > c.Cache.MaxTTL.Duration {
 		errf("cache.min_ttl", "must be <= cache.max_ttl")
+	}
+	if c.Cache.MaxEntries < 0 {
+		errf("cache.max_entries", "must be >= 0")
+	}
+	if c.Cache.MinTTL.Duration < 0 {
+		errf("cache.min_ttl", "must be >= 0")
+	}
+	if c.Cache.MaxTTL.Duration < 0 {
+		errf("cache.max_ttl", "must be >= 0")
+	}
+	if c.Cache.NegativeTTL.Duration < 0 {
+		errf("cache.negative_ttl", "must be >= 0")
+	}
+	if c.Block.ResponseTTL.Duration < 0 {
+		errf("block.response_ttl", "must be >= 0")
+	}
+	if c.Logging.RotateSizeMB < 0 {
+		errf("logging.rotate_size_mb", "must be >= 0")
+	}
+	if c.Logging.RetentionDays < 0 {
+		errf("logging.retention_days", "must be >= 0")
+	}
+	if c.Auth.SessionTTL.Duration < 0 {
+		errf("auth.session_ttl", "must be >= 0")
+	}
+	if c.Block.ResponseA != "" {
+		ip := net.ParseIP(c.Block.ResponseA)
+		if ip == nil || ip.To4() == nil {
+			errf("block.response_a", "must be an IPv4 address")
+		}
+	}
+	if c.Block.ResponseAAAA != "" {
+		ip := net.ParseIP(c.Block.ResponseAAAA)
+		if ip == nil || ip.To4() != nil {
+			errf("block.response_aaaa", "must be an IPv6 address")
+		}
 	}
 	if c.Server.TZ != "" && c.Server.TZ != "Local" {
 		if _, err := time.LoadLocation(c.Server.TZ); err != nil {

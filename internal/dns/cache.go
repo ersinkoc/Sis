@@ -72,7 +72,8 @@ func (c *Cache) Get(key cacheKey, req *mdns.Msg) (*mdns.Msg, bool) {
 		return nil, false
 	}
 	entry := elem.Value.(*cacheEntry)
-	if !entry.expires.After(c.now()) {
+	now := c.now()
+	if !entry.expires.After(now) {
 		c.remove(elem)
 		return nil, false
 	}
@@ -85,7 +86,7 @@ func (c *Cache) Get(key cacheKey, req *mdns.Msg) (*mdns.Msg, bool) {
 		msg.Id = req.Id
 		msg.Question = append([]mdns.Question(nil), req.Question...)
 	}
-	remaining := uint32(time.Until(entry.expires).Seconds())
+	remaining := uint32(entry.expires.Sub(now).Seconds())
 	if remaining == 0 {
 		remaining = 1
 	}
@@ -161,8 +162,11 @@ func (c *Cache) Len() int {
 }
 
 func (c *Cache) ttlFor(msg *mdns.Msg) time.Duration {
-	if msg.Rcode == mdns.RcodeNameError || len(msg.Answer) == 0 {
+	if msg.Rcode == mdns.RcodeNameError || (msg.Rcode == mdns.RcodeSuccess && len(msg.Answer) == 0) {
 		return c.negTTL
+	}
+	if msg.Rcode != mdns.RcodeSuccess {
+		return 0
 	}
 	min := uint32(0)
 	for i, rr := range msg.Answer {

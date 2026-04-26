@@ -38,8 +38,9 @@ func (s *Server) queryTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Domain = strings.TrimSpace(req.Domain)
-	if req.Domain == "" {
-		http.Error(w, "domain is required", http.StatusBadRequest)
+	domain, ok := normalizeDomainInput(req.Domain)
+	if !ok {
+		http.Error(w, "invalid domain", http.StatusBadRequest)
 		return
 	}
 	qtypeName := strings.ToUpper(strings.TrimSpace(req.Type))
@@ -66,7 +67,7 @@ func (s *Server) queryTest(w http.ResponseWriter, r *http.Request) {
 		proto = "api"
 	}
 	msg := new(mdns.Msg)
-	msg.SetQuestion(mdns.Fqdn(req.Domain), qtype)
+	msg.SetQuestion(mdns.Fqdn(domain), qtype)
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	resp := s.pipeline.Handle(ctx, &sisdns.Request{
@@ -77,7 +78,7 @@ func (s *Server) queryTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, queryTestResponse{
-		Domain: mdns.Fqdn(req.Domain), Type: qtypeName,
+		Domain: mdns.Fqdn(domain), Type: qtypeName,
 		RCode: mdns.RcodeToString[resp.Msg.Rcode], Source: resp.Source,
 		LatencyUS: resp.Latency.Microseconds(), Answers: queryAnswers(resp.Msg),
 	})

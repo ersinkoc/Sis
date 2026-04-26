@@ -287,6 +287,26 @@ func TestAllowlistAdd(t *testing.T) {
 	}
 }
 
+func TestAllowlistAddRejectsInvalidDomain(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: testHolder(),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/allowlist", bytes.NewBufferString(`{"domain":"bad domain"}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestAllowlistDeleteMissing(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
@@ -330,6 +350,63 @@ func TestCustomBlocklistAdd(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(domains) != 1 || domains[0] != "blocked.example.com" {
+		t.Fatalf("domains = %#v", domains)
+	}
+}
+
+func TestCustomBlocklistAddNormalizesDomain(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/custom-blocklist", bytes.NewBufferString(`{"domain":"  Blocked.Example.COM.  "}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	domains, err := st.CustomLists().List("custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(domains) != 1 || domains[0] != "blocked.example.com" {
+		t.Fatalf("domains = %#v", domains)
+	}
+}
+
+func TestCustomBlocklistDeleteNormalizesDomain(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.CustomLists().Add("custom", "blocked.example.com"); err != nil {
+		t.Fatal(err)
+	}
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/custom-blocklist/Blocked.Example.COM.", nil)
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	domains, err := st.CustomLists().List("custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(domains) != 0 {
 		t.Fatalf("domains = %#v", domains)
 	}
 }
@@ -1090,6 +1167,32 @@ func TestQueryTest(t *testing.T) {
 	if !bytes.Contains(rec.Body.Bytes(), []byte(`"source":"local"`)) ||
 		!bytes.Contains(rec.Body.Bytes(), []byte("127.0.0.1")) {
 		t.Fatalf("unexpected body: %s", rec.Body.String())
+	}
+}
+
+func TestQueryTestRejectsInvalidDomain(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	pipeline := sisdns.NewPipelineWithDeps(sisdns.PipelineOptions{
+		Config: holder,
+		Cache:  sisdns.NewCache(sisdns.CacheOptions{}),
+	})
+	s := NewWithDeps(Options{
+		Config:   holder,
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:    st,
+		Pipeline: pipeline,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/query/test", bytes.NewBufferString(`{"domain":"bad domain","type":"A"}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
