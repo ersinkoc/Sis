@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -56,6 +57,36 @@ func TestFetcherFileURL(t *testing.T) {
 	}
 	if !result.Domains.Match("file.example.com") {
 		t.Fatal("expected parsed file domain")
+	}
+}
+
+func TestFetcherCacheFilesUseRestrictedModeWithoutTempLeftovers(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.txt")
+	if err := os.WriteFile(path, []byte("0.0.0.0 file.example.com\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	fetcher := NewFetcher(filepath.Join(dir, "cache"))
+	if _, err := fetcher.Fetch(context.Background(), "local", "file://"+path); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{fetcher.cachePath("local"), fetcher.metaPath("local")} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != 0o640 {
+			t.Fatalf("%s mode = %o, want 640", path, got)
+		}
+	}
+	entries, err := os.ReadDir(fetcher.CacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.Contains(entry.Name(), ".tmp") {
+			t.Fatalf("unexpected temp file %q", entry.Name())
+		}
 	}
 }
 

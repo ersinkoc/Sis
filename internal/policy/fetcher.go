@@ -150,14 +150,14 @@ func (f *Fetcher) parseAndCache(id string, raw []byte, meta cacheMeta) (*FetchRe
 	if err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(f.cachePath(id), raw, 0o640); err != nil {
+	if err := writeFileAtomic(f.cachePath(id), raw, 0o640); err != nil {
 		return nil, err
 	}
 	metaRaw, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(f.metaPath(id), metaRaw, 0o640); err != nil {
+	if err := writeFileAtomic(f.metaPath(id), metaRaw, 0o640); err != nil {
 		return nil, err
 	}
 	return &FetchResult{ID: id, Domains: domains, Stats: stats, FetchedAt: meta.FetchedAt}, nil
@@ -223,4 +223,29 @@ func readLimited(r io.Reader, limit int64) ([]byte, error) {
 		return nil, fmt.Errorf("blocklist exceeds %d bytes", limit)
 	}
 	return raw, nil
+}
+
+func writeFileAtomic(path string, raw []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.Write(raw); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, path)
 }
