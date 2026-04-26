@@ -53,6 +53,21 @@ for _ in $(seq 1 50); do
     fi
     echo "smoke: DNS query passed"
 
+    blocked_out=""
+    for _ in $(seq 1 20); do
+      blocked_out="$("${bin}" query -server "${dns_addr}" test blocked.example.com A)"
+      if [[ "${blocked_out}" == *"rcode=NOERROR"* && "${blocked_out}" == *"answers=1"* && "${blocked_out}" == *"0.0.0.0"* ]]; then
+        echo "smoke: blocklist DNS policy passed"
+        break
+      fi
+      sleep 0.1
+    done
+    if [[ "${blocked_out}" != *"0.0.0.0"* ]]; then
+      echo "smoke: blocklist DNS policy failed" >&2
+      echo "${blocked_out}" >&2
+      exit 1
+    fi
+
     curl -fsS -c "${tmp}/cookies.txt" \
       -H 'content-type: application/json' \
       -d '{"username":"admin","password":"change-me-now"}' \
