@@ -38,6 +38,18 @@ func TestServerStartCleansUpPartialListenersOnError(t *testing.T) {
 	}
 }
 
+func TestServerShutdownIsIdempotent(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	s := &Server{workers: newWorkerPool(ctx, 1, 1)}
+	if err := s.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPackUDPResponseTruncatesOversizedMessage(t *testing.T) {
 	req := query("large.example.", mdns.TypeTXT)
 	resp := new(mdns.Msg)

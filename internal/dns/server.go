@@ -117,7 +117,12 @@ func (s *Server) Shutdown(ctx context.Context) error {
 		s.wg.Wait()
 		if s.workers != nil {
 			s.workers.Close()
+			s.workers = nil
 		}
+		s.udpConns = nil
+		s.tcpLns = nil
+		s.tcpSlots = nil
+		s.cancel = nil
 		close(done)
 	}()
 	select {
