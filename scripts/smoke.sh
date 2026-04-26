@@ -73,7 +73,16 @@ for _ in $(seq 1 50); do
       -d '{"username":"admin","password":"change-me-now"}' \
       "http://${http_addr}/api/v1/auth/setup" >/dev/null
     curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/stats/summary" >/dev/null
-    echo "smoke: auth setup and API summary passed"
+    api_query_out="$(curl -fsS -b "${tmp}/cookies.txt" \
+      -H 'content-type: application/json' \
+      -d '{"domain":"blocked.example.com","type":"A"}' \
+      "http://${http_addr}/api/v1/query/test")"
+    if [[ "${api_query_out}" != *'"source":"synthetic"'* || "${api_query_out}" != *"0.0.0.0"* ]]; then
+      echo "smoke: API query policy failed" >&2
+      echo "${api_query_out}" >&2
+      exit 1
+    fi
+    echo "smoke: auth setup, API summary, and API query policy passed"
     exit 0
   fi
   sleep 0.1
