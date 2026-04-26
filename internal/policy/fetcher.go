@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const maxBlocklistBytes = 32 << 20
+
 // Fetcher downloads blocklists and maintains an on-disk cache.
 type Fetcher struct {
 	Client   *http.Client
@@ -102,7 +104,7 @@ func (f *Fetcher) fetchHTTP(ctx context.Context, id, rawURL string) (*FetchResul
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("fetch %s: HTTP %d", rawURL, resp.StatusCode)
 	}
-	raw, err := io.ReadAll(resp.Body)
+	raw, err := readLimited(resp.Body, maxBlocklistBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +123,15 @@ func (f *Fetcher) fetchFile(id string, parsed *url.URL) (*FetchResult, error) {
 	if path == "" {
 		path = strings.TrimPrefix(parsed.Opaque, "file://")
 	}
-	raw, err := os.ReadFile(path)
+	file, err := os.Open(path)
+	if err != nil {
+		if cached, cacheErr := f.loadCache(id); cacheErr == nil {
+			return cached, nil
+		}
+		return nil, err
+	}
+	defer file.Close()
+	raw, err := readLimited(file, maxBlocklistBytes)
 	if err != nil {
 		if cached, cacheErr := f.loadCache(id); cacheErr == nil {
 			return cached, nil
@@ -201,4 +211,15 @@ func safeID(id string) string {
 		return "list"
 	}
 	return id
+}
+
+func readLimited(r io.Reader, limit int64) ([]byte, error) {
+	raw, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(raw)) > limit {
+		return nil, fmt.Errorf("blocklist exceeds %d bytes", limit)
+	}
+	return raw, nil
 }

@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const maxCLIResponseBytes = 8 << 20
+
 type cliClient struct {
 	base   string
 	client *http.Client
@@ -64,9 +66,12 @@ func (c *cliClient) do(method, path string, body any, out io.Writer) error {
 		return err
 	}
 	defer resp.Body.Close()
-	raw, err := io.ReadAll(resp.Body)
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxCLIResponseBytes+1))
 	if err != nil {
 		return err
+	}
+	if len(raw) > maxCLIResponseBytes {
+		return fmt.Errorf("HTTP response exceeds %d bytes", maxCLIResponseBytes)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(raw))

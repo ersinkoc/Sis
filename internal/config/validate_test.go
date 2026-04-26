@@ -48,6 +48,14 @@ func TestValidateBlocklistURLAndRefresh(t *testing.T) {
 	assertErrContains(t, err, "blocklists[0].refresh_interval")
 }
 
+func TestValidateEnabledBlocklistRequiresURL(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Blocklists[0].Enabled = true
+	cfg.Blocklists[0].URL = ""
+	err := Validate(cfg)
+	assertErrContains(t, err, "blocklists[0].url")
+}
+
 func TestValidateUpstreamTimeout(t *testing.T) {
 	cfg := validConfig(t)
 	cfg.Upstreams[0].Timeout = Duration{Duration: -time.Second}

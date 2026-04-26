@@ -58,3 +58,27 @@ func TestFetcherFileURL(t *testing.T) {
 		t.Fatal("expected parsed file domain")
 	}
 }
+
+func TestFetcherRejectsOversizedHTTPBlocklist(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(make([]byte, maxBlocklistBytes+1))
+	}))
+	defer server.Close()
+
+	fetcher := NewFetcher(t.TempDir())
+	if _, err := fetcher.Fetch(context.Background(), "ads", server.URL); err == nil {
+		t.Fatal("expected oversized blocklist error")
+	}
+}
+
+func TestFetcherRejectsOversizedFileBlocklist(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.txt")
+	if err := os.WriteFile(path, make([]byte, maxBlocklistBytes+1), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	fetcher := NewFetcher(filepath.Join(dir, "cache"))
+	if _, err := fetcher.Fetch(context.Background(), "local", "file://"+path); err == nil {
+		t.Fatal("expected oversized file blocklist error")
+	}
+}

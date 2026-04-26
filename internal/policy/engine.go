@@ -168,6 +168,7 @@ func (e *Engine) ReloadConfig(c *config.Config) error {
 	e.groups = groups
 	e.allowlist = allowlist
 	e.tz = tz
+	e.removeDisabledListsLocked(c)
 	return nil
 }
 
@@ -203,4 +204,18 @@ func (p *Policy) Evaluate(qname string, _ uint16, now time.Time) Decision {
 func (p *Policy) matchList(id, qname string) bool {
 	domains := p.lists[id]
 	return domains != nil && domains.Match(qname)
+}
+
+func (e *Engine) removeDisabledListsLocked(c *config.Config) {
+	enabled := make(map[string]struct{}, len(c.Blocklists))
+	for _, list := range c.Blocklists {
+		if list.Enabled {
+			enabled[list.ID] = struct{}{}
+		}
+	}
+	for id := range e.lists {
+		if _, ok := enabled[id]; !ok {
+			delete(e.lists, id)
+		}
+	}
 }

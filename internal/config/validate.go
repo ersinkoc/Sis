@@ -33,6 +33,9 @@ func Validate(c *Config) error {
 		} else {
 			blocklistIDs[b.ID] = struct{}{}
 		}
+		if b.Enabled && b.URL == "" {
+			errf(fmt.Sprintf("blocklists[%d].url", i), "required when enabled is true")
+		}
 		if b.URL != "" {
 			if u, err := url.Parse(b.URL); err != nil || u.Scheme == "" {
 				errf(fmt.Sprintf("blocklists[%d].url", i), "must be a valid URL")

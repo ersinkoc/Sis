@@ -64,6 +64,31 @@ func TestPolicyClientGroupFallbackAndCustomAllow(t *testing.T) {
 	}
 }
 
+func TestPolicyReloadRemovesDisabledBlocklists(t *testing.T) {
+	cfg := &config.Config{
+		Server: config.Server{TZ: "Local"},
+		Blocklists: []config.Blocklist{{ID: "ads", Enabled: true}},
+		Groups: []config.Group{{Name: "default", Blocklists: []string{"ads"}}},
+	}
+	engine, err := NewEngine(cfg, StaticClientResolver{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ads := NewDomains()
+	ads.Add("ads.example.com")
+	engine.ReplaceList("ads", ads)
+	if decision := engine.For(Identity{Key: "client"}).Evaluate("ads.example.com", 1, time.Now()); !decision.Blocked {
+		t.Fatalf("expected initial block, got %#v", decision)
+	}
+	cfg.Blocklists[0].Enabled = false
+	if err := engine.ReloadConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if decision := engine.For(Identity{Key: "client"}).Evaluate("ads.example.com", 1, time.Now()); decision.Blocked {
+		t.Fatalf("disabled blocklist should not block, got %#v", decision)
+	}
+}
+
 func mustEngine(t *testing.T, groups []config.Group, allow config.Allowlist) *Engine {
 	t.Helper()
 	engine, err := NewEngine(&config.Config{

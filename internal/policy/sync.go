@@ -55,6 +55,9 @@ func (s *Syncer) ForceSync(ctx context.Context, id string) (*FetchResult, error)
 	cfg := s.cfg.Get()
 	for _, list := range cfg.Blocklists {
 		if list.ID == id {
+			if !list.Enabled {
+				return nil, errDisabledList(id)
+			}
 			return s.syncOne(ctx, list)
 		}
 	}
