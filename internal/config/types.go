@@ -123,11 +123,11 @@ type Privacy struct {
 
 // Logging configures query and audit log persistence.
 type Logging struct {
-	QueryLog     bool `yaml:"query_log" json:"query_log"`
-	AuditLog     bool `yaml:"audit_log" json:"audit_log"`
-	RotateSizeMB int  `yaml:"rotate_size_mb" json:"rotate_size_mb"`
-	RetentionDays int `yaml:"retention_days" json:"retention_days"`
-	Gzip         bool `yaml:"gzip" json:"gzip"`
+	QueryLog      bool `yaml:"query_log" json:"query_log"`
+	AuditLog      bool `yaml:"audit_log" json:"audit_log"`
+	RotateSizeMB  int  `yaml:"rotate_size_mb" json:"rotate_size_mb"`
+	RetentionDays int  `yaml:"retention_days" json:"retention_days"`
+	Gzip          bool `yaml:"gzip" json:"gzip"`
 }
 
 // Block configures synthetic responses for blocked queries.
@@ -135,7 +135,7 @@ type Block struct {
 	ResponseA    string   `yaml:"response_a" json:"response_a"`
 	ResponseAAAA string   `yaml:"response_aaaa" json:"response_aaaa"`
 	ResponseTTL  Duration `yaml:"response_ttl" json:"response_ttl"`
-	UseNXDOMAIN bool     `yaml:"use_nxdomain" json:"use_nxdomain"`
+	UseNXDOMAIN  bool     `yaml:"use_nxdomain" json:"use_nxdomain"`
 }
 
 // Upstream configures one DNS-over-HTTPS resolver.
@@ -180,11 +180,11 @@ type Schedule struct {
 
 // Client configures static metadata for a known client.
 type Client struct {
-	Key   string `yaml:"key" json:"key"`
-	Type  string `yaml:"type" json:"type"`
-	Name  string `yaml:"name" json:"name"`
-	Group string `yaml:"group" json:"group"`
-	Hidden bool  `yaml:"hidden" json:"hidden"`
+	Key    string `yaml:"key" json:"key"`
+	Type   string `yaml:"type" json:"type"`
+	Name   string `yaml:"name" json:"name"`
+	Group  string `yaml:"group" json:"group"`
+	Hidden bool   `yaml:"hidden" json:"hidden"`
 }
 
 // Auth configures local users and cookie sessions.

@@ -67,9 +67,9 @@ func TestPolicyClientGroupFallbackAndCustomAllow(t *testing.T) {
 
 func TestPolicyReloadRemovesDisabledBlocklists(t *testing.T) {
 	cfg := &config.Config{
-		Server: config.Server{TZ: "Local"},
+		Server:     config.Server{TZ: "Local"},
 		Blocklists: []config.Blocklist{{ID: "ads", Enabled: true}},
-		Groups: []config.Group{{Name: "default", Blocklists: []string{"ads"}}},
+		Groups:     []config.Group{{Name: "default", Blocklists: []string{"ads"}}},
 	}
 	engine, err := NewEngine(cfg, StaticClientResolver{})
 	if err != nil {

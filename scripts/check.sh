@@ -3,6 +3,7 @@ set -euo pipefail
 
 webui_pm="${WEBUI_PM:-npm}"
 webui_install="${WEBUI_INSTALL:-install}"
+go_packages="${GO_PACKAGES:-$(go list ./... | grep -v '/webui/node_modules/')}"
 
 unformatted="$(find . -name '*.go' -not -path './dist/*' -not -path './webui/node_modules/*' -print0 | xargs -0 gofmt -l)"
 if [[ -n "${unformatted}" ]]; then
@@ -21,4 +22,5 @@ git diff --exit-code
 )
 
 ./scripts/coverage.sh
+go vet ${go_packages}
 CGO_ENABLED=0 go build -trimpath -o bin/sis ./cmd/sis

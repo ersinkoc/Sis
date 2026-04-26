@@ -76,7 +76,7 @@ func NewWithDeps(opts Options) *Server {
 		cfg: opts.Config, log: logger, queryLog: opts.QueryLog,
 		audit: opts.Audit, policy: opts.Policy, stats: opts.Stats, store: opts.Store,
 		syncer: opts.Syncer, upstream: opts.Upstream, cache: opts.Cache,
-		pipeline: opts.Pipeline,
+		pipeline:   opts.Pipeline,
 		configPath: opts.ConfigPath, loginLimiter: newRateLimiter(5, time.Minute),
 	}
 	mux := http.NewServeMux()
@@ -265,7 +265,9 @@ func (s *Server) authRequired(next http.Handler) http.Handler {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		s.setSessionCookie(w, r, session)
+		if r.URL.Path != "/api/v1/auth/logout" {
+			s.setSessionCookie(w, r, session)
+		}
 		next.ServeHTTP(w, r)
 	})
 }

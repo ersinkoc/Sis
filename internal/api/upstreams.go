@@ -50,9 +50,9 @@ func (s *Server) upstreamTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{
-		"rcode": resp.Rcode,
+		"rcode":      resp.Rcode,
 		"latency_us": time.Since(start).Microseconds(),
-		"answers": answerCount(resp),
+		"answers":    answerCount(resp),
 	})
 }
 

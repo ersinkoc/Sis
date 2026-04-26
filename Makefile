@@ -6,6 +6,7 @@ DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w -X '$(MODULE)/pkg/version.Version=$(VERSION)' -X '$(MODULE)/pkg/version.Commit=$(COMMIT)' -X '$(MODULE)/pkg/version.Date=$(DATE)'
 
 WEBUI_PM := $(shell command -v pnpm >/dev/null 2>&1 && echo pnpm || echo npm)
+GO_PACKAGES ?= $(shell go list ./... 2>/dev/null | grep -v '/webui/node_modules/')
 BENCHTIME ?= 100ms
 BENCHCOUNT ?= 1
 
@@ -18,19 +19,19 @@ build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/$(APP) ./cmd/sis
 
 test:
-	go test ./...
+	go test $(GO_PACKAGES)
 
 coverage:
 	./scripts/coverage.sh
 
 bench:
-	go test -run '^$$' -bench=. -benchmem -benchtime=$(BENCHTIME) -count=$(BENCHCOUNT) ./...
+	go test -run '^$$' -bench=. -benchmem -benchtime=$(BENCHTIME) -count=$(BENCHCOUNT) $(GO_PACKAGES)
 
 godoc:
 	./scripts/godoc.sh
 
 lint:
-	go vet ./...
+	go vet $(GO_PACKAGES)
 
 fmt:
 	gofmt -w $$(find . -name '*.go' -not -path './dist/*' -not -path './webui/node_modules/*')

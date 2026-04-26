@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -1507,10 +1508,10 @@ func validAPIConfig(t *testing.T) *config.Holder {
 			Bootstrap: []string{"1.1.1.1"},
 		}},
 		Blocklists: []config.Blocklist{{ID: "ads", URL: "file:///tmp/ads.txt"}},
-		Groups: []config.Group{{Name: "default", Blocklists: []string{"ads"}}},
+		Groups:     []config.Group{{Name: "default", Blocklists: []string{"ads"}}},
 		Auth: config.Auth{
-			FirstRun: false,
-			Users: []config.User{{Username: "admin", PasswordHash: "unused"}},
+			FirstRun:   false,
+			Users:      []config.User{{Username: "admin", PasswordHash: "unused"}},
 			CookieName: "sis_session",
 		},
 	})

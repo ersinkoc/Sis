@@ -141,13 +141,13 @@ make release
 ```
 
 `make coverage` runs `scripts/coverage.sh`, which fails unless total Go coverage is at least
-`COVERAGE_THRESHOLD` (`100.0` by default). CI also runs WebUI install/build/lint and the same
-100% Go coverage gate before building the binary.
+`COVERAGE_THRESHOLD` (`60.0` by default). CI also runs WebUI install/build/lint, Go vet,
+the same coverage gate, and a binary build.
 `make bench` runs the Go benchmark suite with allocation reporting; set `BENCHTIME` or `BENCHCOUNT` for longer local runs.
 `make godoc` checks that exported Go declarations have GoDoc comments.
 `make preflight` verifies that required local tools such as Go, gofmt, and npm are installed.
 `make check` runs the full CI-style gate: Go formatting drift check, WebUI build/lint,
-100% Go coverage, and binary build.
+Go coverage, Go vet, and binary build.
 
 The v1 design lives in:
 

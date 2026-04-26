@@ -12,7 +12,7 @@ type BlockOptions struct {
 	ResponseA    net.IP
 	ResponseAAAA net.IP
 	TTL          time.Duration
-	UseNXDOMAIN bool
+	UseNXDOMAIN  bool
 }
 
 func synthRCode(req *mdns.Msg, rcode int) *mdns.Msg {

@@ -59,7 +59,7 @@ func (s *Server) applyConfig(w http.ResponseWriter, next *config.Config, action,
 	if s.cache != nil {
 		s.cache.Reconfigure(sisdns.CacheOptions{
 			MaxEntries: next.Cache.MaxEntries,
-			MinTTL: next.Cache.MinTTL.Duration, MaxTTL: next.Cache.MaxTTL.Duration,
+			MinTTL:     next.Cache.MinTTL.Duration, MaxTTL: next.Cache.MaxTTL.Duration,
 			NegativeTTL: next.Cache.NegativeTTL.Duration,
 		})
 	}

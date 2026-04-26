@@ -60,9 +60,9 @@ func TestSyncerForceSyncUnknownList(t *testing.T) {
 
 func TestSyncerForceSyncDisabledList(t *testing.T) {
 	holder := config.NewHolder(&config.Config{
-		Server: config.Server{TZ: "Local"},
+		Server:     config.Server{TZ: "Local"},
 		Blocklists: []config.Blocklist{{ID: "ads", Enabled: false}},
-		Groups: []config.Group{{Name: "default", Blocklists: []string{"ads"}}},
+		Groups:     []config.Group{{Name: "default", Blocklists: []string{"ads"}}},
 	})
 	engine, err := NewEngine(holder.Get(), StaticClientResolver{})
 	if err != nil {

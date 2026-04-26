@@ -24,12 +24,12 @@ type Fetcher struct {
 
 // FetchResult is the parsed output of one blocklist fetch.
 type FetchResult struct {
-	ID        string
-	Domains   *Domains
-	Stats     ParseStats
-	FromCache bool
+	ID          string
+	Domains     *Domains
+	Stats       ParseStats
+	FromCache   bool
 	NotModified bool
-	FetchedAt time.Time
+	FetchedAt   time.Time
 }
 
 type cacheMeta struct {

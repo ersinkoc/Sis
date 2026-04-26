@@ -14,12 +14,12 @@ type Counters struct {
 	CacheMiss    atomic.Uint64
 	BlockedTotal atomic.Uint64
 
-	upstreams sync.Map
-	latency   *Histogram
-	mu        sync.Mutex
-	domains   map[string]uint64
+	upstreams      sync.Map
+	latency        *Histogram
+	mu             sync.Mutex
+	domains        map[string]uint64
 	blockedDomains map[string]uint64
-	clients   map[string]uint64
+	clients        map[string]uint64
 }
 
 // UpstreamCounters holds live counters for one upstream resolver.
@@ -33,12 +33,12 @@ type UpstreamCounters struct {
 
 // Snapshot is a point-in-time view of live counters.
 type Snapshot struct {
-	QueryTotal   uint64                       `json:"query_total"`
-	CacheHit     uint64                       `json:"cache_hit"`
-	CacheMiss    uint64                       `json:"cache_miss"`
-	BlockedTotal uint64                       `json:"blocked_total"`
-	Latency      HistogramSnapshot            `json:"latency"`
-	Upstreams    map[string]UpstreamSnapshot  `json:"upstreams"`
+	QueryTotal   uint64                      `json:"query_total"`
+	CacheHit     uint64                      `json:"cache_hit"`
+	CacheMiss    uint64                      `json:"cache_miss"`
+	BlockedTotal uint64                      `json:"blocked_total"`
+	Latency      HistogramSnapshot           `json:"latency"`
+	Upstreams    map[string]UpstreamSnapshot `json:"upstreams"`
 }
 
 // UpstreamSnapshot is a point-in-time view of one upstream's counters.

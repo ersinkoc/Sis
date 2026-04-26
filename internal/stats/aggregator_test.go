@@ -120,6 +120,7 @@ func TestAggregatorFlushHandlesCounterReset(t *testing.T) {
 	defer st.Close()
 	counters := New()
 	counters.IncQuery()
+	counters.IncQuery()
 	agg := NewAggregator(counters, st.Stats())
 	agg.now = func() time.Time { return time.Unix(60, 0).UTC() }
 	if err := agg.Flush(); err != nil {

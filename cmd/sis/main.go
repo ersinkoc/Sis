@@ -631,7 +631,7 @@ func runServe(args []string) error {
 	clientID := sisdns.NewClientID(arp, st.Clients())
 	cache := sisdns.NewCache(sisdns.CacheOptions{
 		MaxEntries: cfg.Cache.MaxEntries,
-		MinTTL: cfg.Cache.MinTTL.Duration, MaxTTL: cfg.Cache.MaxTTL.Duration,
+		MinTTL:     cfg.Cache.MinTTL.Duration, MaxTTL: cfg.Cache.MaxTTL.Duration,
 		NegativeTTL: cfg.Cache.NegativeTTL.Duration,
 	})
 	limiter := sisdns.NewRateLimiter(cfg.Server.DNS.RateLimitQPS, cfg.Server.DNS.RateLimitBurst)
@@ -664,7 +664,7 @@ func runServe(args []string) error {
 		pool.Replace(next.Upstreams)
 		cache.Reconfigure(sisdns.CacheOptions{
 			MaxEntries: next.Cache.MaxEntries,
-			MinTTL: next.Cache.MinTTL.Duration, MaxTTL: next.Cache.MaxTTL.Duration,
+			MinTTL:     next.Cache.MinTTL.Duration, MaxTTL: next.Cache.MaxTTL.Duration,
 			NegativeTTL: next.Cache.NegativeTTL.Duration,
 		})
 		pipeline.Reconfigure(next)
