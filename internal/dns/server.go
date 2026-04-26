@@ -128,11 +128,36 @@ func (s *Server) handleUDP(ctx context.Context, conn *net.UDPConn, addr *net.UDP
 	if resp == nil || resp.Msg == nil {
 		return
 	}
-	wire, err := resp.Msg.Pack()
+	maxSize := s.cfg.Get().Server.DNS.UDPSize
+	if maxSize <= 0 {
+		maxSize = 1232
+	}
+	wire, err := packUDPResponse(resp.Msg, maxSize)
 	if err != nil {
 		return
 	}
 	_, _ = conn.WriteToUDP(wire, addr)
+}
+
+func packUDPResponse(msg *mdns.Msg, maxSize int) ([]byte, error) {
+	wire, err := msg.Pack()
+	if err != nil || maxSize <= 0 || len(wire) <= maxSize {
+		return wire, err
+	}
+	truncated := msg.Copy()
+	truncated.Truncated = true
+	truncated.Answer = nil
+	truncated.Ns = nil
+	truncated.Extra = nil
+	wire, err = truncated.Pack()
+	if err != nil || len(wire) <= maxSize {
+		return wire, err
+	}
+	minimal := new(mdns.Msg)
+	minimal.MsgHdr = msg.MsgHdr
+	minimal.Response = true
+	minimal.Truncated = true
+	return minimal.Pack()
 }
 
 func (s *Server) serveTCP(ctx context.Context, ln *net.TCPListener) {
