@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -49,5 +50,20 @@ func TestEnvOverridePrecedence(t *testing.T) {
 	}
 	if cfg.Auth.SessionTTL.Duration != 2*time.Hour {
 		t.Fatalf("session ttl = %s", cfg.Auth.SessionTTL.Duration)
+	}
+}
+
+func TestSaveCreatesParentDirAndRestrictsPermissions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "sis.yaml")
+	cfg := &Config{Server: Server{TZ: "Local"}}
+	if err := (&Loader{Path: path}).Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o640 {
+		t.Fatalf("mode = %o, want 640", got)
 	}
 }
