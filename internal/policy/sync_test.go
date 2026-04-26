@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,5 +71,17 @@ func TestSyncerForceSyncDisabledList(t *testing.T) {
 	syncer := NewSyncer(holder, NewFetcher(t.TempDir()), engine, nil)
 	if _, err := syncer.ForceSync(context.Background(), "ads"); err == nil {
 		t.Fatal("expected disabled list error")
+	}
+}
+
+func TestSyncerForceSyncRequiresDependencies(t *testing.T) {
+	_, err := (*Syncer)(nil).ForceSync(context.Background(), "ads")
+	if err == nil || !strings.Contains(err.Error(), "not configured") {
+		t.Fatalf("nil syncer err = %v", err)
+	}
+	syncer := NewSyncer(config.NewHolder(&config.Config{}), nil, nil, nil)
+	_, err = syncer.ForceSync(context.Background(), "ads")
+	if err == nil || !strings.Contains(err.Error(), "not configured") {
+		t.Fatalf("empty syncer err = %v", err)
 	}
 }

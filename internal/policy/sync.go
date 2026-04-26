@@ -2,6 +2,7 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -52,6 +53,9 @@ func (s *Syncer) Run(ctx context.Context) {
 
 // ForceSync synchronizes one configured blocklist immediately.
 func (s *Syncer) ForceSync(ctx context.Context, id string) (*FetchResult, error) {
+	if s == nil || s.cfg == nil || s.cfg.Get() == nil || s.fetcher == nil || s.engine == nil {
+		return nil, errors.New("blocklist syncer is not configured")
+	}
 	cfg := s.cfg.Get()
 	for _, list := range cfg.Blocklists {
 		if list.ID == id {
@@ -65,6 +69,9 @@ func (s *Syncer) ForceSync(ctx context.Context, id string) (*FetchResult, error)
 }
 
 func (s *Syncer) syncDue(ctx context.Context, initial bool) {
+	if s == nil || s.cfg == nil || s.cfg.Get() == nil || s.fetcher == nil || s.engine == nil {
+		return
+	}
 	cfg := s.cfg.Get()
 	now := time.Now()
 	for _, list := range cfg.Blocklists {
