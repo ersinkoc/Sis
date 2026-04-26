@@ -28,3 +28,15 @@ func TestDomainsWildcardNormalizes(t *testing.T) {
 		t.Fatal("expected wildcard suffix match")
 	}
 }
+
+func TestDomainsRejectsOverlongDomain(t *testing.T) {
+	d := NewDomains()
+	long := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa." +
+		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb." +
+		"ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc." +
+		"ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd." +
+		"example.com"
+	if d.Add(long) {
+		t.Fatal("expected overlong domain to be rejected")
+	}
+}
