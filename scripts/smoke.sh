@@ -110,6 +110,19 @@ for _ in $(seq 1 50); do
       exit 1
     fi
     echo "smoke: stats API passed"
+    reload_out="$(curl -fsS -b "${tmp}/cookies.txt" -X POST "http://${http_addr}/api/v1/system/config/reload")"
+    if [[ "${reload_out}" != *'"reloaded":true'* ]]; then
+      echo "smoke: config reload failed" >&2
+      echo "${reload_out}" >&2
+      exit 1
+    fi
+    history_out="$(curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/system/config/history?limit=1")"
+    if [[ "${history_out}" != *'"snapshots":['* || "${history_out}" != *"server:"* ]]; then
+      echo "smoke: config history missing reload snapshot" >&2
+      echo "${history_out}" >&2
+      exit 1
+    fi
+    echo "smoke: config reload and history passed"
     echo "smoke: auth setup, API summary, and API query policy passed"
     exit 0
   fi
