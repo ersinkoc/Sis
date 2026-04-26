@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/pprof"
+	"strings"
 	"syscall"
 	"time"
 
@@ -164,8 +165,9 @@ func runUser(args []string) error {
 }
 
 func upsertConfigUser(path, username, password string, mustExist bool) error {
-	if username == "" || password == "" {
-		return fmt.Errorf("username and password are required")
+	username = strings.TrimSpace(username)
+	if username == "" || len(password) < 8 {
+		return fmt.Errorf("username and password with at least 8 chars are required")
 	}
 	loader := &config.Loader{Path: path}
 	cfg, err := loader.Load()

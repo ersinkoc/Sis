@@ -1,6 +1,8 @@
 package main
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,4 +70,45 @@ func TestSeedConfigClientsDefaults(t *testing.T) {
 	if client.Type != "ip" || client.Group != "default" {
 		t.Fatalf("client defaults = %#v", client)
 	}
+}
+
+func TestUpsertConfigUserTrimsUsernameAndRejectsWeakPassword(t *testing.T) {
+	path := writeUserTestConfig(t)
+	if err := upsertConfigUser(path, " admin ", "secret123", false); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := (&config.Loader{Path: path}).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Auth.Users) != 1 || cfg.Auth.Users[0].Username != "admin" {
+		t.Fatalf("users = %#v", cfg.Auth.Users)
+	}
+	if err := upsertConfigUser(path, "operator", "short", false); err == nil || !strings.Contains(err.Error(), "at least 8 chars") {
+		t.Fatalf("weak password err = %v", err)
+	}
+}
+
+func writeUserTestConfig(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sis.yaml")
+	cfg := &config.Config{
+		Server: config.Server{DataDir: filepath.Join(dir, "data"), TZ: "Local"},
+		Cache: config.Cache{
+			MinTTL: config.Duration{Duration: time.Minute},
+			MaxTTL: config.Duration{Duration: time.Hour},
+		},
+		Privacy: config.Privacy{LogMode: "full"},
+		Upstreams: []config.Upstream{{
+			ID: "cloudflare", URL: "https://cloudflare-dns.com/dns-query",
+			Bootstrap: []string{"1.1.1.1"},
+		}},
+		Groups: []config.Group{{Name: "default"}},
+		Auth:   config.Auth{FirstRun: true},
+	}
+	if err := (&config.Loader{Path: path}).Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
