@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -34,6 +35,9 @@ func (r *Reloader) Register(cb ReloadCallback) {
 
 // Reload loads the next config, runs callbacks, and swaps it into the holder.
 func (r *Reloader) Reload() error {
+	if r == nil || r.loader == nil || r.holder == nil {
+		return errors.New("config reloader is not configured")
+	}
 	next, err := r.loader.Load()
 	if err != nil {
 		return err
