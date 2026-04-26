@@ -45,6 +45,20 @@ pid="$!"
 for _ in $(seq 1 50); do
   if curl -fsS "http://${http_addr}/healthz" >/dev/null 2>&1; then
     echo "smoke: serve health check passed"
+    dns_out="$("${bin}" query -server "${dns_addr}" test localhost A)"
+    if [[ "${dns_out}" != *"rcode=NOERROR"* ]]; then
+      echo "smoke: DNS query failed" >&2
+      echo "${dns_out}" >&2
+      exit 1
+    fi
+    echo "smoke: DNS query passed"
+
+    curl -fsS -c "${tmp}/cookies.txt" \
+      -H 'content-type: application/json' \
+      -d '{"username":"admin","password":"change-me-now"}' \
+      "http://${http_addr}/api/v1/auth/setup" >/dev/null
+    curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/stats/summary" >/dev/null
+    echo "smoke: auth setup and API summary passed"
     exit 0
   fi
   sleep 0.1
