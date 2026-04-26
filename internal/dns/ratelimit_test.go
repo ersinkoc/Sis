@@ -24,6 +24,27 @@ func TestRateLimiterAllowsBurstAndRefill(t *testing.T) {
 	}
 }
 
+func TestRateLimiterZeroValueAllows(t *testing.T) {
+	var limiter RateLimiter
+	if !limiter.Allow(net.ParseIP("192.0.2.10")) {
+		t.Fatal("zero-value limiter should be disabled")
+	}
+}
+
+func TestRateLimiterInitializesMissingState(t *testing.T) {
+	now := time.Unix(100, 0)
+	limiter := &RateLimiter{qps: 1, burst: 1, now: func() time.Time { return now }}
+	if !limiter.Allow(net.ParseIP("192.0.2.10")) {
+		t.Fatal("request should be allowed")
+	}
+	if limiter.buckets == nil {
+		t.Fatal("buckets were not initialized")
+	}
+	if limiter.Allow(net.ParseIP("192.0.2.10")) {
+		t.Fatal("second request should be limited")
+	}
+}
+
 func TestRateLimiterPrunesIdleBuckets(t *testing.T) {
 	now := time.Unix(100, 0)
 	limiter := NewRateLimiter(1, 1)

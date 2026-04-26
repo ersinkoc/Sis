@@ -48,13 +48,22 @@ func (l *RateLimiter) Allow(ip net.IP) bool {
 	if l == nil {
 		return true
 	}
+	if l.qps <= 0 || l.burst <= 0 {
+		return true
+	}
 	key := "unknown"
 	if ip != nil {
 		key = ip.String()
 	}
+	if l.now == nil {
+		l.now = time.Now
+	}
 	now := l.now()
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if l.buckets == nil {
+		l.buckets = make(map[string]*rateBucket)
+	}
 	if l.nextPrune.IsZero() || now.After(l.nextPrune) {
 		l.pruneLocked(now)
 		l.nextPrune = now.Add(time.Minute)
