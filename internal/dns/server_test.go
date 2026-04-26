@@ -1,9 +1,11 @@
 package dns
 
 import (
+	"context"
 	"net"
 	"testing"
 
+	"github.com/ersinkoc/sis/internal/config"
 	mdns "github.com/miekg/dns"
 )
 
@@ -18,6 +20,21 @@ func TestServerTCPSlots(t *testing.T) {
 	s.releaseTCPSlot()
 	if !s.acquireTCPSlot() {
 		t.Fatal("slot should be available after release")
+	}
+}
+
+func TestServerStartCleansUpPartialListenersOnError(t *testing.T) {
+	cfg := config.NewHolder(&config.Config{
+		Server: config.Server{
+			DNS: config.DNSServer{Listen: []string{"127.0.0.1:0", "bad address"}},
+		},
+	})
+	s := NewServer(cfg, NewPipeline(nil))
+	if err := s.Start(context.Background()); err == nil {
+		t.Fatal("expected start error")
+	}
+	if len(s.udpConns) != 0 || len(s.tcpLns) != 0 || s.workers != nil || s.cancel != nil {
+		t.Fatalf("partial start was not cleaned up: udp=%d tcp=%d workers=%v cancel=%v", len(s.udpConns), len(s.tcpLns), s.workers != nil, s.cancel != nil)
 	}
 }
 

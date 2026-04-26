@@ -34,6 +34,12 @@ func NewServer(cfg *config.Holder, pipeline *Pipeline) *Server {
 func (s *Server) Start(ctx context.Context) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
+	started := false
+	defer func() {
+		if !started {
+			s.cleanupStarted()
+		}
+	}()
 	cfg := s.cfg.Get()
 	workers := cfg.Server.DNS.UDPWorkers
 	if workers <= 0 {
@@ -70,7 +76,29 @@ func (s *Server) Start(ctx context.Context) error {
 		s.wg.Add(1)
 		go s.serveTCP(runCtx, tcpLn)
 	}
+	started = true
 	return nil
+}
+
+func (s *Server) cleanupStarted() {
+	if s.cancel != nil {
+		s.cancel()
+		s.cancel = nil
+	}
+	for _, conn := range s.udpConns {
+		_ = conn.Close()
+	}
+	for _, ln := range s.tcpLns {
+		_ = ln.Close()
+	}
+	s.wg.Wait()
+	if s.workers != nil {
+		s.workers.Close()
+		s.workers = nil
+	}
+	s.udpConns = nil
+	s.tcpLns = nil
+	s.tcpSlots = nil
 }
 
 // Shutdown closes listeners and waits for active workers to finish.
