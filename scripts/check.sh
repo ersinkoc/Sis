@@ -4,7 +4,12 @@ set -euo pipefail
 webui_pm="${WEBUI_PM:-npm}"
 webui_install="${WEBUI_INSTALL:-install}"
 
-gofmt -w $(find . -name '*.go' -not -path './dist/*' -not -path './webui/node_modules/*')
+unformatted="$(find . -name '*.go' -not -path './dist/*' -not -path './webui/node_modules/*' -print0 | xargs -0 gofmt -l)"
+if [[ -n "${unformatted}" ]]; then
+  echo "gofmt required for:" >&2
+  echo "${unformatted}" >&2
+  exit 1
+fi
 git diff --exit-code
 ./scripts/godoc.sh
 
