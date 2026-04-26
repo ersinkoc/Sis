@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/ersinkoc/sis/internal/config"
 )
@@ -16,6 +17,7 @@ func (s *Server) upstreamCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	upstream.ID = strings.TrimSpace(upstream.ID)
 	if upstream.ID == "" {
 		http.Error(w, "id is required", http.StatusBadRequest)
 		return
@@ -50,6 +52,7 @@ func (s *Server) upstreamPatch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	upstream.ID = strings.TrimSpace(upstream.ID)
 	if upstream.ID == "" {
 		upstream.ID = id
 	}

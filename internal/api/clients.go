@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/ersinkoc/sis/internal/store"
 )
@@ -65,16 +66,20 @@ func (s *Server) clientPatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if patch.Name != nil {
-		client.Name = *patch.Name
+		client.Name = strings.TrimSpace(*patch.Name)
 	}
 	if patch.Group != nil {
-		client.Group = *patch.Group
+		client.Group = strings.TrimSpace(*patch.Group)
 	}
 	if patch.Hidden != nil {
 		client.Hidden = *patch.Hidden
 	}
 	if client.Group == "" {
 		client.Group = "default"
+	}
+	if !s.clientGroupExists(client.Group) {
+		http.Error(w, "unknown group", http.StatusBadRequest)
+		return
 	}
 	if err := s.store.Clients().Upsert(client); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -109,4 +114,16 @@ func (s *Server) clientDelete(w http.ResponseWriter, r *http.Request) {
 		_ = s.audit.Auditf("client.delete", key, client, nil)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) clientGroupExists(group string) bool {
+	if s.cfg == nil || s.cfg.Get() == nil {
+		return true
+	}
+	for _, configured := range s.cfg.Get().Groups {
+		if configured.Name == group {
+			return true
+		}
+	}
+	return false
 }

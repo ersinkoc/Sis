@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -298,5 +299,13 @@ func writeJSONStatus(w http.ResponseWriter, status int, value any) {
 
 func decodeJSON(r *http.Request, target any) error {
 	defer r.Body.Close()
-	return json.NewDecoder(r.Body).Decode(target)
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(target); err != nil {
+		return err
+	}
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		return fmt.Errorf("body must contain a single JSON value")
+	}
+	return nil
 }

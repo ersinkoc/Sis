@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/ersinkoc/sis/internal/config"
 )
@@ -16,6 +17,7 @@ func (s *Server) blocklistCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	blocklist.ID = strings.TrimSpace(blocklist.ID)
 	if blocklist.ID == "" {
 		http.Error(w, "id is required", http.StatusBadRequest)
 		return
@@ -50,6 +52,7 @@ func (s *Server) blocklistPatch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	blocklist.ID = strings.TrimSpace(blocklist.ID)
 	if blocklist.ID == "" {
 		blocklist.ID = id
 	}

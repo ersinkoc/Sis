@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ersinkoc/sis/internal/config"
@@ -36,6 +37,7 @@ func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	req.Username = strings.TrimSpace(req.Username)
 	if req.Username == "" || len(req.Password) < 8 {
 		http.Error(w, "username and password with at least 8 chars are required", http.StatusBadRequest)
 		return
@@ -76,6 +78,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	req.Username = strings.TrimSpace(req.Username)
 	user, ok := s.findUser(req.Username)
 	if !ok || !verifyPassword(user.PasswordHash, req.Password) {
 		http.Error(w, "invalid username or password", http.StatusUnauthorized)

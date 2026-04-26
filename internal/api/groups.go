@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/ersinkoc/sis/internal/config"
 )
@@ -33,6 +34,7 @@ func (s *Server) groupCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	group.Name = strings.TrimSpace(group.Name)
 	if group.Name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
 		return
@@ -67,6 +69,7 @@ func (s *Server) groupPatch(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	patch.Name = strings.TrimSpace(patch.Name)
 	if patch.Name == "" {
 		patch.Name = name
 	}

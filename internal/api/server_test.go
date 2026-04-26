@@ -133,8 +133,10 @@ func TestClientPatch(t *testing.T) {
 	if err := st.Clients().Upsert(&store.Client{Key: "192.168.1.10", Type: "ip", Group: "default"}); err != nil {
 		t.Fatal(err)
 	}
+	holder := testHolder()
+	holder.Get().Groups = append(holder.Get().Groups, config.Group{Name: "iot"})
 	s := NewWithDeps(Options{
-		Config: testHolder(),
+		Config: holder,
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Store:  st,
 	})
@@ -151,6 +153,29 @@ func TestClientPatch(t *testing.T) {
 	}
 	if client.Name != "TV" || client.Group != "iot" || !client.Hidden {
 		t.Fatalf("client = %#v", client)
+	}
+}
+
+func TestClientPatchRejectsUnknownGroup(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.Clients().Upsert(&store.Client{Key: "192.168.1.10", Type: "ip", Group: "default"}); err != nil {
+		t.Fatal(err)
+	}
+	s := NewWithDeps(Options{
+		Config: testHolder(),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/clients/192.168.1.10", bytes.NewBufferString(`{"group":"missing"}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -423,7 +448,7 @@ func TestSetupAndLogin(t *testing.T) {
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Store:  st,
 	})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/setup", bytes.NewBufferString(`{"username":"admin","password":"secret123"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/setup", bytes.NewBufferString(`{"username":" admin ","password":"secret123"}`))
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -432,7 +457,10 @@ func TestSetupAndLogin(t *testing.T) {
 	if holder.Get().Auth.FirstRun {
 		t.Fatal("first_run should be false after setup")
 	}
-	login := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"username":"admin","password":"secret123"}`))
+	if holder.Get().Auth.Users[0].Username != "admin" {
+		t.Fatalf("username = %q", holder.Get().Auth.Users[0].Username)
+	}
+	login := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"username":" admin ","password":"secret123"}`))
 	loginRec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(loginRec, login)
 	if loginRec.Code != http.StatusOK {
@@ -518,6 +546,18 @@ func TestLoginRejectsBadCredentialsAndMalformedJSON(t *testing.T) {
 	if malformedRec.Code != http.StatusBadRequest {
 		t.Fatalf("malformed login status = %d body=%s", malformedRec.Code, malformedRec.Body.String())
 	}
+	unknownReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"username":"admin","password":"secret123","role":"root"}`))
+	unknownRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(unknownRec, unknownReq)
+	if unknownRec.Code != http.StatusBadRequest {
+		t.Fatalf("unknown field login status = %d body=%s", unknownRec.Code, unknownRec.Body.String())
+	}
+	trailingReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"username":"admin","password":"secret123"} {}`))
+	trailingRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(trailingRec, trailingReq)
+	if trailingRec.Code != http.StatusBadRequest {
+		t.Fatalf("trailing JSON login status = %d body=%s", trailingRec.Code, trailingRec.Body.String())
+	}
 }
 
 func TestLogoutDeletesSessionAndClearsCookie(t *testing.T) {
@@ -597,7 +637,7 @@ func TestGroupsCreate(t *testing.T) {
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Store:  st,
 	})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/groups", bytes.NewBufferString(`{"name":"iot","blocklists":["ads"],"allowlist":[],"schedules":[]}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/groups", bytes.NewBufferString(`{"name":" iot ","blocklists":["ads"],"allowlist":[],"schedules":[]}`))
 	addSessionCookie(t, st, req)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -606,6 +646,26 @@ func TestGroupsCreate(t *testing.T) {
 	}
 	if _, ok := findConfigGroup(holder.Get().Groups, "iot"); !ok {
 		t.Fatalf("group was not added: %#v", holder.Get().Groups)
+	}
+}
+
+func TestGroupsCreateRejectsBlankName(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/groups", bytes.NewBufferString(`{"name":"   ","blocklists":["ads"],"allowlist":[],"schedules":[]}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -799,7 +859,7 @@ func TestUpstreamCreate(t *testing.T) {
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Store:  st,
 	})
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/upstreams", bytes.NewBufferString(`{"id":"quad9","name":"Quad9","url":"https://dns.quad9.net/dns-query","bootstrap":["9.9.9.9"],"timeout":"3s"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/upstreams", bytes.NewBufferString(`{"id":" quad9 ","name":"Quad9","url":"https://dns.quad9.net/dns-query","bootstrap":["9.9.9.9"],"timeout":"3s"}`))
 	addSessionCookie(t, st, req)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
@@ -808,6 +868,26 @@ func TestUpstreamCreate(t *testing.T) {
 	}
 	if upstreamIndex(holder.Get().Upstreams, "quad9") < 0 {
 		t.Fatalf("upstream was not added: %#v", holder.Get().Upstreams)
+	}
+}
+
+func TestUpstreamCreateRejectsBlankID(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/upstreams", bytes.NewBufferString(`{"id":"   ","url":"https://dns.quad9.net/dns-query","bootstrap":["9.9.9.9"]}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -898,6 +978,50 @@ func TestBlocklistDeleteReferencedFails(t *testing.T) {
 		Store:  st,
 	})
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/blocklists/ads", nil)
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestBlocklistCreateTrimsID(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/blocklists", bytes.NewBufferString(`{"id":" malware ","url":"file:///tmp/malware.txt","enabled":true}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if blocklistIndex(holder.Get().Blocklists, "malware") < 0 {
+		t.Fatalf("blocklist was not added: %#v", holder.Get().Blocklists)
+	}
+}
+
+func TestBlocklistCreateRejectsBlankID(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/blocklists", bytes.NewBufferString(`{"id":"   ","url":"file:///tmp/malware.txt","enabled":true}`))
 	addSessionCookie(t, st, req)
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
