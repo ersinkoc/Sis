@@ -15,6 +15,7 @@ import (
 	mdns "github.com/miekg/dns"
 )
 
+// Request is the normalized DNS query input consumed by the pipeline.
 type Request struct {
 	Msg       *mdns.Msg
 	SrcIP     net.IP
@@ -22,12 +23,14 @@ type Request struct {
 	StartedAt time.Time
 }
 
+// Response is the pipeline result returned to a DNS transport.
 type Response struct {
 	Msg     *mdns.Msg
 	Source  string
 	Latency time.Duration
 }
 
+// Pipeline applies rate limiting, identity, policy, cache, upstream, stats, and logging stages.
 type Pipeline struct {
 	mu       sync.RWMutex
 	cfg      *config.Holder
@@ -40,6 +43,7 @@ type Pipeline struct {
 	limiter  *RateLimiter
 }
 
+// PipelineOptions wires optional runtime dependencies into a Pipeline.
 type PipelineOptions struct {
 	Config   *config.Holder
 	Cache    *Cache
@@ -51,10 +55,12 @@ type PipelineOptions struct {
 	Limiter  *RateLimiter
 }
 
+// NewPipeline creates a pipeline around the provided cache.
 func NewPipeline(cache *Cache) *Pipeline {
 	return NewPipelineWithDeps(PipelineOptions{Cache: cache})
 }
 
+// NewPipelineWithDeps creates a pipeline with explicit dependencies for production or tests.
 func NewPipelineWithDeps(opts PipelineOptions) *Pipeline {
 	cache := opts.Cache
 	if cache == nil {
@@ -70,6 +76,7 @@ func NewPipelineWithDeps(opts PipelineOptions) *Pipeline {
 	}
 }
 
+// Reconfigure applies DNS runtime settings that can change without restarting listeners.
 func (p *Pipeline) Reconfigure(c *config.Config) {
 	if p == nil || c == nil {
 		return
@@ -79,6 +86,7 @@ func (p *Pipeline) Reconfigure(c *config.Config) {
 	p.limiter = NewRateLimiter(c.Server.DNS.RateLimitQPS, c.Server.DNS.RateLimitBurst)
 }
 
+// Handle processes one DNS request and returns the response to write, if any.
 func (p *Pipeline) Handle(ctx context.Context, r *Request) *Response {
 	if r == nil || r.Msg == nil {
 		return &Response{Msg: synthServerFailure(nil), Source: "synthetic"}
@@ -94,10 +102,16 @@ func (p *Pipeline) Handle(ctx context.Context, r *Request) *Response {
 	}
 	p.stats.IncQuery()
 	identity := p.identityFor(r.SrcIP)
+	if r.Msg.Opcode != mdns.OpcodeQuery {
+		return p.finish(r, identity, synthRCode(r.Msg, mdns.RcodeNotImplemented), "synthetic", false, "unsupported-opcode", "")
+	}
 	if len(r.Msg.Question) == 0 {
 		return p.finish(r, identity, synthRCode(r.Msg, mdns.RcodeFormatError), "synthetic", false, "", "")
 	}
 	q := r.Msg.Question[0]
+	if q.Qclass != mdns.ClassINET {
+		return p.finish(r, identity, synthRefused(r.Msg), "synthetic", false, "unsupported-class", "")
+	}
 	qname := canonicalName(q.Name)
 	if p.clientID != nil {
 		_ = p.clientID.Touch(identity)

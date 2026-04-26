@@ -2,6 +2,7 @@ package dns
 
 import mdns "github.com/miekg/dns"
 
+// StripECS returns a copy of msg with EDNS Client Subnet options removed.
 func StripECS(msg *mdns.Msg) *mdns.Msg {
 	if msg == nil {
 		return nil

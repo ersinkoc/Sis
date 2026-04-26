@@ -14,6 +14,7 @@ import (
 	"github.com/ersinkoc/sis/internal/config"
 )
 
+// Filter selects recent in-memory query log entries.
 type Filter struct {
 	Client  string
 	QName   string
@@ -21,6 +22,7 @@ type Filter struct {
 	Limit   int
 }
 
+// Query writes query logs to disk and live subscribers.
 type Query struct {
 	mu      sync.Mutex
 	rotator *Rotator
@@ -31,6 +33,7 @@ type Query struct {
 	fanout  *fanout
 }
 
+// OpenQuery creates a query logger from config.
 func OpenQuery(c *config.Config) (*Query, error) {
 	q := &Query{
 		fanout: newFanout(256),
@@ -41,6 +44,7 @@ func OpenQuery(c *config.Config) (*Query, error) {
 	return q, nil
 }
 
+// Reconfigure applies runtime logging and privacy settings.
 func (q *Query) Reconfigure(c *config.Config) error {
 	if q == nil || c == nil {
 		return nil
@@ -81,6 +85,7 @@ func (q *Query) Reconfigure(c *config.Config) error {
 	return nil
 }
 
+// Write publishes and optionally persists one query log entry.
 func (q *Query) Write(e *Entry) error {
 	if q == nil || e == nil {
 		return nil
@@ -99,10 +104,12 @@ func (q *Query) Write(e *Entry) error {
 	return q.enc.Encode(&entry)
 }
 
+// Subscribe subscribes to live query entries without replaying recent history.
 func (q *Query) Subscribe(size int) Subscription {
 	return q.SubscribeReplay(size, false)
 }
 
+// SubscribeReplay subscribes to query entries, optionally replaying the recent ring buffer.
 func (q *Query) SubscribeReplay(size int, replay bool) Subscription {
 	if q == nil || q.fanout == nil {
 		ch := make(Subscription)
@@ -112,6 +119,7 @@ func (q *Query) SubscribeReplay(size int, replay bool) Subscription {
 	return q.fanout.subscribe(size, replay)
 }
 
+// Unsubscribe removes and closes a query log subscription.
 func (q *Query) Unsubscribe(sub Subscription) {
 	if q == nil || q.fanout == nil {
 		return
@@ -119,6 +127,7 @@ func (q *Query) Unsubscribe(sub Subscription) {
 	q.fanout.unsubscribe(sub)
 }
 
+// Recent returns recent in-memory query entries matching filter.
 func (q *Query) Recent(filter Filter) []Entry {
 	if q == nil || q.fanout == nil {
 		return nil
@@ -147,6 +156,7 @@ func (q *Query) Recent(filter Filter) []Entry {
 	return out
 }
 
+// Rotate forces the query log file to rotate.
 func (q *Query) Rotate() error {
 	if q == nil {
 		return nil
@@ -159,6 +169,7 @@ func (q *Query) Rotate() error {
 	return q.rotator.Rotate()
 }
 
+// Close closes the active query log file.
 func (q *Query) Close() error {
 	if q == nil {
 		return nil

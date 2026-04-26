@@ -13,6 +13,7 @@ import (
 	mdns "github.com/miekg/dns"
 )
 
+// Server listens for classic DNS over UDP and TCP.
 type Server struct {
 	cfg      *config.Holder
 	pipeline *Pipeline
@@ -24,10 +25,12 @@ type Server struct {
 	wg       sync.WaitGroup
 }
 
+// NewServer creates a DNS server using cfg and pipeline.
 func NewServer(cfg *config.Holder, pipeline *Pipeline) *Server {
 	return &Server{cfg: cfg, pipeline: pipeline}
 }
 
+// Start binds configured UDP/TCP listeners and begins serving DNS queries.
 func (s *Server) Start(ctx context.Context) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
@@ -70,6 +73,7 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
+// Shutdown closes listeners and waits for active workers to finish.
 func (s *Server) Shutdown(ctx context.Context) error {
 	if s.cancel != nil {
 		s.cancel()

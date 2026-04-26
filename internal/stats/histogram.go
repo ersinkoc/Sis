@@ -33,11 +33,13 @@ var histogramBounds = [...]time.Duration{
 	10 * time.Second,
 }
 
+// Histogram records latency samples in fixed duration buckets.
 type Histogram struct {
 	buckets [len(histogramBounds) + 1]atomic.Uint64
 	total   atomic.Uint64
 }
 
+// HistogramSnapshot exposes approximate latency quantiles.
 type HistogramSnapshot struct {
 	Count uint64        `json:"count"`
 	P50   time.Duration `json:"p50"`
@@ -45,10 +47,12 @@ type HistogramSnapshot struct {
 	P99   time.Duration `json:"p99"`
 }
 
+// NewHistogram creates an empty latency histogram.
 func NewHistogram() *Histogram {
 	return &Histogram{}
 }
 
+// Observe records one latency sample.
 func (h *Histogram) Observe(d time.Duration) {
 	idx := len(histogramBounds)
 	for i, bound := range histogramBounds {
@@ -61,6 +65,7 @@ func (h *Histogram) Observe(d time.Duration) {
 	h.total.Add(1)
 }
 
+// Snapshot returns current sample count and approximate quantiles.
 func (h *Histogram) Snapshot() HistogramSnapshot {
 	count := h.total.Load()
 	return HistogramSnapshot{

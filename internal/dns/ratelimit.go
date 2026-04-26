@@ -9,6 +9,7 @@ import (
 
 const defaultRateLimiterMaxBuckets = 10000
 
+// RateLimiter applies per-client token-bucket throttling.
 type RateLimiter struct {
 	mu         sync.Mutex
 	qps        float64
@@ -24,6 +25,7 @@ type rateBucket struct {
 	seen   time.Time
 }
 
+// NewRateLimiter creates a token bucket limiter, or nil when disabled.
 func NewRateLimiter(qps, burst int) *RateLimiter {
 	if qps <= 0 || burst <= 0 {
 		return nil
@@ -41,6 +43,7 @@ func qpsToFloat(v int) float64 {
 	return float64(v)
 }
 
+// Allow reports whether ip may perform one more operation now.
 func (l *RateLimiter) Allow(ip net.IP) bool {
 	if l == nil {
 		return true

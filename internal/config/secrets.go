@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 )
 
+// EnsureLogSalt generates a persistent salt when hashed query logging is enabled.
 func EnsureLogSalt(c *Config) (bool, error) {
 	if c == nil || c.Privacy.LogMode != "hashed" || c.Privacy.LogSalt != "" {
 		return false, nil

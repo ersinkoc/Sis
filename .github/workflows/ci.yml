@@ -24,6 +24,7 @@ jobs:
           cache: npm
           cache-dependency-path: webui/package-lock.json
       - run: WEBUI_PM=npm WEBUI_INSTALL=ci ./scripts/check.sh
+      - run: make bench
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -42,6 +43,7 @@ jobs:
           VERSION: ${{ github.ref_name }}
       - uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true
           files: |
             dist/sis_*
             dist/SHA256SUMS

@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// Counters holds live in-memory counters for DNS and upstream activity.
 type Counters struct {
 	QueryTotal   atomic.Uint64
 	CacheHit     atomic.Uint64
@@ -21,6 +22,7 @@ type Counters struct {
 	clients   map[string]uint64
 }
 
+// UpstreamCounters holds live counters for one upstream resolver.
 type UpstreamCounters struct {
 	Requests          atomic.Uint64
 	Errors            atomic.Uint64
@@ -29,6 +31,7 @@ type UpstreamCounters struct {
 	Latency           *Histogram
 }
 
+// Snapshot is a point-in-time view of live counters.
 type Snapshot struct {
 	QueryTotal   uint64                       `json:"query_total"`
 	CacheHit     uint64                       `json:"cache_hit"`
@@ -38,6 +41,7 @@ type Snapshot struct {
 	Upstreams    map[string]UpstreamSnapshot  `json:"upstreams"`
 }
 
+// UpstreamSnapshot is a point-in-time view of one upstream's counters.
 type UpstreamSnapshot struct {
 	Requests          uint64            `json:"requests"`
 	Errors            uint64            `json:"errors"`
@@ -46,6 +50,7 @@ type UpstreamSnapshot struct {
 	Latency           HistogramSnapshot `json:"latency"`
 }
 
+// New creates an empty live counter set.
 func New() *Counters {
 	return &Counters{
 		latency: NewHistogram(),
@@ -54,26 +59,32 @@ func New() *Counters {
 	}
 }
 
+// IncQuery increments total DNS query count.
 func (c *Counters) IncQuery() {
 	c.QueryTotal.Add(1)
 }
 
+// IncCacheHit increments DNS cache hit count.
 func (c *Counters) IncCacheHit() {
 	c.CacheHit.Add(1)
 }
 
+// IncCacheMiss increments DNS cache miss count.
 func (c *Counters) IncCacheMiss() {
 	c.CacheMiss.Add(1)
 }
 
+// IncBlocked increments total blocked query count.
 func (c *Counters) IncBlocked() {
 	c.BlockedTotal.Add(1)
 }
 
+// ObserveLatency records end-to-end DNS query latency.
 func (c *Counters) ObserveLatency(d time.Duration) {
 	c.latency.Observe(d)
 }
 
+// AddDomain records one query for domain, optionally as blocked.
 func (c *Counters) AddDomain(domain string, blocked bool) {
 	if domain == "" {
 		return
@@ -86,6 +97,7 @@ func (c *Counters) AddDomain(domain string, blocked bool) {
 	}
 }
 
+// AddClient records one query attributed to client.
 func (c *Counters) AddClient(client string) {
 	if client == "" {
 		return
@@ -95,11 +107,13 @@ func (c *Counters) AddClient(client string) {
 	c.clients[client]++
 }
 
+// TopItem is one ranked counter row for a domain or client.
 type TopItem struct {
 	Key   string `json:"key"`
 	Count uint64 `json:"count"`
 }
 
+// TopDomains returns the most queried domains, optionally restricted to blocked domains.
 func (c *Counters) TopDomains(n int, blocked bool) []TopItem {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -109,17 +123,20 @@ func (c *Counters) TopDomains(n int, blocked bool) []TopItem {
 	return topN(c.domains, n)
 }
 
+// TopClients returns the most active client keys.
 func (c *Counters) TopClients(n int) []TopItem {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return topN(c.clients, n)
 }
 
+// Upstream returns live counters for upstream id, creating them if needed.
 func (c *Counters) Upstream(id string) *UpstreamCounters {
 	value, _ := c.upstreams.LoadOrStore(id, newUpstreamCounters())
 	return value.(*UpstreamCounters)
 }
 
+// Snapshot returns a consistent point-in-time view of counter totals.
 func (c *Counters) Snapshot() Snapshot {
 	out := Snapshot{
 		QueryTotal: c.QueryTotal.Load(), CacheHit: c.CacheHit.Load(),
@@ -165,24 +182,29 @@ func topN(values map[string]uint64, n int) []TopItem {
 	return items
 }
 
+// IncRequest increments upstream request count.
 func (u *UpstreamCounters) IncRequest() {
 	u.Requests.Add(1)
 }
 
+// IncError increments upstream error and consecutive error counts.
 func (u *UpstreamCounters) IncError() {
 	u.Errors.Add(1)
 	u.ConsecutiveErrors.Add(1)
 }
 
+// MarkSuccess resets consecutive errors and marks the upstream healthy.
 func (u *UpstreamCounters) MarkSuccess() {
 	u.ConsecutiveErrors.Store(0)
 	u.Healthy.Store(true)
 }
 
+// MarkUnhealthy marks the upstream unhealthy.
 func (u *UpstreamCounters) MarkUnhealthy() {
 	u.Healthy.Store(false)
 }
 
+// ObserveLatency records one upstream forwarding latency.
 func (u *UpstreamCounters) ObserveLatency(d time.Duration) {
 	u.Latency.Observe(d)
 }

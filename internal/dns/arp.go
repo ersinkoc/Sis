@@ -12,11 +12,13 @@ import (
 	"time"
 )
 
+// ARPTable caches IP-to-MAC mappings from the local operating system.
 type ARPTable struct {
 	entries atomic.Value
 	refresh time.Duration
 }
 
+// NewARPTable creates an ARP/NDP cache refreshed at the provided interval.
 func NewARPTable(refresh time.Duration) *ARPTable {
 	if refresh <= 0 {
 		refresh = 30 * time.Second
@@ -26,6 +28,7 @@ func NewARPTable(refresh time.Duration) *ARPTable {
 	return t
 }
 
+// Lookup returns a normalized MAC address for ip when present in the cache.
 func (t *ARPTable) Lookup(ip net.IP) (string, bool) {
 	if t == nil || ip == nil {
 		return "", false
@@ -35,6 +38,7 @@ func (t *ARPTable) Lookup(ip net.IP) (string, bool) {
 	return mac, ok
 }
 
+// Refresh reloads ARP and NDP entries from the host OS.
 func (t *ARPTable) Refresh() error {
 	entries := make(map[string]string)
 	ipv4, err := parseLinuxARPFile("/proc/net/arp")
@@ -56,6 +60,7 @@ func (t *ARPTable) Refresh() error {
 	return nil
 }
 
+// Run refreshes the table periodically until ctx is canceled.
 func (t *ARPTable) Run(ctx context.Context) {
 	_ = t.Refresh()
 	ticker := time.NewTicker(t.refresh)

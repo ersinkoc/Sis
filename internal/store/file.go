@@ -23,6 +23,7 @@ type fileStore struct {
 	closed      bool
 }
 
+// Open opens the file-backed store in dataDir.
 func Open(dataDir string) (Store, error) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return nil, err

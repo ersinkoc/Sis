@@ -9,6 +9,7 @@ import (
 	"github.com/ersinkoc/sis/internal/config"
 )
 
+// Audit writes administrative and system audit events.
 type Audit struct {
 	mu      sync.Mutex
 	rotator *Rotator
@@ -16,6 +17,7 @@ type Audit struct {
 	enabled bool
 }
 
+// OpenAudit creates an audit logger from config.
 func OpenAudit(c *config.Config) (*Audit, error) {
 	a := &Audit{}
 	if err := a.Reconfigure(c); err != nil {
@@ -24,6 +26,7 @@ func OpenAudit(c *config.Config) (*Audit, error) {
 	return a, nil
 }
 
+// Reconfigure applies runtime audit logging settings.
 func (a *Audit) Reconfigure(c *config.Config) error {
 	if a == nil || c == nil {
 		return nil
@@ -51,6 +54,7 @@ func (a *Audit) Reconfigure(c *config.Config) error {
 	return nil
 }
 
+// Write persists one audit entry when audit logging is enabled.
 func (a *Audit) Write(e *AuditEntry) error {
 	if a == nil || e == nil {
 		return nil
@@ -67,6 +71,7 @@ func (a *Audit) Write(e *AuditEntry) error {
 	return a.enc.Encode(&entry)
 }
 
+// Auditf writes a system audit event with before/after payloads.
 func (a *Audit) Auditf(action, target string, before, after any) error {
 	return a.Write(&AuditEntry{
 		Actor: "system", Action: action, Target: target,
@@ -74,6 +79,7 @@ func (a *Audit) Auditf(action, target string, before, after any) error {
 	})
 }
 
+// Rotate forces the audit log file to rotate.
 func (a *Audit) Rotate() error {
 	if a == nil {
 		return nil
@@ -86,6 +92,7 @@ func (a *Audit) Rotate() error {
 	return a.rotator.Rotate()
 }
 
+// Close closes the active audit log file.
 func (a *Audit) Close() error {
 	if a == nil {
 		return nil

@@ -9,6 +9,7 @@ import (
 	"github.com/ersinkoc/sis/internal/store"
 )
 
+// Aggregator periodically flushes live counter deltas into persistent rollups.
 type Aggregator struct {
 	counters *Counters
 	store    store.StatsStore
@@ -17,10 +18,12 @@ type Aggregator struct {
 	hasLast  bool
 }
 
+// NewAggregator creates an Aggregator for counters and statsStore.
 func NewAggregator(counters *Counters, statsStore store.StatsStore) *Aggregator {
 	return &Aggregator{counters: counters, store: statsStore, now: time.Now}
 }
 
+// Run flushes stats once per minute until ctx is canceled.
 func (a *Aggregator) Run(ctx context.Context) {
 	if a == nil || a.counters == nil || a.store == nil {
 		return
@@ -37,6 +40,7 @@ func (a *Aggregator) Run(ctx context.Context) {
 	}
 }
 
+// Flush writes one minute bucket and updates hourly and daily rollups.
 func (a *Aggregator) Flush() error {
 	snap := a.counters.Snapshot()
 	bucket := a.now().UTC().Truncate(time.Minute).Unix()

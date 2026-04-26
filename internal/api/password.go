@@ -13,6 +13,7 @@ import (
 
 const passwordIterations = 210000
 
+// HashPassword returns a PBKDF2-SHA256 encoded password hash.
 func HashPassword(password string) (string, error) {
 	return hashPassword(password)
 }

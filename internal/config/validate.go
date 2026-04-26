@@ -14,6 +14,7 @@ import (
 
 var domainPattern = regexp.MustCompile(`^(\*\.)?([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?$`)
 
+// Validate checks c for schema consistency and cross-reference errors.
 func Validate(c *Config) error {
 	if c == nil {
 		return errors.New("config: nil")

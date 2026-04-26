@@ -37,6 +37,26 @@ func TestPipelinePlaceholderCaches(t *testing.T) {
 	}
 }
 
+func TestPipelineRejectsUnsupportedOpcode(t *testing.T) {
+	p := NewPipeline(nil)
+	req := query("example.com.", mdns.TypeA)
+	req.Opcode = mdns.OpcodeStatus
+	resp := p.Handle(context.Background(), &Request{Msg: req, Proto: "udp"})
+	if resp.Msg == nil || resp.Msg.Rcode != mdns.RcodeNotImplemented {
+		t.Fatalf("expected NOTIMP response, got %#v", resp.Msg)
+	}
+}
+
+func TestPipelineRejectsUnsupportedClass(t *testing.T) {
+	p := NewPipeline(nil)
+	req := query("example.com.", mdns.TypeA)
+	req.Question[0].Qclass = mdns.ClassCHAOS
+	resp := p.Handle(context.Background(), &Request{Msg: req, Proto: "udp"})
+	if resp.Msg == nil || resp.Msg.Rcode != mdns.RcodeRefused {
+		t.Fatalf("expected REFUSED response, got %#v", resp.Msg)
+	}
+}
+
 func TestPipelineRateLimitTCPRefused(t *testing.T) {
 	p := NewPipelineWithDeps(PipelineOptions{Limiter: NewRateLimiter(1, 1)})
 	ip := net.ParseIP("192.0.2.20")

@@ -7,6 +7,7 @@ import (
 	mdns "github.com/miekg/dns"
 )
 
+// BlockOptions controls the synthetic DNS response used for blocked queries.
 type BlockOptions struct {
 	ResponseA    net.IP
 	ResponseAAAA net.IP

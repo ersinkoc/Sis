@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// Rotator writes to a file with size-based rotation, retention, and optional gzip.
 type Rotator struct {
 	path       string
 	maxBytes   int64
@@ -19,6 +20,7 @@ type Rotator struct {
 	curSize    int64
 }
 
+// NewRotator opens path and configures size and retention policies.
 func NewRotator(path string, maxBytes int64, retainDays int, gzipRotated bool) (*Rotator, error) {
 	if maxBytes <= 0 {
 		maxBytes = 100 * 1024 * 1024
@@ -44,6 +46,7 @@ func NewRotator(path string, maxBytes int64, retainDays int, gzipRotated bool) (
 	}, nil
 }
 
+// Write appends p, rotating first when the configured size would be exceeded.
 func (r *Rotator) Write(p []byte) (int, error) {
 	if r.curSize > 0 && r.curSize+int64(len(p)) > r.maxBytes {
 		if err := r.Rotate(); err != nil {
@@ -55,6 +58,7 @@ func (r *Rotator) Write(p []byte) (int, error) {
 	return n, err
 }
 
+// Rotate closes the active file, renames it with a timestamp, and opens a new file.
 func (r *Rotator) Rotate() error {
 	if r.cur == nil {
 		return nil
@@ -80,6 +84,7 @@ func (r *Rotator) Rotate() error {
 	return nil
 }
 
+// EvictOld removes rotated log files older than the retention window.
 func (r *Rotator) EvictOld() {
 	cutoff := time.Now().Add(-time.Duration(r.retainDays) * 24 * time.Hour)
 	entries, err := os.ReadDir(filepath.Dir(r.path))
@@ -100,6 +105,7 @@ func (r *Rotator) EvictOld() {
 	}
 }
 
+// Close closes the active file.
 func (r *Rotator) Close() error {
 	if r.cur == nil {
 		return nil

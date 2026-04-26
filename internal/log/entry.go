@@ -2,6 +2,7 @@ package log
 
 import "time"
 
+// Entry is one structured DNS query log record.
 type Entry struct {
 	TS          time.Time `json:"ts"`
 	ClientKey   string    `json:"client_key,omitempty"`
@@ -29,6 +30,7 @@ func (e Entry) clone() Entry {
 	return e
 }
 
+// AuditEntry is one structured administrative or system audit record.
 type AuditEntry struct {
 	TS      time.Time `json:"ts"`
 	Actor   string    `json:"actor"`

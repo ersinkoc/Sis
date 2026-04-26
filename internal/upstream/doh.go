@@ -16,6 +16,7 @@ import (
 	mdns "github.com/miekg/dns"
 )
 
+// DoHClient forwards DNS messages to a single DNS-over-HTTPS upstream.
 type DoHClient struct {
 	id        string
 	url       string
@@ -24,6 +25,7 @@ type DoHClient struct {
 	bootstrap []string
 }
 
+// NewDoHClient creates a DNS-over-HTTPS client from upstream config.
 func NewDoHClient(c config.Upstream) *DoHClient {
 	timeout := c.Timeout.Duration
 	if timeout <= 0 {
@@ -34,6 +36,7 @@ func NewDoHClient(c config.Upstream) *DoHClient {
 	return client
 }
 
+// ID returns the configured upstream identifier.
 func (c *DoHClient) ID() string {
 	return c.id
 }
@@ -79,6 +82,7 @@ func dohHost(rawURL string) string {
 	return host
 }
 
+// Forward sends msg to the DoH endpoint and returns the decoded DNS response.
 func (c *DoHClient) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, error) {
 	wire, err := msg.Pack()
 	if err != nil {

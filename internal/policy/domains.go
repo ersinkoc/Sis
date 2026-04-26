@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// Domains is a suffix-matching domain trie.
 type Domains struct {
 	root node
 	size int
@@ -15,10 +16,12 @@ type node struct {
 	terminal bool
 }
 
+// NewDomains creates an empty domain set.
 func NewDomains() *Domains {
 	return &Domains{}
 }
 
+// Add inserts a domain or wildcard suffix into the set.
 func (d *Domains) Add(domain string) bool {
 	labels, ok := labelsFor(domain)
 	if !ok {
@@ -44,6 +47,7 @@ func (d *Domains) Add(domain string) bool {
 	return true
 }
 
+// Match reports whether domain matches an inserted domain suffix.
 func (d *Domains) Match(domain string) bool {
 	if d == nil {
 		return false
@@ -69,6 +73,7 @@ func (d *Domains) Match(domain string) bool {
 	return cur.terminal
 }
 
+// Delete removes an exact domain suffix from the set.
 func (d *Domains) Delete(domain string) bool {
 	if d == nil {
 		return false
@@ -96,6 +101,7 @@ func (d *Domains) Delete(domain string) bool {
 	return true
 }
 
+// Len returns the number of inserted domain suffixes.
 func (d *Domains) Len() int {
 	if d == nil {
 		return 0
@@ -103,6 +109,7 @@ func (d *Domains) Len() int {
 	return d.size
 }
 
+// Entries returns up to limit domain entries containing query.
 func (d *Domains) Entries(query string, limit int) []string {
 	if d == nil {
 		return []string{}

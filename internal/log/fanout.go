@@ -2,6 +2,7 @@ package log
 
 import "sync"
 
+// Subscription receives live query log entries.
 type Subscription chan Entry
 
 type fanout struct {

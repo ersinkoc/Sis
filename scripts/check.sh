@@ -6,6 +6,7 @@ webui_install="${WEBUI_INSTALL:-install}"
 
 gofmt -w $(find . -name '*.go' -not -path './dist/*' -not -path './webui/node_modules/*')
 git diff --exit-code
+./scripts/godoc.sh
 
 (
   cd webui

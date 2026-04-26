@@ -8,12 +8,15 @@ import (
 	"github.com/ersinkoc/sis/internal/config"
 )
 
+// ClientResolver maps a client key to its policy group.
 type ClientResolver interface {
 	GroupOf(clientKey string) string
 }
 
+// StaticClientResolver is an in-memory client-to-group map for tests and simple callers.
 type StaticClientResolver map[string]string
 
+// GroupOf returns the configured group for clientKey or default.
 func (r StaticClientResolver) GroupOf(clientKey string) string {
 	if group := r[clientKey]; group != "" {
 		return group
@@ -21,12 +24,14 @@ func (r StaticClientResolver) GroupOf(clientKey string) string {
 	return "default"
 }
 
+// Identity identifies a client for policy evaluation.
 type Identity struct {
 	Key  string
 	Type string
 	IP   string
 }
 
+// Group is a compiled policy group.
 type Group struct {
 	Name          string
 	BaseLists     []string
@@ -34,6 +39,7 @@ type Group struct {
 	Schedules     []CompiledSchedule
 }
 
+// CompiledSchedule is a parsed schedule with minute-of-day boundaries.
 type CompiledSchedule struct {
 	Name  string
 	Days  daySet
@@ -55,6 +61,7 @@ const (
 	daySaturday
 )
 
+// CompileGroups converts config groups into policy groups.
 func CompileGroups(groups []config.Group) (map[string]*Group, error) {
 	out := make(map[string]*Group, len(groups))
 	for _, raw := range groups {
@@ -86,6 +93,7 @@ func CompileGroups(groups []config.Group) (map[string]*Group, error) {
 	return out, nil
 }
 
+// CompileSchedule parses a config schedule into an evaluable schedule.
 func CompileSchedule(raw config.Schedule) (CompiledSchedule, error) {
 	days, err := parseDays(raw.Days)
 	if err != nil {
@@ -105,6 +113,7 @@ func CompileSchedule(raw config.Schedule) (CompiledSchedule, error) {
 	}, nil
 }
 
+// ActiveAt reports whether the schedule is active at now in tz.
 func (s CompiledSchedule) ActiveAt(now time.Time, tz *time.Location) bool {
 	if tz == nil {
 		tz = time.Local

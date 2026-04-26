@@ -8,10 +8,12 @@ import (
 	"github.com/ersinkoc/sis/internal/config"
 )
 
+// AuditLogger is the audit sink used by Syncer.
 type AuditLogger interface {
 	Auditf(action, target string, before, after any) error
 }
 
+// Syncer keeps enabled blocklists refreshed and swapped into the policy engine.
 type Syncer struct {
 	cfg     *config.Holder
 	fetcher *Fetcher
@@ -22,6 +24,7 @@ type Syncer struct {
 	lastRun map[string]time.Time
 }
 
+// NewSyncer creates a blocklist sync worker.
 func NewSyncer(cfg *config.Holder, fetcher *Fetcher, engine *Engine, audit AuditLogger) *Syncer {
 	return &Syncer{
 		cfg: cfg, fetcher: fetcher, engine: engine, audit: audit,
@@ -29,6 +32,7 @@ func NewSyncer(cfg *config.Holder, fetcher *Fetcher, engine *Engine, audit Audit
 	}
 }
 
+// Run periodically syncs due blocklists until ctx is canceled.
 func (s *Syncer) Run(ctx context.Context) {
 	if s == nil {
 		return
@@ -46,6 +50,7 @@ func (s *Syncer) Run(ctx context.Context) {
 	}
 }
 
+// ForceSync synchronizes one configured blocklist immediately.
 func (s *Syncer) ForceSync(ctx context.Context, id string) (*FetchResult, error) {
 	cfg := s.cfg.Get()
 	for _, list := range cfg.Blocklists {

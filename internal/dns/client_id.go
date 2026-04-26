@@ -9,12 +9,14 @@ import (
 	"github.com/ersinkoc/sis/internal/store"
 )
 
+// Identity is the resolved client identity for a DNS query.
 type Identity struct {
 	Key  string
 	Type string
 	IP   net.IP
 }
 
+// ClientID resolves client identities and records first/last-seen metadata.
 type ClientID struct {
 	arp      *ARPTable
 	clients  store.ClientStore
@@ -24,6 +26,7 @@ type ClientID struct {
 	now      func() time.Time
 }
 
+// NewClientID creates a client identity resolver backed by ARP/NDP and the client store.
 func NewClientID(arp *ARPTable, clients store.ClientStore) *ClientID {
 	if arp == nil {
 		arp = NewARPTable(30 * time.Second)
@@ -34,6 +37,7 @@ func NewClientID(arp *ARPTable, clients store.ClientStore) *ClientID {
 	}
 }
 
+// Resolve maps an IP address to a MAC-backed identity when possible, otherwise IP-backed.
 func (c *ClientID) Resolve(ip net.IP) Identity {
 	if c == nil || ip == nil {
 		return Identity{}
@@ -44,6 +48,7 @@ func (c *ClientID) Resolve(ip net.IP) Identity {
 	return Identity{Key: ip.String(), Type: "ip", IP: ip}
 }
 
+// Touch upserts first-seen/last-seen metadata for id with debounce.
 func (c *ClientID) Touch(id Identity) error {
 	if c == nil || c.clients == nil || id.Key == "" {
 		return nil

@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// ParseStats summarizes blocklist parsing results.
 type ParseStats struct {
 	Lines     int
 	Accepted  int
@@ -14,6 +15,7 @@ type ParseStats struct {
 	Malformed int
 }
 
+// ParseBlocklist parses hosts-style or domain-only blocklist content.
 func ParseBlocklist(r io.Reader) (*Domains, ParseStats, error) {
 	domains := NewDomains()
 	var stats ParseStats

@@ -8,10 +8,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Duration wraps time.Duration with YAML and JSON string support.
 type Duration struct {
 	time.Duration
 }
 
+// UnmarshalYAML parses a duration string or numeric seconds from YAML.
 func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 	if value == nil {
 		return nil
@@ -33,14 +35,17 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 	return fmt.Errorf("duration must be a string like %q", "60s")
 }
 
+// MarshalYAML writes the duration using Go duration syntax.
 func (d Duration) MarshalYAML() (any, error) {
 	return d.Duration.String(), nil
 }
 
+// MarshalJSON writes the duration using Go duration syntax.
 func (d Duration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(d.Duration.String())
 }
 
+// UnmarshalJSON parses a duration string or numeric seconds from JSON.
 func (d *Duration) UnmarshalJSON(raw []byte) error {
 	var s string
 	if err := json.Unmarshal(raw, &s); err == nil {
@@ -59,6 +64,7 @@ func (d *Duration) UnmarshalJSON(raw []byte) error {
 	return fmt.Errorf("duration must be a string like %q", "60s")
 }
 
+// Config is the complete Sis runtime configuration.
 type Config struct {
 	Server     Server      `yaml:"server" json:"server"`
 	Cache      Cache       `yaml:"cache" json:"cache"`
@@ -73,6 +79,7 @@ type Config struct {
 	Auth       Auth        `yaml:"auth" json:"auth"`
 }
 
+// Server groups listener, storage, and timezone settings.
 type Server struct {
 	DNS     DNSServer  `yaml:"dns" json:"dns"`
 	HTTP    HTTPServer `yaml:"http" json:"http"`
@@ -80,6 +87,7 @@ type Server struct {
 	TZ      string     `yaml:"tz" json:"tz"`
 }
 
+// DNSServer configures classic DNS listeners and throttling.
 type DNSServer struct {
 	Listen         []string `yaml:"listen" json:"listen"`
 	UDPWorkers     int      `yaml:"udp_workers" json:"udp_workers"`
@@ -89,6 +97,7 @@ type DNSServer struct {
 	RateLimitBurst int      `yaml:"rate_limit_burst" json:"rate_limit_burst"`
 }
 
+// HTTPServer configures the management API and WebUI listener.
 type HTTPServer struct {
 	Listen   string `yaml:"listen" json:"listen"`
 	TLS      bool   `yaml:"tls" json:"tls"`
@@ -96,6 +105,7 @@ type HTTPServer struct {
 	KeyFile  string `yaml:"key_file" json:"key_file"`
 }
 
+// Cache configures DNS response caching behavior.
 type Cache struct {
 	MaxEntries  int      `yaml:"max_entries" json:"max_entries"`
 	MinTTL      Duration `yaml:"min_ttl" json:"min_ttl"`
@@ -103,6 +113,7 @@ type Cache struct {
 	NegativeTTL Duration `yaml:"negative_ttl" json:"negative_ttl"`
 }
 
+// Privacy configures upstream and logging privacy behavior.
 type Privacy struct {
 	StripECS      bool   `yaml:"strip_ecs" json:"strip_ecs"`
 	BlockLocalPTR bool   `yaml:"block_local_ptr" json:"block_local_ptr"`
@@ -110,6 +121,7 @@ type Privacy struct {
 	LogSalt       string `yaml:"log_salt" json:"log_salt"`
 }
 
+// Logging configures query and audit log persistence.
 type Logging struct {
 	QueryLog     bool `yaml:"query_log" json:"query_log"`
 	AuditLog     bool `yaml:"audit_log" json:"audit_log"`
@@ -118,6 +130,7 @@ type Logging struct {
 	Gzip         bool `yaml:"gzip" json:"gzip"`
 }
 
+// Block configures synthetic responses for blocked queries.
 type Block struct {
 	ResponseA    string   `yaml:"response_a" json:"response_a"`
 	ResponseAAAA string   `yaml:"response_aaaa" json:"response_aaaa"`
@@ -125,6 +138,7 @@ type Block struct {
 	UseNXDOMAIN bool     `yaml:"use_nxdomain" json:"use_nxdomain"`
 }
 
+// Upstream configures one DNS-over-HTTPS resolver.
 type Upstream struct {
 	ID        string   `yaml:"id" json:"id"`
 	Name      string   `yaml:"name" json:"name"`
@@ -133,6 +147,7 @@ type Upstream struct {
 	Timeout   Duration `yaml:"timeout" json:"timeout"`
 }
 
+// Blocklist configures one managed blocklist source.
 type Blocklist struct {
 	ID              string   `yaml:"id" json:"id"`
 	Name            string   `yaml:"name" json:"name"`
@@ -141,10 +156,12 @@ type Blocklist struct {
 	RefreshInterval Duration `yaml:"refresh_interval" json:"refresh_interval"`
 }
 
+// Allowlist configures globally allowed domain suffixes.
 type Allowlist struct {
 	Domains []string `yaml:"domains" json:"domains"`
 }
 
+// Group configures a client policy group.
 type Group struct {
 	Name       string     `yaml:"name" json:"name"`
 	Blocklists []string   `yaml:"blocklists" json:"blocklists"`
@@ -152,6 +169,7 @@ type Group struct {
 	Schedules  []Schedule `yaml:"schedules" json:"schedules"`
 }
 
+// Schedule configures time-windowed extra blocklists for a group.
 type Schedule struct {
 	Name  string   `yaml:"name" json:"name"`
 	Days  []string `yaml:"days" json:"days"`
@@ -160,6 +178,7 @@ type Schedule struct {
 	Block []string `yaml:"block" json:"block"`
 }
 
+// Client configures static metadata for a known client.
 type Client struct {
 	Key   string `yaml:"key" json:"key"`
 	Type  string `yaml:"type" json:"type"`
@@ -168,6 +187,7 @@ type Client struct {
 	Hidden bool  `yaml:"hidden" json:"hidden"`
 }
 
+// Auth configures local users and cookie sessions.
 type Auth struct {
 	Users      []User   `yaml:"users" json:"users"`
 	FirstRun   bool     `yaml:"first_run" json:"first_run"`
@@ -175,6 +195,7 @@ type Auth struct {
 	CookieName string   `yaml:"cookie_name" json:"cookie_name"`
 }
 
+// User configures one local management user.
 type User struct {
 	Username     string `yaml:"username" json:"username"`
 	PasswordHash string `yaml:"password_hash" json:"password_hash"`

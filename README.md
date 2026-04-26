@@ -27,6 +27,16 @@ This repository is in early v1 implementation. The current tree includes:
 
 ## Usage
 
+Quick local start:
+
+```sh
+make build
+./bin/sis config validate -config examples/sis.yaml
+./bin/sis serve -config examples/sis.yaml
+```
+
+Then open `http://127.0.0.1:8080` and complete first-run setup. The development DNS listener is `127.0.0.1:5353`, so local DNS checks can target it without binding privileged port 53.
+
 Build a local binary:
 
 ```sh
@@ -123,6 +133,8 @@ make check
 make fmt
 make test
 make coverage
+make bench
+make godoc
 make build
 make release
 ```
@@ -130,11 +142,16 @@ make release
 `make coverage` runs `scripts/coverage.sh`, which fails unless total Go coverage is at least
 `COVERAGE_THRESHOLD` (`100.0` by default). CI also runs WebUI install/build/lint and the same
 100% Go coverage gate before building the binary.
+`make bench` runs the Go benchmark suite with allocation reporting; set `BENCHTIME` or `BENCHCOUNT` for longer local runs.
+`make godoc` checks that exported Go declarations have GoDoc comments.
 `make check` runs the full CI-style gate: Go formatting drift check, WebUI build/lint,
 100% Go coverage, and binary build.
 
 The v1 design lives in:
 
+- `ARCHITECTURE.md`
 - `.project/SPECIFICATION.md`
 - `.project/IMPLEMENTATION.md`
 - `.project/TASKS.md`
+
+Release process notes live in `.github/RELEASE.md`.

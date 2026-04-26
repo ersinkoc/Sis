@@ -21,6 +21,7 @@ import (
 	"github.com/ersinkoc/sis/internal/webui"
 )
 
+// Server serves the authenticated management API and embedded WebUI.
 type Server struct {
 	cfg          *config.Holder
 	handler      http.Handler
@@ -39,10 +40,12 @@ type Server struct {
 	loginLimiter *rateLimiter
 }
 
+// New creates an API server with default dependencies.
 func New(cfg *config.Holder, logger *slog.Logger) *Server {
 	return NewWithDeps(Options{Config: cfg, Logger: logger})
 }
 
+// Options wires runtime dependencies into the API server.
 type Options struct {
 	Config     *config.Holder
 	Logger     *slog.Logger
@@ -58,6 +61,7 @@ type Options struct {
 	ConfigPath string
 }
 
+// NewWithDeps creates an API server with explicit dependencies.
 func NewWithDeps(opts Options) *Server {
 	logger := opts.Logger
 	if logger == nil {
@@ -122,10 +126,12 @@ func NewWithDeps(opts Options) *Server {
 	return s
 }
 
+// Handler returns the server's root HTTP handler.
 func (s *Server) Handler() http.Handler {
 	return s.handler
 }
 
+// Start listens and serves HTTP or HTTPS until ctx is canceled.
 func (s *Server) Start(ctx context.Context) error {
 	addr := "0.0.0.0:8080"
 	httpCfg := config.HTTPServer{}
@@ -157,6 +163,7 @@ func (s *Server) Start(ctx context.Context) error {
 	return err
 }
 
+// Shutdown gracefully shuts down the HTTP server.
 func (s *Server) Shutdown(ctx context.Context) error {
 	if s.server == nil {
 		return nil

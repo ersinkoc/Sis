@@ -10,6 +10,7 @@ import (
 	mdns "github.com/miekg/dns"
 )
 
+// Pool holds configured DoH clients and forwards through healthy upstreams.
 type Pool struct {
 	mu      sync.RWMutex
 	clients []*pooledClient
@@ -21,18 +22,21 @@ type pooledClient struct {
 	errors  int
 }
 
+// Attempt records the outcome of one upstream forwarding attempt.
 type Attempt struct {
 	ID      string
 	OK      bool
 	Healthy bool
 }
 
+// NewPool creates a forwarding pool from upstream configs.
 func NewPool(upstreams []config.Upstream) *Pool {
 	p := &Pool{}
 	p.Replace(upstreams)
 	return p
 }
 
+// Replace atomically replaces all configured upstream clients.
 func (p *Pool) Replace(upstreams []config.Upstream) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -42,6 +46,7 @@ func (p *Pool) Replace(upstreams []config.Upstream) {
 	}
 }
 
+// Forward tries each healthy upstream until one returns a DNS response.
 func (p *Pool) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, string, []Attempt, error) {
 	p.mu.RLock()
 	var candidates []*DoHClient
@@ -70,6 +75,7 @@ func (p *Pool) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, string, [
 	return nil, "", attempts, lastErr
 }
 
+// Test probes a configured upstream by ID and updates its health state.
 func (p *Pool) Test(ctx context.Context, id string) (*mdns.Msg, error) {
 	p.mu.RLock()
 	var client *DoHClient
@@ -92,6 +98,7 @@ func (p *Pool) Test(ctx context.Context, id string) (*mdns.Msg, error) {
 	return resp, nil
 }
 
+// RunHealthProber periodically probes unhealthy upstreams until ctx is canceled.
 func (p *Pool) RunHealthProber(ctx context.Context, interval time.Duration) {
 	if p == nil {
 		return
@@ -111,6 +118,7 @@ func (p *Pool) RunHealthProber(ctx context.Context, interval time.Duration) {
 	}
 }
 
+// ProbeUnhealthy probes currently unhealthy upstreams once.
 func (p *Pool) ProbeUnhealthy(ctx context.Context) {
 	for _, client := range p.unhealthyClients() {
 		probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -166,6 +174,7 @@ func (p *Pool) markFailure(id string) {
 	}
 }
 
+// HealthyIDs returns IDs for upstreams currently marked healthy.
 func (p *Pool) HealthyIDs() []string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -178,6 +187,7 @@ func (p *Pool) HealthyIDs() []string {
 	return out
 }
 
+// AllIDs returns IDs for every configured upstream.
 func (p *Pool) AllIDs() []string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -188,6 +198,7 @@ func (p *Pool) AllIDs() []string {
 	return out
 }
 
+// IsHealthy reports whether the upstream id is currently marked healthy.
 func (p *Pool) IsHealthy(id string) bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

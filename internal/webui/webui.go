@@ -11,6 +11,7 @@ import (
 //go:embed all:dist
 var assets embed.FS
 
+// Handler serves the embedded WebUI assets with SPA fallback behavior.
 func Handler() http.Handler {
 	sub, err := fs.Sub(assets, "dist")
 	if err != nil {

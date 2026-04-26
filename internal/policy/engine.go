@@ -7,6 +7,7 @@ import (
 	"github.com/ersinkoc/sis/internal/config"
 )
 
+// Engine owns compiled policy state and supports lock-free snapshots for evaluation.
 type Engine struct {
 	mu          sync.RWMutex
 	groups      map[string]*Group
@@ -18,12 +19,14 @@ type Engine struct {
 	tz          *time.Location
 }
 
+// Decision is the result of evaluating one DNS query against policy.
 type Decision struct {
 	Blocked bool
 	Reason  string
 	List    string
 }
 
+// Policy is an immutable evaluation snapshot for one client identity.
 type Policy struct {
 	group       *Group
 	lists       map[string]*Domains
@@ -33,6 +36,7 @@ type Policy struct {
 	tz          *time.Location
 }
 
+// NewEngine compiles config policy and creates an Engine.
 func NewEngine(c *config.Config, clients ClientResolver) (*Engine, error) {
 	if clients == nil {
 		clients = StaticClientResolver{}
@@ -62,6 +66,7 @@ func NewEngine(c *config.Config, clients ClientResolver) (*Engine, error) {
 	}, nil
 }
 
+// For returns a policy snapshot for id using the configured client resolver.
 func (e *Engine) For(id Identity) *Policy {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -85,6 +90,7 @@ func (e *Engine) For(id Identity) *Policy {
 	}
 }
 
+// ReplaceList swaps one compiled blocklist into the engine.
 func (e *Engine) ReplaceList(id string, domains *Domains) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -95,6 +101,7 @@ func (e *Engine) ReplaceList(id string, domains *Domains) {
 	e.lists[id] = domains
 }
 
+// ListEntries returns searchable entries for a compiled blocklist.
 func (e *Engine) ListEntries(id, query string, limit int) ([]string, bool) {
 	if e == nil {
 		return nil, false
@@ -108,30 +115,35 @@ func (e *Engine) ListEntries(id, query string, limit int) ([]string, bool) {
 	return domains.Entries(query, limit), true
 }
 
+// AddCustomBlock adds a domain to the runtime custom blocklist.
 func (e *Engine) AddCustomBlock(domain string) bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.custom.Add(domain)
 }
 
+// RemoveCustomBlock removes a domain from the runtime custom blocklist.
 func (e *Engine) RemoveCustomBlock(domain string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.custom.Delete(domain)
 }
 
+// AddCustomAllow adds a domain to the runtime custom allowlist.
 func (e *Engine) AddCustomAllow(domain string) bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.customAllow.Add(domain)
 }
 
+// RemoveCustomAllow removes a domain from the runtime custom allowlist.
 func (e *Engine) RemoveCustomAllow(domain string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.customAllow.Delete(domain)
 }
 
+// ReloadConfig recompiles config-derived policy while preserving downloaded and custom lists.
 func (e *Engine) ReloadConfig(c *config.Config) error {
 	groups, err := CompileGroups(c.Groups)
 	if err != nil {
@@ -159,6 +171,7 @@ func (e *Engine) ReloadConfig(c *config.Config) error {
 	return nil
 }
 
+// Evaluate returns the policy decision for qname at now.
 func (p *Policy) Evaluate(qname string, _ uint16, now time.Time) Decision {
 	if p == nil || p.group == nil {
 		return Decision{}

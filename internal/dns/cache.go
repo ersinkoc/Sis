@@ -8,6 +8,7 @@ import (
 	mdns "github.com/miekg/dns"
 )
 
+// CacheOptions configures the DNS response cache.
 type CacheOptions struct {
 	MaxEntries  int
 	MinTTL      time.Duration
@@ -15,6 +16,7 @@ type CacheOptions struct {
 	NegativeTTL time.Duration
 }
 
+// Cache is an in-memory LRU DNS response cache with TTL clamping.
 type Cache struct {
 	mu         sync.Mutex
 	maxEntries int
@@ -38,6 +40,7 @@ type cacheEntry struct {
 	expires time.Time
 }
 
+// NewCache creates a cache with sane defaults for omitted options.
 func NewCache(opts CacheOptions) *Cache {
 	if opts.MaxEntries <= 0 {
 		opts.MaxEntries = 100000
@@ -57,6 +60,7 @@ func NewCache(opts CacheOptions) *Cache {
 	}
 }
 
+// Get returns a cached response, rewriting the DNS ID and question for req.
 func (c *Cache) Get(key cacheKey, req *mdns.Msg) (*mdns.Msg, bool) {
 	if c == nil {
 		return nil, false
@@ -92,6 +96,7 @@ func (c *Cache) Get(key cacheKey, req *mdns.Msg) (*mdns.Msg, bool) {
 	return &msg, true
 }
 
+// Put stores a response using the effective TTL derived from the DNS message.
 func (c *Cache) Put(key cacheKey, msg *mdns.Msg) {
 	if c == nil || msg == nil || c.maxEntries <= 0 {
 		return
@@ -120,6 +125,7 @@ func (c *Cache) Put(key cacheKey, msg *mdns.Msg) {
 	}
 }
 
+// Flush removes all cached responses.
 func (c *Cache) Flush() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -127,6 +133,7 @@ func (c *Cache) Flush() {
 	c.lru.Init()
 }
 
+// Reconfigure updates cache limits and TTL policy while preserving live entries.
 func (c *Cache) Reconfigure(opts CacheOptions) {
 	if c == nil {
 		return
@@ -143,6 +150,7 @@ func (c *Cache) Reconfigure(opts CacheOptions) {
 	}
 }
 
+// Len returns the current number of cached entries.
 func (c *Cache) Len() int {
 	if c == nil {
 		return 0

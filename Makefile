@@ -6,8 +6,10 @@ DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w -X '$(MODULE)/pkg/version.Version=$(VERSION)' -X '$(MODULE)/pkg/version.Commit=$(COMMIT)' -X '$(MODULE)/pkg/version.Date=$(DATE)'
 
 WEBUI_PM := $(shell command -v pnpm >/dev/null 2>&1 && echo pnpm || echo npm)
+BENCHTIME ?= 100ms
+BENCHCOUNT ?= 1
 
-.PHONY: build test coverage lint fmt webui webui-check check all release clean
+.PHONY: build test coverage bench godoc lint fmt webui webui-check check all release clean
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/$(APP) ./cmd/sis
@@ -17,6 +19,12 @@ test:
 
 coverage:
 	./scripts/coverage.sh
+
+bench:
+	go test -run '^$$' -bench=. -benchmem -benchtime=$(BENCHTIME) -count=$(BENCHCOUNT) ./...
+
+godoc:
+	./scripts/godoc.sh
 
 lint:
 	go vet ./...

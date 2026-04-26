@@ -9,10 +9,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Loader reads and writes Sis YAML configuration files.
 type Loader struct {
 	Path string
 }
 
+// Load reads, defaults, applies environment overrides, and validates a config file.
 func (l *Loader) Load() (*Config, error) {
 	raw, err := os.ReadFile(l.Path)
 	if err != nil {
@@ -30,6 +32,7 @@ func (l *Loader) Load() (*Config, error) {
 	return &c, nil
 }
 
+// Save writes c to the loader path as YAML.
 func (l *Loader) Save(c *Config) error {
 	raw, err := yaml.Marshal(c)
 	if err != nil {

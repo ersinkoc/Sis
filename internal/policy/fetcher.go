@@ -13,11 +13,13 @@ import (
 	"time"
 )
 
+// Fetcher downloads blocklists and maintains an on-disk cache.
 type Fetcher struct {
 	Client   *http.Client
 	CacheDir string
 }
 
+// FetchResult is the parsed output of one blocklist fetch.
 type FetchResult struct {
 	ID        string
 	Domains   *Domains
@@ -33,6 +35,7 @@ type cacheMeta struct {
 	FetchedAt    time.Time `json:"fetched_at"`
 }
 
+// NewFetcher creates a blocklist fetcher using cacheDir for content and metadata.
 func NewFetcher(cacheDir string) *Fetcher {
 	return &Fetcher{
 		Client:   &http.Client{Timeout: 30 * time.Second},
@@ -40,6 +43,7 @@ func NewFetcher(cacheDir string) *Fetcher {
 	}
 }
 
+// Fetch retrieves and parses a blocklist, falling back to cached content on errors.
 func (f *Fetcher) Fetch(ctx context.Context, id, rawURL string) (*FetchResult, error) {
 	if id == "" {
 		return nil, fmt.Errorf("blocklist id is required")
