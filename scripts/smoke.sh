@@ -97,6 +97,19 @@ for _ in $(seq 1 50); do
       echo "${logs_out}" >&2
       exit 1
     fi
+    stats_out="$(curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/stats/summary")"
+    if [[ "${stats_out}" != *'"blocked_total":'* || "${stats_out}" == *'"blocked_total":0'* ]]; then
+      echo "smoke: stats summary did not record blocked query" >&2
+      echo "${stats_out}" >&2
+      exit 1
+    fi
+    top_out="$(curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/stats/top-domains?blocked=true&limit=5")"
+    if [[ "${top_out}" != *"blocked.example.com."* ]]; then
+      echo "smoke: blocked top-domains did not include blocked.example.com" >&2
+      echo "${top_out}" >&2
+      exit 1
+    fi
+    echo "smoke: stats API passed"
     echo "smoke: auth setup, API summary, and API query policy passed"
     exit 0
   fi
