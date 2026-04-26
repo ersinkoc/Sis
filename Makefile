@@ -9,7 +9,10 @@ WEBUI_PM := $(shell command -v pnpm >/dev/null 2>&1 && echo pnpm || echo npm)
 BENCHTIME ?= 100ms
 BENCHCOUNT ?= 1
 
-.PHONY: build test coverage bench godoc lint fmt webui webui-check check all release clean
+.PHONY: preflight build test coverage bench godoc lint fmt webui webui-check check all release clean
+
+preflight:
+	./scripts/preflight.sh
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/$(APP) ./cmd/sis
@@ -41,10 +44,10 @@ webui:
 webui-check:
 	cd webui && $(WEBUI_PM) install && $(WEBUI_PM) run build && $(WEBUI_PM) run lint
 
-check:
+check: preflight
 	WEBUI_PM=$(WEBUI_PM) ./scripts/check.sh
 
-all: webui fmt lint coverage build
+all: preflight webui fmt lint coverage build
 
 release:
 	./scripts/build.sh

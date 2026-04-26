@@ -129,6 +129,7 @@ sis query -api http://127.0.0.1:8080 -cookie 'sis_session=...' test example.com 
 ## Development
 
 ```sh
+make preflight
 make check
 make fmt
 make test
@@ -144,6 +145,7 @@ make release
 100% Go coverage gate before building the binary.
 `make bench` runs the Go benchmark suite with allocation reporting; set `BENCHTIME` or `BENCHCOUNT` for longer local runs.
 `make godoc` checks that exported Go declarations have GoDoc comments.
+`make preflight` verifies that required local tools such as Go, gofmt, and npm are installed.
 `make check` runs the full CI-style gate: Go formatting drift check, WebUI build/lint,
 100% Go coverage, and binary build.
 
