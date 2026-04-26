@@ -44,6 +44,14 @@ make build
 ./bin/sis version
 ```
 
+Without `make`, use the scripts directly:
+
+```sh
+./scripts/check.sh
+./scripts/build.sh
+./scripts/smoke.sh
+```
+
 Run in development mode:
 
 ```sh
@@ -140,14 +148,18 @@ make build
 make release
 ```
 
+`scripts/check.sh` runs the same main gate without requiring `make`: Go format drift check,
+GoDoc, WebUI install/build/lint, Go coverage, Go vet, binary build, and a local serve smoke test.
+`scripts/build.sh` creates the release binaries and `dist/SHA256SUMS`.
+`scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies `/healthz`.
 `make coverage` runs `scripts/coverage.sh`, which fails unless total Go coverage is at least
 `COVERAGE_THRESHOLD` (`60.0` by default). CI also runs WebUI install/build/lint, Go vet,
-the same coverage gate, and a binary build.
+the same coverage gate, binary build, and smoke test.
 `make bench` runs the Go benchmark suite with allocation reporting; set `BENCHTIME` or `BENCHCOUNT` for longer local runs.
 `make godoc` checks that exported Go declarations have GoDoc comments.
 `make preflight` verifies that required local tools such as Go, gofmt, and npm are installed.
 `make check` runs the full CI-style gate: Go formatting drift check, WebUI build/lint,
-Go coverage, Go vet, and binary build.
+Go coverage, Go vet, binary build, and smoke test.
 
 The v1 design lives in:
 

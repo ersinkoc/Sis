@@ -24,3 +24,4 @@ git diff --exit-code
 ./scripts/coverage.sh
 go vet ${go_packages}
 CGO_ENABLED=0 go build -trimpath -o bin/sis ./cmd/sis
+./scripts/smoke.sh
