@@ -33,6 +33,25 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestHTTPServerTimeouts(t *testing.T) {
+	server := newHTTPServer(http.NewServeMux())
+	if server.ReadHeaderTimeout != 5*time.Second {
+		t.Fatalf("read header timeout = %s", server.ReadHeaderTimeout)
+	}
+	if server.ReadTimeout != 15*time.Second {
+		t.Fatalf("read timeout = %s", server.ReadTimeout)
+	}
+	if server.WriteTimeout != 30*time.Second {
+		t.Fatalf("write timeout = %s", server.WriteTimeout)
+	}
+	if server.IdleTimeout != 120*time.Second {
+		t.Fatalf("idle timeout = %s", server.IdleTimeout)
+	}
+	if server.MaxHeaderBytes != 1<<20 {
+		t.Fatalf("max header bytes = %d", server.MaxHeaderBytes)
+	}
+}
+
 func TestWebUIRootIsPublic(t *testing.T) {
 	s := New(testHolder(), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

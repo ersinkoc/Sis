@@ -149,7 +149,7 @@ func (s *Server) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	s.server = &http.Server{Handler: s.handler, ReadHeaderTimeout: 5 * time.Second}
+	s.server = newHTTPServer(s.handler)
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -165,6 +165,17 @@ func (s *Server) Start(ctx context.Context) error {
 		return nil
 	}
 	return err
+}
+
+func newHTTPServer(handler http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
 }
 
 // Shutdown gracefully shuts down the HTTP server.
