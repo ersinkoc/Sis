@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -137,6 +138,9 @@ func (s *Server) Handler() http.Handler {
 
 // Start listens and serves HTTP or HTTPS until ctx is canceled.
 func (s *Server) Start(ctx context.Context) error {
+	if s == nil || s.handler == nil {
+		return errors.New("api server handler is required")
+	}
 	addr := "0.0.0.0:8080"
 	httpCfg := config.HTTPServer{}
 	if s.cfg != nil && s.cfg.Get() != nil {

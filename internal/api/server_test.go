@@ -65,6 +65,12 @@ func TestHTTPServerTimeouts(t *testing.T) {
 	}
 }
 
+func TestAPIStartRequiresHandler(t *testing.T) {
+	if err := (&Server{}).Start(context.Background()); err == nil {
+		t.Fatal("expected missing handler error")
+	}
+}
+
 func TestWebUIRootIsPublic(t *testing.T) {
 	s := New(testHolder(), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
