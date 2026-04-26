@@ -106,6 +106,9 @@ func (c *DoHClient) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, erro
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("upstream %s: HTTP %d", c.id, resp.StatusCode)
 	}
+	if contentType := resp.Header.Get("Content-Type"); contentType != "" && !isDNSMessageContent(contentType) {
+		return nil, fmt.Errorf("upstream %s: unexpected content type %q", c.id, contentType)
+	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxDNSMessageSize+1))
 	if err != nil {
 		return nil, err
@@ -121,4 +124,9 @@ func (c *DoHClient) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, erro
 		return nil, fmt.Errorf("upstream %s: mismatched response id", c.id)
 	}
 	return &out, nil
+}
+
+func isDNSMessageContent(contentType string) bool {
+	contentType = strings.ToLower(strings.TrimSpace(contentType))
+	return contentType == "application/dns-message" || strings.HasPrefix(contentType, "application/dns-message;")
 }

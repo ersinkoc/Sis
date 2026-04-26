@@ -105,6 +105,27 @@ func TestDoHClientRejectsOversizedResponse(t *testing.T) {
 	}
 }
 
+func TestDoHClientRejectsUnexpectedContentType(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("not dns"))
+	}))
+	defer server.Close()
+
+	client := NewDoHClient(config.Upstream{ID: "test", URL: server.URL})
+	msg := new(mdns.Msg)
+	msg.SetQuestion("example.com.", mdns.TypeA)
+	if _, err := client.Forward(context.Background(), msg); err == nil {
+		t.Fatal("expected content type error")
+	}
+}
+
+func TestDNSMessageContentTypeAllowsParameters(t *testing.T) {
+	if !isDNSMessageContent("application/dns-message; charset=binary") {
+		t.Fatal("expected content type with parameters to be accepted")
+	}
+}
+
 func TestDoHHost(t *testing.T) {
 	if got := dohHost("https://cloudflare-dns.com/dns-query"); got != "cloudflare-dns.com" {
 		t.Fatalf("host = %q", got)
