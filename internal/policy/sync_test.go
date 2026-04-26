@@ -85,3 +85,16 @@ func TestSyncerForceSyncRequiresDependencies(t *testing.T) {
 		t.Fatalf("empty syncer err = %v", err)
 	}
 }
+
+func TestSyncerRunAcceptsNilContextOnNilSyncer(t *testing.T) {
+	done := make(chan struct{})
+	go func() {
+		(*Syncer)(nil).Run(nil)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("nil syncer run did not return")
+	}
+}

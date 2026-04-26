@@ -38,6 +38,9 @@ func (s *Syncer) Run(ctx context.Context) {
 	if s == nil {
 		return
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	s.syncDue(ctx, true)
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
