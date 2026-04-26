@@ -71,3 +71,11 @@ func TestTopDomainsAndClients(t *testing.T) {
 		t.Fatalf("clients = %#v", clients)
 	}
 }
+
+func TestEmptyUpstreamIDIsNotStored(t *testing.T) {
+	c := New()
+	c.Upstream("").IncRequest()
+	if len(c.Snapshot().Upstreams) != 0 {
+		t.Fatalf("unexpected upstreams = %#v", c.Snapshot().Upstreams)
+	}
+}

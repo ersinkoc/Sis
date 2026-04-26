@@ -132,6 +132,9 @@ func (c *Counters) TopClients(n int) []TopItem {
 
 // Upstream returns live counters for upstream id, creating them if needed.
 func (c *Counters) Upstream(id string) *UpstreamCounters {
+	if id == "" {
+		return newUpstreamCounters()
+	}
 	value, _ := c.upstreams.LoadOrStore(id, newUpstreamCounters())
 	return value.(*UpstreamCounters)
 }
