@@ -173,6 +173,9 @@ func (p *Pipeline) rateLimiter() *RateLimiter {
 }
 
 func (p *Pipeline) finish(r *Request, id Identity, msg *mdns.Msg, source string, blocked bool, reason, list string) *Response {
+	if msg != nil {
+		msg.RecursionAvailable = true
+	}
 	resp := &Response{Msg: msg, Source: source, Latency: time.Since(r.StartedAt)}
 	p.stats.ObserveLatency(resp.Latency)
 	if len(r.Msg.Question) > 0 {

@@ -57,6 +57,18 @@ func TestPipelineRejectsUnsupportedClass(t *testing.T) {
 	}
 }
 
+func TestPipelineFinishSetsRecursionAvailable(t *testing.T) {
+	p := NewPipeline(nil)
+	req := query("example.com.", mdns.TypeA)
+	msg := new(mdns.Msg)
+	msg.SetReply(req)
+	msg.RecursionAvailable = false
+	resp := p.finish(&Request{Msg: req, StartedAt: time.Now()}, Identity{}, msg, "upstream:test", false, "", "")
+	if resp.Msg == nil || !resp.Msg.RecursionAvailable {
+		t.Fatalf("expected RA bit to be set, got %#v", resp.Msg)
+	}
+}
+
 func TestPipelineRateLimitTCPRefused(t *testing.T) {
 	p := NewPipelineWithDeps(PipelineOptions{Limiter: NewRateLimiter(1, 1)})
 	ip := net.ParseIP("192.0.2.20")
