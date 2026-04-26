@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -86,6 +87,15 @@ func TestPolicyReloadRemovesDisabledBlocklists(t *testing.T) {
 	}
 	if decision := engine.For(Identity{Key: "client"}).Evaluate("ads.example.com", 1, time.Now()); decision.Blocked {
 		t.Fatalf("disabled blocklist should not block, got %#v", decision)
+	}
+}
+
+func TestPolicyEngineRequiresConfig(t *testing.T) {
+	if _, err := NewEngine(nil, StaticClientResolver{}); err == nil || !strings.Contains(err.Error(), "config") {
+		t.Fatalf("new engine err = %v", err)
+	}
+	if err := (*Engine)(nil).ReloadConfig(&config.Config{}); err == nil || !strings.Contains(err.Error(), "required") {
+		t.Fatalf("reload nil engine err = %v", err)
 	}
 }
 

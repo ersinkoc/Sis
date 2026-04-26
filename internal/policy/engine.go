@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -38,6 +39,9 @@ type Policy struct {
 
 // NewEngine compiles config policy and creates an Engine.
 func NewEngine(c *config.Config, clients ClientResolver) (*Engine, error) {
+	if c == nil {
+		return nil, errors.New("policy config is required")
+	}
 	if clients == nil {
 		clients = StaticClientResolver{}
 	}
@@ -145,6 +149,9 @@ func (e *Engine) RemoveCustomAllow(domain string) {
 
 // ReloadConfig recompiles config-derived policy while preserving downloaded and custom lists.
 func (e *Engine) ReloadConfig(c *config.Config) error {
+	if e == nil || c == nil {
+		return errors.New("policy engine and config are required")
+	}
 	groups, err := CompileGroups(c.Groups)
 	if err != nil {
 		return err
