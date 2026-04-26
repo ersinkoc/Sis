@@ -100,6 +100,32 @@ for _ in $(seq 1 50); do
     fi
     echo "smoke: CLI API system info passed"
 
+    settings_out="$(curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/settings")"
+    if [[ "${settings_out}" != *'"cache":'* || "${settings_out}" != *'"privacy":'* ]]; then
+      echo "smoke: settings API failed" >&2
+      echo "${settings_out}" >&2
+      exit 1
+    fi
+    upstreams_out="$(curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/upstreams")"
+    if [[ "${upstreams_out}" != *'"id":"cloudflare"'* ]]; then
+      echo "smoke: upstreams API failed" >&2
+      echo "${upstreams_out}" >&2
+      exit 1
+    fi
+    blocklists_out="$(curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/blocklists")"
+    if [[ "${blocklists_out}" != *'"id":"ads"'* ]]; then
+      echo "smoke: blocklists API failed" >&2
+      echo "${blocklists_out}" >&2
+      exit 1
+    fi
+    groups_out="$(curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/groups")"
+    if [[ "${groups_out}" != *'"name":"default"'* ]]; then
+      echo "smoke: groups API failed" >&2
+      echo "${groups_out}" >&2
+      exit 1
+    fi
+    echo "smoke: settings and inventory APIs passed"
+
     curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/stats/summary" >/dev/null
     api_query_out="$(curl -fsS -b "${tmp}/cookies.txt" \
       -H 'content-type: application/json' \
