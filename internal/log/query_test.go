@@ -255,6 +255,16 @@ func TestAuditWriteAfterCloseIsNoop(t *testing.T) {
 	}
 }
 
+func TestAuditZeroValueWriteIsNoop(t *testing.T) {
+	var a Audit
+	if err := a.Write(&AuditEntry{Action: "zero"}); err != nil {
+		t.Fatalf("zero-value audit write err = %v", err)
+	}
+	if err := a.Auditf("zero", "target", nil, nil); err != nil {
+		t.Fatalf("zero-value auditf err = %v", err)
+	}
+}
+
 func testConfig(t *testing.T) *config.Config {
 	t.Helper()
 	return &config.Config{
