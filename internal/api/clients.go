@@ -21,7 +21,7 @@ func (s *Server) clientsList(w http.ResponseWriter, _ *http.Request) {
 	}
 	clients, err := s.store.Clients().List()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "clients unavailable", err)
 		return
 	}
 	writeJSON(w, clients)
@@ -38,7 +38,7 @@ func (s *Server) clientGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "client unavailable", err)
 		return
 	}
 	writeJSON(w, client)
@@ -56,7 +56,7 @@ func (s *Server) clientPatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "client unavailable", err)
 		return
 	}
 	before := *client
@@ -82,7 +82,7 @@ func (s *Server) clientPatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.Clients().Upsert(client); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "client update failed", err)
 		return
 	}
 	if s.audit != nil {
@@ -103,11 +103,11 @@ func (s *Server) clientDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "client unavailable", err)
 		return
 	}
 	if err := s.store.Clients().Delete(key); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		s.internalError(w, "client delete failed", err)
 		return
 	}
 	if s.audit != nil {
