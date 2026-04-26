@@ -112,14 +112,15 @@ func (c *Cache) Put(key cacheKey, msg *mdns.Msg) {
 	if err != nil {
 		return
 	}
+	now := c.now()
 	if elem := c.items[key]; elem != nil {
 		entry := elem.Value.(*cacheEntry)
 		entry.wire = wire
-		entry.expires = c.now().Add(ttl)
+		entry.expires = now.Add(ttl)
 		c.lru.MoveToFront(elem)
 		return
 	}
-	entry := &cacheEntry{key: key, wire: wire, expires: c.now().Add(ttl)}
+	entry := &cacheEntry{key: key, wire: wire, expires: now.Add(ttl)}
 	c.items[key] = c.lru.PushFront(entry)
 	for len(c.items) > c.maxEntries {
 		c.remove(c.lru.Back())

@@ -53,6 +53,25 @@ func TestCacheGetUsesCacheClockForRemainingTTL(t *testing.T) {
 	}
 }
 
+func TestCachePutUsesSingleTimestamp(t *testing.T) {
+	now := time.Unix(1000, 0)
+	calls := 0
+	cache := NewCache(CacheOptions{MaxEntries: 2, MinTTL: time.Second, MaxTTL: time.Hour})
+	cache.now = func() time.Time {
+		calls++
+		return now.Add(time.Duration(calls-1) * time.Second)
+	}
+	req := query("example.com.", mdns.TypeA)
+	resp := new(mdns.Msg)
+	resp.SetReply(req)
+	resp.Answer = []mdns.RR{&mdns.A{Hdr: rrHeader("example.com.", mdns.TypeA, 30), A: net.IPv4(1, 2, 3, 4)}}
+	key := cacheKey{qname: "example.com.", qtype: mdns.TypeA, qclass: mdns.ClassINET}
+	cache.Put(key, resp)
+	if calls != 1 {
+		t.Fatalf("now calls = %d, want 1", calls)
+	}
+}
+
 func TestCacheDoesNotStoreSERVFAIL(t *testing.T) {
 	cache := NewCache(CacheOptions{MaxEntries: 2})
 	req := query("example.com.", mdns.TypeA)
