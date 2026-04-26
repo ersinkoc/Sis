@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -181,6 +183,16 @@ func TestValidateNonNegativeRuntimeNumbers(t *testing.T) {
 	} {
 		assertErrContains(t, err, want)
 	}
+}
+
+func TestValidateLoggingRequiresCreatableLogDir(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Logging.QueryLog = true
+	if err := os.WriteFile(filepath.Join(cfg.Server.DataDir, "logs"), []byte("not a directory"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	err := Validate(cfg)
+	assertErrContains(t, err, "server.data_dir")
 }
 
 func assertErrContains(t *testing.T, err error, want string) {

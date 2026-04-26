@@ -244,6 +244,11 @@ func Validate(c *Config) error {
 		errf("server.data_dir", "required")
 	} else if err := os.MkdirAll(filepath.Clean(c.Server.DataDir), 0o755); err != nil {
 		errf("server.data_dir", "must exist or be creatable: %v", err)
+	} else if c.Logging.QueryLog || c.Logging.AuditLog {
+		logDir := filepath.Join(filepath.Clean(c.Server.DataDir), "logs")
+		if err := os.MkdirAll(logDir, 0o755); err != nil {
+			errf("server.data_dir", "logs directory must be creatable: %v", err)
+		}
 	}
 
 	if len(errs) > 0 {
