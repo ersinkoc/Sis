@@ -80,6 +80,26 @@ for _ in $(seq 1 50); do
       -H 'content-type: application/json' \
       -d '{"username":"admin","password":"change-me-now"}' \
       "http://${http_addr}/api/v1/auth/setup" >/dev/null
+    session_cookie="$(awk '$6 == "sis_session" {print $6 "=" $7; exit}' "${tmp}/cookies.txt")"
+    if [[ -z "${session_cookie}" ]]; then
+      echo "smoke: auth setup did not create a session cookie" >&2
+      cat "${tmp}/cookies.txt" >&2
+      exit 1
+    fi
+    cli_system_err="${tmp}/cli-system.err"
+    if ! cli_system_out="$("${bin}" system -api "http://${http_addr}" -cookie "${session_cookie}" info 2>"${cli_system_err}")"; then
+      echo "smoke: CLI API system info failed" >&2
+      cat "${cli_system_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_system_out}" != *'"service": "sis"'* ]]; then
+      echo "smoke: CLI API system info failed" >&2
+      cat "${cli_system_err}" >&2
+      echo "${cli_system_out}" >&2
+      exit 1
+    fi
+    echo "smoke: CLI API system info passed"
+
     curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/stats/summary" >/dev/null
     api_query_out="$(curl -fsS -b "${tmp}/cookies.txt" \
       -H 'content-type: application/json' \
