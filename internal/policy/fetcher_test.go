@@ -60,6 +60,33 @@ func TestFetcherFileURL(t *testing.T) {
 	}
 }
 
+func TestFetcherRejectsNilAndMissingInputs(t *testing.T) {
+	var fetcher *Fetcher
+	if _, err := fetcher.Fetch(context.Background(), "ads", "https://example.test/list.txt"); err == nil {
+		t.Fatal("expected nil fetcher error")
+	}
+	fetcher = NewFetcher(t.TempDir())
+	if _, err := fetcher.Fetch(context.Background(), "", "https://example.test/list.txt"); err == nil {
+		t.Fatal("expected missing id error")
+	}
+}
+
+func TestFetcherAcceptsNilContext(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.txt")
+	if err := os.WriteFile(path, []byte("nil-context.example.com\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	fetcher := NewFetcher(filepath.Join(dir, "cache"))
+	result, err := fetcher.Fetch(nil, "local", "file://"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Domains.Match("nil-context.example.com") {
+		t.Fatal("expected parsed nil-context domain")
+	}
+}
+
 func TestFetcherCacheFilesUseRestrictedModeWithoutTempLeftovers(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hosts.txt")

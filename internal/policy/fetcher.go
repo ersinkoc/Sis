@@ -48,6 +48,12 @@ func NewFetcher(cacheDir string) *Fetcher {
 
 // Fetch retrieves and parses a blocklist, falling back to cached content on errors.
 func (f *Fetcher) Fetch(ctx context.Context, id, rawURL string) (*FetchResult, error) {
+	if f == nil {
+		return nil, fmt.Errorf("blocklist fetcher is not configured")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if id == "" {
 		return nil, fmt.Errorf("blocklist id is required")
 	}
@@ -78,6 +84,9 @@ func (f *Fetcher) Fetch(ctx context.Context, id, rawURL string) (*FetchResult, e
 }
 
 func (f *Fetcher) fetchHTTP(ctx context.Context, id, rawURL string) (*FetchResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	meta, _ := f.loadMeta(id)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
