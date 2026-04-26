@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -145,7 +146,7 @@ func (f *Fetcher) parseAndCache(id string, raw []byte, meta cacheMeta) (*FetchRe
 	if err := os.MkdirAll(f.CacheDir, 0o755); err != nil {
 		return nil, err
 	}
-	domains, stats, err := ParseBlocklist(strings.NewReader(string(raw)))
+	domains, stats, err := ParseBlocklist(bytes.NewReader(raw))
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func (f *Fetcher) loadCache(id string) (*FetchResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	domains, stats, err := ParseBlocklist(strings.NewReader(string(raw)))
+	domains, stats, err := ParseBlocklist(bytes.NewReader(raw))
 	if err != nil {
 		return nil, err
 	}

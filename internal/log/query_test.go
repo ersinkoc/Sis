@@ -3,6 +3,7 @@ package log
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -117,6 +118,19 @@ func TestQueryRotationCreatesRotatedFile(t *testing.T) {
 	}
 	if len(matches) == 0 {
 		t.Fatal("expected rotated file")
+	}
+}
+
+func TestRotatorWriteAfterCloseFails(t *testing.T) {
+	r, err := NewRotator(filepath.Join(t.TempDir(), "sis-query.log"), 64, 7, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Write([]byte("after-close")); !errors.Is(err, os.ErrClosed) {
+		t.Fatalf("write after close err = %v", err)
 	}
 }
 

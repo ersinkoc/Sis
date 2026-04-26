@@ -42,8 +42,12 @@ func (a *Aggregator) Run(ctx context.Context) {
 
 // Flush writes one minute bucket and updates hourly and daily rollups.
 func (a *Aggregator) Flush() error {
+	if a == nil || a.counters == nil || a.store == nil {
+		return errors.New("stats aggregator is not configured")
+	}
 	snap := a.counters.Snapshot()
-	bucket := a.now().UTC().Truncate(time.Minute).Unix()
+	now := a.now().UTC()
+	bucket := now.Truncate(time.Minute).Unix()
 	queries := snap.QueryTotal
 	cacheHit := snap.CacheHit
 	cacheMiss := snap.CacheMiss
@@ -54,8 +58,6 @@ func (a *Aggregator) Flush() error {
 		cacheMiss -= a.last.CacheMiss
 		blocked -= a.last.BlockedTotal
 	}
-	a.last = snap
-	a.hasLast = true
 	row := &store.StatsRow{Counters: map[string]uint64{
 		"queries":    queries,
 		"cache_hit":  cacheHit,
@@ -65,10 +67,15 @@ func (a *Aggregator) Flush() error {
 	if err := a.store.Put("1m", strconv.FormatInt(bucket, 10), row); err != nil {
 		return err
 	}
-	if err := a.addRollup("1h", a.now().UTC().Truncate(time.Hour).Unix(), row.Counters); err != nil {
+	if err := a.addRollup("1h", now.Truncate(time.Hour).Unix(), row.Counters); err != nil {
 		return err
 	}
-	return a.addRollup("1d", a.now().UTC().Truncate(24*time.Hour).Unix(), row.Counters)
+	if err := a.addRollup("1d", now.Truncate(24*time.Hour).Unix(), row.Counters); err != nil {
+		return err
+	}
+	a.last = snap
+	a.hasLast = true
+	return nil
 }
 
 func (a *Aggregator) addRollup(granularity string, bucket int64, delta map[string]uint64) error {

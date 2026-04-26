@@ -313,8 +313,9 @@ func (st *statsStore) Put(granularity, bucket string, row *StatsRow) error {
 	if granularity == "" || bucket == "" || row == nil {
 		return fmt.Errorf("stats: granularity, bucket, and row are required")
 	}
-	row.Bucket = bucket
-	return st.s.putJSON("stats:"+granularity+":"+bucket, row)
+	stored := *row
+	stored.Bucket = bucket
+	return st.s.putJSON("stats:"+granularity+":"+bucket, &stored)
 }
 
 func (st *statsStore) Get(granularity, bucket string) (*StatsRow, error) {
@@ -354,10 +355,11 @@ func (ch *configHistoryStore) Append(snapshot *ConfigSnapshot) error {
 	if snapshot == nil {
 		return fmt.Errorf("confhist: snapshot is required")
 	}
-	if snapshot.TS.IsZero() {
-		snapshot.TS = time.Now().UTC()
+	stored := *snapshot
+	if stored.TS.IsZero() {
+		stored.TS = time.Now().UTC()
 	}
-	return ch.s.putJSON("confhist:"+snapshot.TS.Format(time.RFC3339Nano), snapshot)
+	return ch.s.putJSON("confhist:"+stored.TS.Format(time.RFC3339Nano), &stored)
 }
 
 func (ch *configHistoryStore) List(limit int) ([]*ConfigSnapshot, error) {

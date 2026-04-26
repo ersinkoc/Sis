@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -66,6 +67,20 @@ func (c *cliClient) do(method, path string, body any, out io.Writer) error {
 		return err
 	}
 	defer resp.Body.Close()
+	if out != nil && isEventStream(resp.Header.Get("Content-Type")) {
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			raw, err := io.ReadAll(io.LimitReader(resp.Body, maxCLIResponseBytes+1))
+			if err != nil {
+				return err
+			}
+			if len(raw) > maxCLIResponseBytes {
+				return fmt.Errorf("HTTP response exceeds %d bytes", maxCLIResponseBytes)
+			}
+			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(raw))
+		}
+		_, err := io.Copy(out, resp.Body)
+		return err
+	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxCLIResponseBytes+1))
 	if err != nil {
 		return err
@@ -98,10 +113,23 @@ func shouldPrettyPrint(out io.Writer, contentType string, raw []byte) bool {
 	if len(raw) == 0 {
 		return false
 	}
-	if contentType != "" && contentType != "application/json" {
+	if contentType != "" && !isJSONContent(contentType) {
 		return false
 	}
 	return json.Valid(raw)
+}
+
+func isJSONContent(contentType string) bool {
+	return mediaTypeMatches(contentType, "application/json")
+}
+
+func isEventStream(contentType string) bool {
+	return mediaTypeMatches(contentType, "text/event-stream")
+}
+
+func mediaTypeMatches(contentType, want string) bool {
+	contentType = strings.ToLower(strings.TrimSpace(contentType))
+	return contentType == want || strings.HasPrefix(contentType, want+";")
 }
 
 func prettyPrintJSON(raw []byte) error {

@@ -48,6 +48,9 @@ func NewRotator(path string, maxBytes int64, retainDays int, gzipRotated bool) (
 
 // Write appends p, rotating first when the configured size would be exceeded.
 func (r *Rotator) Write(p []byte) (int, error) {
+	if r == nil || r.cur == nil {
+		return 0, os.ErrClosed
+	}
 	if r.curSize > 0 && r.curSize+int64(len(p)) > r.maxBytes {
 		if err := r.Rotate(); err != nil {
 			return 0, err

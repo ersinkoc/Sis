@@ -116,6 +116,17 @@ func TestValidateClients(t *testing.T) {
 	assertErrContains(t, err, "clients[3].type")
 }
 
+func TestValidateClientKeyMatchesType(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Clients = []Client{
+		{Key: "not-an-ip", Type: "ip"},
+		{Key: "not-a-mac", Type: "mac"},
+	}
+	err := Validate(cfg)
+	assertErrContains(t, err, "clients[0].key")
+	assertErrContains(t, err, "clients[1].key")
+}
+
 func TestValidateCacheTTLOrder(t *testing.T) {
 	cfg := validConfig(t)
 	cfg.Cache.MinTTL = Duration{Duration: 2 * time.Hour}

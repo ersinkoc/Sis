@@ -98,6 +98,14 @@ func Validate(c *Config) error {
 		if client.Type != "" && !oneOf(client.Type, "ip", "mac") {
 			errf(path+".type", "must be ip or mac")
 		}
+		if client.Key != "" && client.Type == "ip" && net.ParseIP(client.Key) == nil {
+			errf(path+".key", "must be an IP address when type is ip")
+		}
+		if client.Key != "" && client.Type == "mac" {
+			if _, err := net.ParseMAC(client.Key); err != nil {
+				errf(path+".key", "must be a MAC address when type is mac")
+			}
+		}
 	}
 	if c.Server.HTTP.TLS {
 		if c.Server.HTTP.CertFile == "" {

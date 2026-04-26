@@ -106,6 +106,52 @@ func TestCustomListSessionStatsAndConfigHistory(t *testing.T) {
 	}
 }
 
+func TestStatsPutDoesNotMutateInputRow(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	row := &StatsRow{Bucket: "caller-owned", Counters: map[string]uint64{"queries": 7}}
+	if err := s.Stats().Put("1m", "123", row); err != nil {
+		t.Fatal(err)
+	}
+	if row.Bucket != "caller-owned" {
+		t.Fatalf("input row bucket mutated to %q", row.Bucket)
+	}
+	got, err := s.Stats().Get("1m", "123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Bucket != "123" {
+		t.Fatalf("stored bucket = %q", got.Bucket)
+	}
+}
+
+func TestConfigHistoryAppendDoesNotMutateInputSnapshot(t *testing.T) {
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	snapshot := &ConfigSnapshot{YAML: "server: {}"}
+	if err := s.ConfigHistory().Append(snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if !snapshot.TS.IsZero() {
+		t.Fatalf("input snapshot timestamp mutated to %s", snapshot.TS)
+	}
+	history, err := s.ConfigHistory().List(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 1 || history[0].TS.IsZero() {
+		t.Fatalf("history = %#v", history)
+	}
+}
+
 func TestSessionDeleteExpired(t *testing.T) {
 	s, err := Open(t.TempDir())
 	if err != nil {
