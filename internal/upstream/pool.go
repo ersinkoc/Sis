@@ -38,6 +38,9 @@ func NewPool(upstreams []config.Upstream) *Pool {
 
 // Replace atomically replaces all configured upstream clients.
 func (p *Pool) Replace(upstreams []config.Upstream) {
+	if p == nil {
+		return
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.clients = nil
@@ -48,6 +51,12 @@ func (p *Pool) Replace(upstreams []config.Upstream) {
 
 // Forward tries each healthy upstream until one returns a DNS response.
 func (p *Pool) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, string, []Attempt, error) {
+	if p == nil {
+		return nil, "", nil, fmt.Errorf("upstream pool is not configured")
+	}
+	if msg == nil {
+		return nil, "", nil, fmt.Errorf("dns message is required")
+	}
 	p.mu.RLock()
 	var candidates []*DoHClient
 	for _, candidate := range p.clients {
@@ -77,6 +86,9 @@ func (p *Pool) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, string, [
 
 // Test probes a configured upstream by ID and updates its health state.
 func (p *Pool) Test(ctx context.Context, id string) (*mdns.Msg, error) {
+	if p == nil {
+		return nil, fmt.Errorf("upstream pool is not configured")
+	}
 	p.mu.RLock()
 	var client *DoHClient
 	for _, candidate := range p.clients {
@@ -120,6 +132,9 @@ func (p *Pool) RunHealthProber(ctx context.Context, interval time.Duration) {
 
 // ProbeUnhealthy probes currently unhealthy upstreams once.
 func (p *Pool) ProbeUnhealthy(ctx context.Context) {
+	if p == nil {
+		return
+	}
 	for _, client := range p.unhealthyClients() {
 		probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		_, err := probeClient(probeCtx, client)
@@ -131,6 +146,9 @@ func (p *Pool) ProbeUnhealthy(ctx context.Context) {
 }
 
 func (p *Pool) unhealthyClients() []*DoHClient {
+	if p == nil {
+		return nil
+	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	out := make([]*DoHClient, 0)
@@ -149,6 +167,9 @@ func probeClient(ctx context.Context, client *DoHClient) (*mdns.Msg, error) {
 }
 
 func (p *Pool) markSuccess(id string) {
+	if p == nil {
+		return
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, candidate := range p.clients {
@@ -161,6 +182,9 @@ func (p *Pool) markSuccess(id string) {
 }
 
 func (p *Pool) markFailure(id string) {
+	if p == nil {
+		return
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, candidate := range p.clients {
@@ -176,6 +200,9 @@ func (p *Pool) markFailure(id string) {
 
 // HealthyIDs returns IDs for upstreams currently marked healthy.
 func (p *Pool) HealthyIDs() []string {
+	if p == nil {
+		return nil
+	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	var out []string
@@ -189,6 +216,9 @@ func (p *Pool) HealthyIDs() []string {
 
 // AllIDs returns IDs for every configured upstream.
 func (p *Pool) AllIDs() []string {
+	if p == nil {
+		return nil
+	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	out := make([]string, 0, len(p.clients))
@@ -200,6 +230,9 @@ func (p *Pool) AllIDs() []string {
 
 // IsHealthy reports whether the upstream id is currently marked healthy.
 func (p *Pool) IsHealthy(id string) bool {
+	if p == nil {
+		return false
+	}
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	for _, candidate := range p.clients {

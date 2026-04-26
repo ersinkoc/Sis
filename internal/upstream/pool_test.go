@@ -97,3 +97,27 @@ func TestForwardReportsAttempts(t *testing.T) {
 		t.Fatalf("bad upstream calls = %d", firstCalls.Load())
 	}
 }
+
+func TestPoolRejectsNilInputs(t *testing.T) {
+	var pool *Pool
+	if _, _, _, err := pool.Forward(context.Background(), new(mdns.Msg)); err == nil {
+		t.Fatal("expected nil pool error")
+	}
+	if _, err := pool.Test(context.Background(), "missing"); err == nil {
+		t.Fatal("expected nil pool test error")
+	}
+	if got := pool.AllIDs(); got != nil {
+		t.Fatalf("all ids = %#v", got)
+	}
+	if got := pool.HealthyIDs(); got != nil {
+		t.Fatalf("healthy ids = %#v", got)
+	}
+	if pool.IsHealthy("missing") {
+		t.Fatal("nil pool should not report healthy upstreams")
+	}
+
+	pool = NewPool(nil)
+	if _, _, _, err := pool.Forward(context.Background(), nil); err == nil {
+		t.Fatal("expected nil message error")
+	}
+}

@@ -40,6 +40,9 @@ func NewDoHClient(c config.Upstream) *DoHClient {
 
 // ID returns the configured upstream identifier.
 func (c *DoHClient) ID() string {
+	if c == nil {
+		return ""
+	}
 	return c.id
 }
 
@@ -86,6 +89,20 @@ func dohHost(rawURL string) string {
 
 // Forward sends msg to the DoH endpoint and returns the decoded DNS response.
 func (c *DoHClient) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, error) {
+	if c == nil {
+		return nil, fmt.Errorf("doh client is not configured")
+	}
+	if msg == nil {
+		return nil, fmt.Errorf("dns message is required")
+	}
+	if c.client == nil {
+		timeout := c.timeout
+		if timeout <= 0 {
+			timeout = 3 * time.Second
+		}
+		c.timeout = timeout
+		c.client = &http.Client{Timeout: timeout, Transport: c.transport()}
+	}
 	wire, err := msg.Pack()
 	if err != nil {
 		return nil, err

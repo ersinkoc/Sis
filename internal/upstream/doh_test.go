@@ -120,6 +120,17 @@ func TestDoHClientRejectsUnexpectedContentType(t *testing.T) {
 	}
 }
 
+func TestDoHClientRejectsNilInputs(t *testing.T) {
+	var client *DoHClient
+	if _, err := client.Forward(context.Background(), new(mdns.Msg)); err == nil {
+		t.Fatal("expected nil client error")
+	}
+	client = NewDoHClient(config.Upstream{ID: "test", URL: "https://example.test/dns-query"})
+	if _, err := client.Forward(context.Background(), nil); err == nil {
+		t.Fatal("expected nil message error")
+	}
+}
+
 func TestDNSMessageContentTypeAllowsParameters(t *testing.T) {
 	if !isDNSMessageContent("application/dns-message; charset=binary") {
 		t.Fatal("expected content type with parameters to be accepted")
