@@ -45,6 +45,14 @@ pid="$!"
 for _ in $(seq 1 50); do
   if curl -fsS "http://${http_addr}/healthz" >/dev/null 2>&1; then
     echo "smoke: serve health check passed"
+    ready_out="$(curl -fsS "http://${http_addr}/readyz")"
+    if [[ "${ready_out}" != *'"ready":true'* ]]; then
+      echo "smoke: readiness check failed" >&2
+      echo "${ready_out}" >&2
+      exit 1
+    fi
+    echo "smoke: readiness check passed"
+
     dns_out="$("${bin}" query -server "${dns_addr}" test localhost A)"
     if [[ "${dns_out}" != *"rcode=NOERROR"* ]]; then
       echo "smoke: DNS query failed" >&2
@@ -110,6 +118,14 @@ for _ in $(seq 1 50); do
       exit 1
     fi
     echo "smoke: stats API passed"
+    cache_out="$(curl -fsS -b "${tmp}/cookies.txt" -X POST "http://${http_addr}/api/v1/system/cache/flush")"
+    if [[ "${cache_out}" != *'"flushed":true'* || "${cache_out}" != *'"entries":'* ]]; then
+      echo "smoke: cache flush failed" >&2
+      echo "${cache_out}" >&2
+      exit 1
+    fi
+    echo "smoke: cache flush passed"
+
     reload_out="$(curl -fsS -b "${tmp}/cookies.txt" -X POST "http://${http_addr}/api/v1/system/config/reload")"
     if [[ "${reload_out}" != *'"reloaded":true'* ]]; then
       echo "smoke: config reload failed" >&2
