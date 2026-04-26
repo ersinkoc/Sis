@@ -109,6 +109,32 @@ func TestCacheStoresNXDOMAIN(t *testing.T) {
 	}
 }
 
+func TestCacheZeroValueIsUsable(t *testing.T) {
+	var cache Cache
+	req := query("example.com.", mdns.TypeA)
+	resp := new(mdns.Msg)
+	resp.SetReply(req)
+	resp.Answer = []mdns.RR{&mdns.A{Hdr: rrHeader("example.com.", mdns.TypeA, 30), A: net.IPv4(1, 2, 3, 4)}}
+	key := cacheKey{qname: "example.com.", qtype: mdns.TypeA, qclass: mdns.ClassINET}
+
+	cache.Put(key, resp)
+	if cache.Len() != 1 {
+		t.Fatalf("len = %d, want 1", cache.Len())
+	}
+	if _, ok := cache.Get(key, req); !ok {
+		t.Fatal("expected zero-value cache hit")
+	}
+	cache.Flush()
+	if cache.Len() != 0 {
+		t.Fatalf("len after flush = %d", cache.Len())
+	}
+}
+
+func TestNilCacheFlushIsNoop(t *testing.T) {
+	var cache *Cache
+	cache.Flush()
+}
+
 func TestCacheConcurrent(t *testing.T) {
 	cache := NewCache(CacheOptions{MaxEntries: 16})
 	req := query("example.com.", mdns.TypeA)

@@ -67,6 +67,7 @@ func (c *Cache) Get(key cacheKey, req *mdns.Msg) (*mdns.Msg, bool) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.ensureLocked()
 	elem := c.items[key]
 	if elem == nil {
 		return nil, false
@@ -99,11 +100,15 @@ func (c *Cache) Get(key cacheKey, req *mdns.Msg) (*mdns.Msg, bool) {
 
 // Put stores a response using the effective TTL derived from the DNS message.
 func (c *Cache) Put(key cacheKey, msg *mdns.Msg) {
-	if c == nil || msg == nil || c.maxEntries <= 0 {
+	if c == nil || msg == nil {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.ensureLocked()
+	if c.maxEntries <= 0 {
+		return
+	}
 	ttl := c.ttlFor(msg)
 	if ttl <= 0 {
 		return
@@ -129,8 +134,12 @@ func (c *Cache) Put(key cacheKey, msg *mdns.Msg) {
 
 // Flush removes all cached responses.
 func (c *Cache) Flush() {
+	if c == nil {
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.ensureLocked()
 	c.items = make(map[cacheKey]*list.Element)
 	c.lru.Init()
 }
@@ -143,6 +152,7 @@ func (c *Cache) Reconfigure(opts CacheOptions) {
 	next := NewCache(opts)
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.ensureLocked()
 	c.maxEntries = next.maxEntries
 	c.minTTL = next.minTTL
 	c.maxTTL = next.maxTTL
@@ -159,6 +169,7 @@ func (c *Cache) Len() int {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.ensureLocked()
 	return len(c.items)
 }
 
@@ -193,6 +204,30 @@ func (c *Cache) remove(elem *list.Element) {
 	entry := elem.Value.(*cacheEntry)
 	delete(c.items, entry.key)
 	c.lru.Remove(elem)
+}
+
+func (c *Cache) ensureLocked() {
+	if c.maxEntries == 0 {
+		c.maxEntries = 100000
+	}
+	if c.minTTL <= 0 {
+		c.minTTL = time.Minute
+	}
+	if c.maxTTL <= 0 {
+		c.maxTTL = 24 * time.Hour
+	}
+	if c.negTTL <= 0 {
+		c.negTTL = time.Hour
+	}
+	if c.now == nil {
+		c.now = time.Now
+	}
+	if c.items == nil {
+		c.items = make(map[cacheKey]*list.Element)
+	}
+	if c.lru == nil {
+		c.lru = list.New()
+	}
 }
 
 func setTTL(records []mdns.RR, ttl uint32) {
