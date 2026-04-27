@@ -32,18 +32,9 @@ See [CHANGELOG.md](CHANGELOG.md) for release scope, upgrade notes, and known lim
 Install the latest Linux release:
 
 ```sh
-curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_linux_amd64
-curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_linux_arm64
-curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_darwin_amd64
-curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_darwin_arm64
-curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/SHA256SUMS
-curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/SHA256SUMS.asc
-curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/release-signing-public-key.asc
-curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis.spdx.json
-chmod +x sis_linux_amd64
-SIS_RELEASE_DIST=. ./scripts/verify-release-artifacts.sh
-./sis_linux_amd64 version
-sudo SIS_INSTALL_BIN=./sis_linux_amd64 ./scripts/install-linux-service.sh
+./scripts/download-release.sh v0.1.0 dist/v0.1.0
+dist/v0.1.0/sis_linux_amd64 version
+sudo SIS_INSTALL_BIN=dist/v0.1.0/sis_linux_amd64 ./scripts/install-linux-service.sh
 sudo systemctl enable --now sis
 sudo ./scripts/verify-linux-service.sh
 ```
@@ -220,6 +211,8 @@ GoDoc, WebUI install/build/lint, Go coverage, Go vet, binary build, and a local 
 `scripts/build.sh` creates the release binaries and `dist/SHA256SUMS`.
 `scripts/verify-release-artifacts.sh` validates release checksums, optional GPG signatures,
 and the SPDX SBOM for a downloaded or locally-built release bundle.
+`scripts/download-release.sh vX.Y.Z` downloads all release artifacts into `dist/`,
+marks Linux binaries executable, and runs `scripts/verify-release-artifacts.sh`.
 `scripts/release-smoke.sh` verifies release checksums, the Linux artifact, config validation,
 backup restore, service hardening directives, and a staged Linux service install without touching the host system.
 `scripts/release-readiness.sh vX.Y.Z` checks branch/tag cleanliness, runs the full gate,

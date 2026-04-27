@@ -12,6 +12,8 @@ that require careful upgrade notes.
 
 - Release binary installation and verification instructions in README and the
   production runbook.
+- Release download helper script for fetching and verifying all published
+  artifacts with one command.
 
 ## v0.1.0 - 2026-04-27
 
