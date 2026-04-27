@@ -12,6 +12,8 @@ that require careful upgrade notes.
 
 - Updated operator-facing install, upgrade, release-gate, and issue-template examples
   to reference the current `v0.1.1` release and the JSON/SQLite storage posture.
+- Added store verification for JSON/SQLite backends and included it in Linux service
+  verification.
 
 ## v0.1.1 - 2026-04-27
 

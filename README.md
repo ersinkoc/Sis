@@ -200,6 +200,7 @@ sis backup restore -in sis-backup.tar.gz -config restored/sis.yaml -data-dir res
 sis store migrate-json-to-sqlite -data-dir ./data
 sis store export-sqlite-json -data-dir ./data -out sis.db.json
 sis store compact -data-dir ./data -backend sqlite
+sis store verify -config examples/sis.yaml
 ```
 
 ## Development

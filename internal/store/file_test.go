@@ -254,6 +254,58 @@ func TestCompactBackend(t *testing.T) {
 	}
 }
 
+func TestVerifyBackend(t *testing.T) {
+	jsonDir := t.TempDir()
+	result, err := VerifyBackend(BackendJSON, jsonDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Backend != BackendJSON || result.Records != 0 {
+		t.Fatalf("empty json verify = %#v", result)
+	}
+
+	jsonStore, err := Open(jsonDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := jsonStore.Clients().Upsert(&Client{Key: "192.0.2.70", Type: "ip"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := jsonStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+	result, err = VerifyBackend(BackendJSON, jsonDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Records == 0 || result.SchemaVersion != schemaVersion {
+		t.Fatalf("json verify = %#v", result)
+	}
+
+	sqliteDir := t.TempDir()
+	sqliteStore, err := OpenSQLite(sqliteDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sqliteStore.Clients().Upsert(&Client{Key: "192.0.2.71", Type: "ip"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqliteStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+	result, err = VerifyBackend(BackendSQLite, sqliteDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Records == 0 || result.SchemaVersion != schemaVersion {
+		t.Fatalf("sqlite verify = %#v", result)
+	}
+
+	if _, err := VerifyBackend("postgres", t.TempDir()); err == nil || !strings.Contains(err.Error(), "not supported") {
+		t.Fatalf("unsupported verify err = %v", err)
+	}
+}
+
 func TestCustomListSessionStatsAndConfigHistory(t *testing.T) {
 	s, err := Open(t.TempDir())
 	if err != nil {

@@ -394,6 +394,9 @@ func TestRunStoreMigrateAndExport(t *testing.T) {
 	if err := runStore([]string{"compact", "-data-dir", dir, "-backend", store.BackendSQLite}); err != nil {
 		t.Fatal(err)
 	}
+	if err := runStore([]string{"verify", "-data-dir", dir, "-backend", store.BackendSQLite}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestRunStoreRejectsInvalidArguments(t *testing.T) {
@@ -403,6 +406,7 @@ func TestRunStoreRejectsInvalidArguments(t *testing.T) {
 		{"migrate-json-to-sqlite"},
 		{"export-sqlite-json"},
 		{"compact"},
+		{"verify"},
 	} {
 		if err := runStore(args); err == nil {
 			t.Fatalf("runStore(%v) succeeded, want error", args)

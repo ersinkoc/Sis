@@ -35,6 +35,8 @@ privacy log salt. Treat backups as secrets.
 `sis backup create` stores runtime state as a portable logical `sis.db.json` snapshot for
 both JSON and SQLite deployments. `sis backup restore` recreates `sis.db.json` for JSON
 configs and rebuilds `sis.db` for SQLite configs.
+`sis store verify -config /etc/sis/sis.yaml` confirms the configured store can be read;
+for SQLite it also runs `PRAGMA quick_check`.
 
 ## Pre-Upgrade Checklist
 

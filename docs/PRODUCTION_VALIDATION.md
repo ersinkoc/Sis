@@ -32,8 +32,8 @@ real domain from the deployed block policy for `SIS_PROD_VALIDATE_BLOCKED_DOMAIN
 
 All required checks must pass:
 
-- `verify-linux-service.sh` confirms binary, config, service state, HTTP health/readiness,
-  and DNS query.
+- `verify-linux-service.sh` confirms binary, config, store readability, service state,
+  HTTP health/readiness, and DNS query.
 - `validate-sqlite-migration.sh` creates a backup, restores it into a temporary directory,
   migrates that copy to SQLite, exports it back to JSON, and validates SQLite config loading.
 - `validate-lan-dns.sh` confirms UDP DNS, TCP DNS, optional blocked-domain policy, and HTTP

@@ -10,6 +10,7 @@ dns_domain="${SIS_VERIFY_DNS_DOMAIN:-example.com}"
 skip_systemd="${SIS_VERIFY_SKIP_SYSTEMD:-0}"
 skip_http="${SIS_VERIFY_SKIP_HTTP:-0}"
 skip_dns="${SIS_VERIFY_SKIP_DNS:-0}"
+skip_store="${SIS_VERIFY_SKIP_STORE:-0}"
 
 if [[ ! -x "${bin}" ]]; then
   echo "verify-linux-service: binary not found or not executable: ${bin}" >&2
@@ -18,6 +19,9 @@ fi
 
 "${bin}" version
 "${bin}" config check -config "${config}"
+if [[ "${skip_store}" != "1" ]]; then
+  "${bin}" store verify -config "${config}"
+fi
 
 if [[ "${skip_systemd}" != "1" ]]; then
   if ! command -v systemctl >/dev/null 2>&1; then

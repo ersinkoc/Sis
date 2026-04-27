@@ -56,6 +56,7 @@ SIS_VERIFY_BIN="${tmp}/usr/local/bin/sis" \
   SIS_VERIFY_SKIP_SYSTEMD=1 \
   SIS_VERIFY_SKIP_HTTP=1 \
   SIS_VERIFY_SKIP_DNS=1 \
+  SIS_VERIFY_SKIP_STORE=1 \
   ./scripts/verify-linux-service.sh
 bash -n ./scripts/validate-lan-dns.sh
 bash -n ./scripts/run-production-validation.sh
