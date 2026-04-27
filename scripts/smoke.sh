@@ -301,6 +301,43 @@ for _ in $(seq 1 50); do
       exit 1
     fi
     echo "smoke: stats API passed"
+    cli_stats_err="${tmp}/cli-stats.err"
+    if ! cli_stats_out="$("${bin}" stats -api "http://${http_addr}" -cookie "${session_cookie}" summary 2>"${cli_stats_err}")"; then
+      echo "smoke: CLI stats summary failed" >&2
+      cat "${cli_stats_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_stats_out}" != *'"blocked_total":'* || "${cli_stats_out}" == *'"blocked_total": 0'* ]]; then
+      echo "smoke: CLI stats summary did not record blocked query" >&2
+      cat "${cli_stats_err}" >&2
+      echo "${cli_stats_out}" >&2
+      exit 1
+    fi
+    if ! cli_top_out="$("${bin}" stats -api "http://${http_addr}" -cookie "${session_cookie}" top-domains 2>"${cli_stats_err}")"; then
+      echo "smoke: CLI stats top-domains failed" >&2
+      cat "${cli_stats_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_top_out}" != *"blocked.example.com."* ]]; then
+      echo "smoke: CLI stats top-domains missing blocked.example.com" >&2
+      cat "${cli_stats_err}" >&2
+      echo "${cli_top_out}" >&2
+      exit 1
+    fi
+    cli_logs_err="${tmp}/cli-logs.err"
+    if ! cli_logs_out="$("${bin}" logs -api "http://${http_addr}" -cookie "${session_cookie}" list 10 blocked.example.com 2>"${cli_logs_err}")"; then
+      echo "smoke: CLI logs list failed" >&2
+      cat "${cli_logs_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_logs_out}" != *"blocked.example.com."* || "${cli_logs_out}" != *'"blocked": true'* ]]; then
+      echo "smoke: CLI logs list missing blocked query" >&2
+      cat "${cli_logs_err}" >&2
+      echo "${cli_logs_out}" >&2
+      exit 1
+    fi
+    echo "smoke: CLI stats and logs passed"
+
     cache_out="$(curl -fsS -b "${tmp}/cookies.txt" -X POST "http://${http_addr}/api/v1/system/cache/flush")"
     if [[ "${cache_out}" != *'"flushed":true'* || "${cache_out}" != *'"entries":'* ]]; then
       echo "smoke: cache flush failed" >&2
