@@ -227,3 +227,4 @@ The v1 design lives in:
 
 Release process notes live in `.github/RELEASE.md`.
 Production operation notes live in `docs/PRODUCTION.md`.
+Security reporting and release verification notes live in `SECURITY.md`.
