@@ -151,7 +151,9 @@ make release
 `scripts/check.sh` runs the same main gate without requiring `make`: Go format drift check,
 GoDoc, WebUI install/build/lint, Go coverage, Go vet, binary build, and a local serve smoke test.
 `scripts/build.sh` creates the release binaries and `dist/SHA256SUMS`.
-`scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies `/healthz`.
+`scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies health/readiness,
+DNS queries, blocklist enforcement, auth setup, CLI API access, inventory APIs, custom blocklist
+mutation, query logs, stats, cache flush, and config reload/history.
 `make coverage` runs `scripts/coverage.sh`, which fails unless total Go coverage is at least
 `COVERAGE_THRESHOLD` (`60.0` by default). CI also runs WebUI install/build/lint, Go vet,
 the same coverage gate, binary build, and smoke test.
