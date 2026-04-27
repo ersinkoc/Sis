@@ -1,6 +1,6 @@
 # Release Process
 
-Sis releases are tag-driven. CI runs the full check gate, benchmark suite, cross-compilation, checksums, and GitHub release publication.
+Sis releases are tag-driven. CI runs the full check gate, benchmark suite, cross-compilation, SPDX SBOM generation, checksums, and GitHub release publication.
 
 ## Cut A Release
 
@@ -31,6 +31,7 @@ Sis releases are tag-driven. CI runs the full check gate, benchmark suite, cross
    - `dist/sis_linux_arm64`
    - `dist/sis_darwin_amd64`
    - `dist/sis_darwin_arm64`
+   - `dist/sis.spdx.json`
    - `dist/SHA256SUMS`
 
 ## Release Notes
@@ -58,6 +59,7 @@ Useful labels:
 Before announcing a release, verify:
 
 - The release contains all binaries and `SHA256SUMS`.
+- The release contains `sis.spdx.json`, and `SHA256SUMS` validates it.
 - The release notes have no private implementation notes.
 - `examples/sis.yaml` matches the current config schema.
 - `README.md` quick start works from a clean checkout.

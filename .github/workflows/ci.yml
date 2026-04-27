@@ -52,4 +52,5 @@ jobs:
           generate_release_notes: true
           files: |
             dist/sis_*
+            dist/sis.spdx.json
             dist/SHA256SUMS

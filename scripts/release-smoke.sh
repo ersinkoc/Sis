@@ -8,6 +8,7 @@ required=(
   "sis_linux_arm64"
   "sis_darwin_amd64"
   "sis_darwin_arm64"
+  "sis.spdx.json"
   "SHA256SUMS"
 )
 
@@ -30,6 +31,8 @@ fi
 
 "${linux_bin}" version
 "${linux_bin}" config check -config examples/sis.yaml
+grep -q '"spdxVersion": "SPDX-2.3"' "${dist_dir}/sis.spdx.json"
+grep -q 'pkg:github/ersinkoc/Sis' "${dist_dir}/sis.spdx.json"
 
 tmp="$(mktemp -d)"
 cleanup() {

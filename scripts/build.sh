@@ -25,7 +25,9 @@ for target in "${targets[@]}"; do
   CGO_ENABLED=0 GOOS="${goos}" GOARCH="${goarch}" go build -trimpath -ldflags "${ldflags}" -o "${out}" ./cmd/sis
 done
 
+go run ./internal/tools/sbom -out dist/sis.spdx.json -version "${version}" -commit "${commit}" -date "${date}"
+
 (
   cd dist
-  sha256sum "${app}"_* > SHA256SUMS
+  sha256sum "${app}"_* sis.spdx.json > SHA256SUMS
 )
