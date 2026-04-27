@@ -44,6 +44,10 @@ if [[ ! -s "${tmp}/restore/sis.yaml" || ! -s "${tmp}/restore/data/sis.db.json" ]
   echo "release-smoke: backup restore did not write expected files" >&2
   exit 1
 fi
+SIS_SQLITE_VALIDATE_BIN="${linux_bin}" \
+  SIS_SQLITE_VALIDATE_CONFIG="examples/sis.yaml" \
+  SIS_SQLITE_VALIDATE_DATA_DIR="${tmp}/data" \
+  ./scripts/validate-sqlite-migration.sh >/dev/null
 
 SIS_INSTALL_ROOT="${tmp}" SIS_INSTALL_BIN="${linux_bin}" ./scripts/install-linux-service.sh
 "${tmp}/usr/local/bin/sis" version

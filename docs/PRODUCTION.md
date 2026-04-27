@@ -107,6 +107,12 @@ sudo systemctl start sis
 sudo ./scripts/verify-linux-service.sh
 ```
 
+Before touching the live service, run the same migration flow against a restored backup copy:
+
+```sh
+sudo ./scripts/validate-sqlite-migration.sh
+```
+
 To export SQLite state back to JSON manually for inspection:
 
 ```sh

@@ -126,6 +126,8 @@ sudo systemctl stop sis
 sudo /usr/local/bin/sis backup restore -in sis-backup.tar.gz -config /etc/sis/sis.yaml -data-dir /var/lib/sis -force
 sudo systemctl start sis
 ```
+`scripts/validate-sqlite-migration.sh` runs a non-destructive SQLite migration dry-run
+against a restored backup copy before changing the live service.
 
 For a direct LAN DNS deployment, uncomment `SIS_DNS_LISTEN=0.0.0.0:53,[::]:53`
 and `SIS_DATA_DIR=/var/lib/sis` in `/etc/sis/sis.env`. Keep the HTTP listener
