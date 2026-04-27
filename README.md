@@ -11,7 +11,7 @@ This repository is in early v1 implementation. The current tree includes:
 - Config loading, validation, hot reload holder
 - Config history snapshots for API-driven changes
 - Config-seeded client metadata
-- Store interfaces with a temporary file-backed backend
+- Store interfaces with JSON and SQLite backends
 - Query/audit logging with rotation and live fanout
 - Runtime logging/privacy reconfiguration
 - Policy engine, schedules, allowlists, blocklist parser/fetch/sync
@@ -32,7 +32,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release scope, upgrade notes, and known lim
 Install the latest Linux release:
 
 ```sh
-sudo ./scripts/install-release-linux.sh v0.1.0
+sudo ./scripts/install-release-linux.sh v0.1.1
 ```
 
 Quick local start:

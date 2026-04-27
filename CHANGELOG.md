@@ -8,7 +8,10 @@ that require careful upgrade notes.
 
 ## Unreleased
 
-No unreleased changes.
+### Changed
+
+- Updated operator-facing install, upgrade, release-gate, and issue-template examples
+  to reference the current `v0.1.1` release and the JSON/SQLite storage posture.
 
 ## v0.1.1 - 2026-04-27
 
