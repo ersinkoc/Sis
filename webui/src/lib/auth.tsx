@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const session = await apiRequest<Session>("/api/v1/auth/me");
       setState({ status: "authenticated", session });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 412) {
+      if (error instanceof ApiError && error.status === 428) {
         setState({ status: "setup-required" });
         return;
       }

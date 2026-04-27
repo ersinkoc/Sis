@@ -38,9 +38,7 @@ fmt:
 
 webui:
 	cd webui && $(WEBUI_PM) install && $(WEBUI_PM) run build
-	rm -rf internal/webui/dist
-	mkdir -p internal/webui/dist
-	cp -R webui/dist/. internal/webui/dist/
+	./scripts/webui-embed.sh
 
 webui-check:
 	cd webui && $(WEBUI_PM) install && $(WEBUI_PM) run build && $(WEBUI_PM) run lint

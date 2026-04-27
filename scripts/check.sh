@@ -20,6 +20,8 @@ git diff --exit-code
   "${webui_pm}" run build
   "${webui_pm}" run lint
 )
+./scripts/webui-embed.sh
+git diff --exit-code -- internal/webui/dist
 
 ./scripts/coverage.sh
 go vet ${go_packages}
