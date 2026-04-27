@@ -2,6 +2,15 @@
 
 Sis releases are tag-driven. CI runs the full check gate, benchmark suite, cross-compilation, SPDX SBOM generation, checksum validation, release smoke, and GitHub release publication.
 
+## Signing Setup
+
+Checksum signing is optional but recommended for production releases. Add these repository secrets before cutting a public release:
+
+- `RELEASE_GPG_PRIVATE_KEY_B64`: base64-encoded ASCII-armored private key
+- `RELEASE_GPG_PASSPHRASE`: passphrase for that private key, if any
+
+When these secrets are present, CI uploads `SHA256SUMS.asc` and `release-signing-public-key.asc` next to the release artifacts. Without them, the release still publishes checksums and SBOM, but the checksum file is not signed.
+
 ## Cut A Release
 
 1. Make sure `main` is green in CI.
@@ -34,6 +43,8 @@ Sis releases are tag-driven. CI runs the full check gate, benchmark suite, cross
    - `dist/sis_darwin_arm64`
    - `dist/sis.spdx.json`
    - `dist/SHA256SUMS`
+   - `dist/SHA256SUMS.asc` when release signing is configured
+   - `dist/release-signing-public-key.asc` when release signing is configured
 
 ## Release Notes
 
@@ -61,6 +72,7 @@ Before announcing a release, verify:
 
 - The release contains all binaries and `SHA256SUMS`.
 - The release contains `sis.spdx.json`, and `SHA256SUMS` validates it.
+- If signing is configured, `gpg --verify SHA256SUMS.asc SHA256SUMS` succeeds.
 - The release notes have no private implementation notes.
 - `examples/sis.yaml` matches the current config schema.
 - `README.md` quick start works from a clean checkout.

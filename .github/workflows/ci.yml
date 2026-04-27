@@ -47,6 +47,10 @@ jobs:
       - run: ./scripts/build.sh
         env:
           VERSION: ${{ github.ref_name }}
+      - run: ./scripts/sign-release.sh
+        env:
+          RELEASE_GPG_PRIVATE_KEY_B64: ${{ secrets.RELEASE_GPG_PRIVATE_KEY_B64 }}
+          RELEASE_GPG_PASSPHRASE: ${{ secrets.RELEASE_GPG_PASSPHRASE }}
       - run: ./scripts/release-smoke.sh
       - uses: softprops/action-gh-release@v3
         with:
@@ -54,4 +58,5 @@ jobs:
           files: |
             dist/sis_*
             dist/sis.spdx.json
-            dist/SHA256SUMS
+            dist/SHA256SUMS*
+            dist/release-signing-public-key.asc

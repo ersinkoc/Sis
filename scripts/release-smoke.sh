@@ -27,6 +27,21 @@ fi
 (
   cd "${dist_dir}"
   sha256sum -c SHA256SUMS
+  if [[ -f SHA256SUMS.asc ]]; then
+    if [[ ! -f release-signing-public-key.asc ]]; then
+      echo "release-smoke: SHA256SUMS.asc exists but release-signing-public-key.asc is missing" >&2
+      exit 1
+    fi
+    verify_home="$(mktemp -d)"
+    cleanup_verify_home() {
+      rm -rf "${verify_home}"
+    }
+    trap cleanup_verify_home EXIT
+    export GNUPGHOME="${verify_home}"
+    chmod 700 "${GNUPGHOME}"
+    gpg --batch --import release-signing-public-key.asc
+    gpg --batch --verify SHA256SUMS.asc SHA256SUMS
+  fi
 )
 
 "${linux_bin}" version
