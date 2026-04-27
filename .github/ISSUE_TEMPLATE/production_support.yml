@@ -1,0 +1,62 @@
+name: Production support
+description: Ask for help with installation, upgrade, verification, or release artifacts.
+title: "[Ops]: "
+labels:
+  - support
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for operational problems such as service installation, release verification, backup/restore, or live health checks. Do not post secrets or vulnerability details publicly.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Paste `sis version` or the release tag.
+    validations:
+      required: true
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Topic
+      options:
+        - Install or systemd service
+        - Upgrade
+        - Release artifact verification
+        - Backup or restore
+        - DNS serving
+        - Web UI or API
+        - Performance
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, deployment mode, listener addresses, and whether this is a LAN or localhost-only setup.
+      placeholder: "Ubuntu 24.04, linux/amd64, systemd service, DNS on 0.0.0.0:53, HTTP on 127.0.0.1:8080"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the intended operational change and where it gets stuck.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Verification output
+      description: Paste relevant output from `scripts/verify-linux-service.sh`, `scripts/verify-release-artifacts.sh`, `sis config check`, or systemd logs. Remove secrets.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I removed secrets, cookies, password hashes, private client data, and backup contents.
+          required: true
+        - label: I checked README.md, SECURITY.md, and docs/PRODUCTION.md.
+          required: true

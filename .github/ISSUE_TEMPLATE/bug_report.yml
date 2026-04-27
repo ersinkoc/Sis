@@ -1,0 +1,69 @@
+name: Bug report
+description: Report a reproducible Sis bug.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Sis. Do not use this form for suspected vulnerabilities; follow SECURITY.md instead.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Paste `sis version` or the commit SHA.
+      placeholder: "sis v0.1.0 (...)"
+    validations:
+      required: true
+  - type: dropdown
+    id: install_mode
+    attributes:
+      label: Installation mode
+      options:
+        - Local development
+        - Linux systemd service
+        - Release binary
+        - Source build
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and why it looks wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: List the smallest sequence that reproduces the issue.
+      placeholder: |
+        1. Start Sis with ...
+        2. Query ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and diagnostics
+      description: Include relevant logs, config snippets, command output, or DNS query examples. Remove secrets, cookies, password hashes, and private client data.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I removed secrets, cookies, password hashes, and private client data.
+          required: true
+        - label: This is not a security vulnerability report.
+          required: true
