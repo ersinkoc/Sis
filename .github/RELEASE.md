@@ -14,31 +14,33 @@ When these secrets are present, CI uploads `SHA256SUMS.asc` and `release-signing
 ## Cut A Release
 
 1. Make sure `main` is green in CI.
-2. Run the local release readiness gate:
+2. Update `CHANGELOG.md` so the release scope, upgrade notes, and known limitations
+   match the tag being cut.
+3. Run the local release readiness gate:
 
    ```sh
    ./scripts/release-readiness.sh v1.0.0
    ```
 
-3. Optionally run the GitHub Actions `CI` workflow manually with `release_version=v1.0.0-dryrun`.
+4. Optionally run the GitHub Actions `CI` workflow manually with `release_version=v1.0.0-dryrun`.
    This exercises the release build, optional signing, and release smoke without publishing a
    GitHub Release.
-4. Choose the next semantic version tag, for example `v1.0.0`.
-5. Create and push the tag:
+5. Choose the next semantic version tag, for example `v1.0.0`.
+6. Create and push the tag:
 
    ```sh
    git tag v1.0.0
    git push origin v1.0.0
    ```
 
-6. GitHub Actions builds and smoke-tests the release artifacts with:
+7. GitHub Actions builds and smoke-tests the release artifacts with:
 
    ```sh
    ./scripts/build.sh
    ./scripts/release-smoke.sh
    ```
 
-7. The release job uploads:
+8. The release job uploads:
 
    - `dist/sis_linux_amd64`
    - `dist/sis_linux_arm64`
