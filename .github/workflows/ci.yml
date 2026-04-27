@@ -27,6 +27,9 @@ jobs:
           cache: npm
           cache-dependency-path: webui/package-lock.json
       - run: WEBUI_PM=npm WEBUI_INSTALL=ci ./scripts/check.sh
+      - run: npx playwright install --with-deps chromium
+        working-directory: webui
+      - run: ./scripts/webui-smoke.sh
       - name: Benchmarks
         run: |
           packages="$(go list ./... | grep -v '/webui/node_modules/')"
