@@ -47,6 +47,7 @@ jobs:
       - run: ./scripts/build.sh
         env:
           VERSION: ${{ github.ref_name }}
+      - run: ./scripts/release-smoke.sh
       - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true

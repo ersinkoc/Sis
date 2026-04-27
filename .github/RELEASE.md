@@ -1,6 +1,6 @@
 # Release Process
 
-Sis releases are tag-driven. CI runs the full check gate, benchmark suite, cross-compilation, SPDX SBOM generation, checksums, and GitHub release publication.
+Sis releases are tag-driven. CI runs the full check gate, benchmark suite, cross-compilation, SPDX SBOM generation, checksum validation, release smoke, and GitHub release publication.
 
 ## Cut A Release
 
@@ -19,10 +19,11 @@ Sis releases are tag-driven. CI runs the full check gate, benchmark suite, cross
    git push origin v1.0.0
    ```
 
-5. GitHub Actions builds the release artifacts with:
+5. GitHub Actions builds and smoke-tests the release artifacts with:
 
    ```sh
-   make release
+   ./scripts/build.sh
+   ./scripts/release-smoke.sh
    ```
 
 6. The release job uploads:
