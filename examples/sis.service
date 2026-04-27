@@ -9,6 +9,7 @@ Type=simple
 User=sis
 Group=sis
 WorkingDirectory=/var/lib/sis
+EnvironmentFile=-/etc/sis/sis.env
 ExecStart=/usr/local/bin/sis serve -config /etc/sis/sis.yaml
 Restart=on-failure
 RestartSec=3s
@@ -18,6 +19,12 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
 ReadWritePaths=/var/lib/sis /var/log/sis /etc/sis
 
 [Install]

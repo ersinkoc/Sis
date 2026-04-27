@@ -74,11 +74,19 @@ sudo useradd --system --home /var/lib/sis --shell /usr/sbin/nologin sis
 sudo install -d -o root -g root /etc/sis
 sudo install -d -o sis -g sis /var/lib/sis
 sudo install -m 0640 -o root -g sis examples/sis.yaml /etc/sis/sis.yaml
+sudo install -m 0640 -o root -g sis examples/sis.env /etc/sis/sis.env
 sudo install -m 0755 bin/sis /usr/local/bin/sis
 sudo install -m 0644 examples/sis.service /etc/systemd/system/sis.service
+sudoedit /etc/sis/sis.env
+sudo -u sis /usr/local/bin/sis config check -config /etc/sis/sis.yaml
 sudo systemctl daemon-reload
 sudo systemctl enable --now sis
+systemctl status sis
 ```
+
+For a direct LAN DNS deployment, uncomment `SIS_DNS_LISTEN=0.0.0.0:53,[::]:53`
+and `SIS_DATA_DIR=/var/lib/sis` in `/etc/sis/sis.env`. Keep the HTTP listener
+on localhost unless a trusted management network, firewall, or reverse proxy protects it.
 
 Useful early API checks:
 
