@@ -67,6 +67,12 @@ fi
 
 SIS_INSTALL_ROOT="${tmp}" SIS_INSTALL_BIN="${linux_bin}" ./scripts/install-linux-service.sh
 "${tmp}/usr/local/bin/sis" version
+SIS_VERIFY_BIN="${tmp}/usr/local/bin/sis" \
+  SIS_VERIFY_CONFIG="${tmp}/etc/sis/sis.yaml" \
+  SIS_VERIFY_SKIP_SYSTEMD=1 \
+  SIS_VERIFY_SKIP_HTTP=1 \
+  SIS_VERIFY_SKIP_DNS=1 \
+  ./scripts/verify-linux-service.sh
 
 for path in \
   "${tmp}/etc/sis/sis.yaml" \

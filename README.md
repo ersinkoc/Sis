@@ -91,10 +91,14 @@ Or use the installer script after building or unpacking a Linux release binary:
 ```sh
 sudo SIS_INSTALL_BIN=./sis_linux_amd64 ./scripts/install-linux-service.sh
 sudo systemctl enable --now sis
+sudo ./scripts/verify-linux-service.sh
 ```
 
 The installer keeps existing `/etc/sis/sis.yaml` and `/etc/sis/sis.env` files,
 writing refreshed examples beside them as `.example` files during upgrades.
+`scripts/verify-linux-service.sh` checks the installed binary, config, systemd service state,
+HTTP health/readiness, and a DNS query. Override `SIS_VERIFY_*` variables for non-default
+ports, paths, or staged checks.
 
 Create an operational backup before upgrades or config-heavy changes:
 
@@ -194,7 +198,9 @@ make release-smoke
 GoDoc, WebUI install/build/lint, Go coverage, Go vet, binary build, and a local serve smoke test.
 `scripts/build.sh` creates the release binaries and `dist/SHA256SUMS`.
 `scripts/release-smoke.sh` verifies release checksums, the Linux artifact, config validation,
-and a staged Linux service install without touching the host system.
+backup restore, service hardening directives, and a staged Linux service install without touching the host system.
+`scripts/verify-linux-service.sh` verifies a live Linux installation; use `SIS_VERIFY_SKIP_*`
+variables for staged or partial checks.
 `scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies health/readiness,
 DNS queries, blocklist enforcement, auth setup, CLI API access, inventory APIs, custom blocklist
 mutation, query logs, stats, cache flush, and config reload/history.
