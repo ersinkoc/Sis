@@ -35,8 +35,8 @@ on a manually-created key, also set `RELEASE_GPG_PASSPHRASE`.
    ```
 
 4. Optionally run the GitHub Actions `CI` workflow manually with `release_version=v1.0.0-dryrun`.
-   This exercises the release build, optional signing, and release smoke without publishing a
-   GitHub Release.
+   This exercises the release build, release signing helper, optional signing, and release
+   smoke without publishing a GitHub Release.
 5. Choose the next semantic version tag, for example `v1.0.0`.
 6. Create and push the tag:
 

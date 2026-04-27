@@ -33,6 +33,7 @@ if [[ -z "${RELEASE_GPG_PRIVATE_KEY_B64:-}" && -z "${RELEASE_GPG_KEY_ID:-}" ]]; 
 fi
 
 WEBUI_PM="${WEBUI_PM:-npm}" WEBUI_INSTALL="${WEBUI_INSTALL:-ci}" ./scripts/check.sh
+./scripts/release-signing-key-smoke.sh
 VERSION="${tag}" ./scripts/build.sh
 ./scripts/sign-release.sh
 ./scripts/release-smoke.sh

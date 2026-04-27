@@ -17,6 +17,7 @@ that require careful upgrade notes.
 - SPDX SBOM generation for release bundles.
 - Optional GPG signing for `SHA256SUMS`, with release public-key export.
 - Release signing key generation helper for preparing GitHub signing secrets.
+- Release readiness smoke coverage for the release signing key helper.
 - Release artifact verifier for checksums, optional signatures, and SBOM presence.
 - Manual GitHub Actions release dry run workflow.
 - Security policy with supported versions and private vulnerability reporting flow.
