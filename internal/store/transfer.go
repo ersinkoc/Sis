@@ -14,9 +14,14 @@ func MigrateJSONToSQLite(dataDir string, force bool) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	return ImportJSONToSQLite(dataDir, raw, force)
+}
+
+// ImportJSONToSQLite imports a sis.db.json payload into a SQLite sis.db file in dataDir.
+func ImportJSONToSQLite(dataDir string, raw []byte, force bool) (int, error) {
 	rows, err := decodeJSONRows(raw)
 	if err != nil {
-		return 0, fmt.Errorf("decode %s: %w", jsonPath, err)
+		return 0, fmt.Errorf("decode store JSON: %w", err)
 	}
 
 	sqlitePath := filepath.Join(dataDir, "sis.db")

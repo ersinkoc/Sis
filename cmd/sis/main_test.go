@@ -258,6 +258,69 @@ func TestRunBackupVerifyAndRestore(t *testing.T) {
 	}
 }
 
+func TestRunBackupCreateAndRestoreSQLiteStore(t *testing.T) {
+	path := writeUserTestConfig(t)
+	cfg, err := (&config.Loader{Path: path}).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Server.StoreBackend = store.BackendSQLite
+	if err := (&config.Loader{Path: path}).Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.OpenSQLite(cfg.Server.DataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.CustomLists().Add("custom", "sqlite-backup.test"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	backupPath := filepath.Join(t.TempDir(), "sis-sqlite-backup.tar.gz")
+	if err := runBackup([]string{"create", "-config", path, "-out", backupPath}); err != nil {
+		t.Fatal(err)
+	}
+	files := readBackupFiles(t, backupPath)
+	if !strings.Contains(string(files["sis.db.json"]), "sqlite-backup.test") {
+		t.Fatalf("sqlite logical backup missing custom list: %s", files["sis.db.json"])
+	}
+	var manifest map[string]string
+	if err := json.Unmarshal(files["manifest.json"], &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest["store"] != store.BackendSQLite {
+		t.Fatalf("manifest store = %q", manifest["store"])
+	}
+
+	restoreDir := t.TempDir()
+	restoreConfig := filepath.Join(restoreDir, "sis.yaml")
+	restoreData := filepath.Join(restoreDir, "data")
+	if err := runBackup([]string{"restore", "-in", backupPath, "-config", restoreConfig, "-data-dir", restoreData}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(restoreData, "sis.db")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(restoreData, "sis.db.json")); !os.IsNotExist(err) {
+		t.Fatalf("sqlite restore wrote JSON store file: %v", err)
+	}
+	restored, err := store.OpenSQLite(restoreData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restored.Close()
+	domains, err := restored.CustomLists().List("custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(domains) != 1 || domains[0] != "sqlite-backup.test" {
+		t.Fatalf("restored sqlite domains = %#v", domains)
+	}
+}
+
 func TestRunBackupVerifyRejectsInvalidArchive(t *testing.T) {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
@@ -372,7 +435,7 @@ func TestCreateBackupReturnsOutputAndStoreErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := createBackup(path, cfg.Server.DataDir, filepath.Join(t.TempDir(), "missing", "backup.tar.gz")); err == nil {
+	if err := createBackup(path, cfg.Server.DataDir, cfg.Server.StoreBackend, filepath.Join(t.TempDir(), "missing", "backup.tar.gz")); err == nil {
 		t.Fatal("backup in missing output directory succeeded, want error")
 	}
 
@@ -380,7 +443,7 @@ func TestCreateBackupReturnsOutputAndStoreErrors(t *testing.T) {
 	if err := os.MkdirAll(dbDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := createBackup(path, cfg.Server.DataDir, filepath.Join(t.TempDir(), "sis-backup.tar.gz")); err == nil {
+	if err := createBackup(path, cfg.Server.DataDir, cfg.Server.StoreBackend, filepath.Join(t.TempDir(), "sis-backup.tar.gz")); err == nil {
 		t.Fatal("directory store file succeeded, want error")
 	}
 }

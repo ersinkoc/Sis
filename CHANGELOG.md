@@ -22,6 +22,7 @@ that require careful upgrade notes.
   installing and verifying a release.
 - SQLite store backend support behind `server.store_backend: sqlite`.
 - Store migration commands for JSON-to-SQLite import and SQLite-to-JSON export.
+- Backup and restore support for SQLite deployments via portable logical store snapshots.
 
 ## v0.1.0 - 2026-04-27
 

@@ -115,7 +115,8 @@ Create an operational backup before upgrades or config-heavy changes:
 sudo ./scripts/backup-linux-service.sh
 ```
 
-Backups include `sis.yaml`, `sis.db.json` when present, and a small manifest.
+Backups include `sis.yaml`, a portable logical `sis.db.json` store snapshot for JSON or
+SQLite deployments, and a small manifest.
 Treat them as sensitive because they can include password hashes, sessions, client metadata,
 custom lists, and the privacy log salt.
 Restore refuses to overwrite existing files unless `-force` is passed:

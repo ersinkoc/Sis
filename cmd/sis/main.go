@@ -644,7 +644,7 @@ func runBackupCreate(args []string) error {
 	if outPath == "" {
 		outPath = "sis-backup-" + time.Now().UTC().Format("20060102-150405") + ".tar.gz"
 	}
-	if err := createBackup(*path, cfg.Server.DataDir, outPath); err != nil {
+	if err := createBackup(*path, cfg.Server.DataDir, cfg.Server.StoreBackend, outPath); err != nil {
 		return err
 	}
 	fmt.Printf("backup written to %s\n", outPath)
@@ -697,7 +697,7 @@ func runBackupRestore(args []string) error {
 	return nil
 }
 
-func createBackup(configPath, dataDir, outPath string) error {
+func createBackup(configPath, dataDir, backend, outPath string) error {
 	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
@@ -719,6 +719,7 @@ func createBackup(configPath, dataDir, outPath string) error {
 		"version":     version.String(),
 		"config_path": configPath,
 		"data_dir":    dataDir,
+		"store":       backend,
 	}
 	if err := addJSONToTar(tw, "manifest.json", manifest); err != nil {
 		_ = closeArchive()
@@ -728,17 +729,48 @@ func createBackup(configPath, dataDir, outPath string) error {
 		_ = closeArchive()
 		return err
 	}
-	dbPath := filepath.Join(dataDir, "sis.db.json")
-	if _, err := os.Stat(dbPath); err == nil {
-		if err := addFileToTar(tw, dbPath, "sis.db.json"); err != nil {
-			_ = closeArchive()
-			return err
-		}
-	} else if !os.IsNotExist(err) {
+	storeJSON, err := backupStoreJSON(dataDir, backend)
+	if err != nil {
 		_ = closeArchive()
 		return err
 	}
+	if len(storeJSON) > 0 {
+		if err := addBytesToTar(tw, "sis.db.json", storeJSON, 0o640); err != nil {
+			_ = closeArchive()
+			return err
+		}
+	}
 	return closeArchive()
+}
+
+func backupStoreJSON(dataDir, backend string) ([]byte, error) {
+	switch backend {
+	case "", store.BackendJSON:
+		dbPath := filepath.Join(dataDir, "sis.db.json")
+		raw, err := os.ReadFile(dbPath)
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return raw, err
+	case store.BackendSQLite:
+		if _, err := os.Stat(filepath.Join(dataDir, "sis.db")); os.IsNotExist(err) {
+			return nil, nil
+		} else if err != nil {
+			return nil, err
+		}
+		tmpDir, err := os.MkdirTemp("", "sis-sqlite-backup-*")
+		if err != nil {
+			return nil, err
+		}
+		defer os.RemoveAll(tmpDir)
+		outPath := filepath.Join(tmpDir, "sis.db.json")
+		if _, err := store.ExportSQLiteToJSON(dataDir, outPath, false); err != nil {
+			return nil, err
+		}
+		return os.ReadFile(outPath)
+	default:
+		return nil, fmt.Errorf("unsupported store backend %q", backend)
+	}
 }
 
 type backupArchive struct {
@@ -815,8 +847,17 @@ func restoreBackupArchive(backup *backupArchive, configPath, dataDir string, for
 		return err
 	}
 	if len(backup.StoreJSON) > 0 {
-		if err := canWriteRestoreTarget(filepath.Join(dataDir, "sis.db.json"), force); err != nil {
-			return err
+		switch backup.Config.Server.StoreBackend {
+		case "", store.BackendJSON:
+			if err := canWriteRestoreTarget(filepath.Join(dataDir, "sis.db.json"), force); err != nil {
+				return err
+			}
+		case store.BackendSQLite:
+			if err := canWriteRestoreTarget(filepath.Join(dataDir, "sis.db"), force); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unsupported backup store backend %q", backup.Config.Server.StoreBackend)
 		}
 	}
 	if err := writeFileAtomic(configPath, backup.ConfigYAML, 0o640, force); err != nil {
@@ -825,7 +866,15 @@ func restoreBackupArchive(backup *backupArchive, configPath, dataDir string, for
 	if len(backup.StoreJSON) == 0 {
 		return nil
 	}
-	return writeFileAtomic(filepath.Join(dataDir, "sis.db.json"), backup.StoreJSON, 0o640, force)
+	switch backup.Config.Server.StoreBackend {
+	case "", store.BackendJSON:
+		return writeFileAtomic(filepath.Join(dataDir, "sis.db.json"), backup.StoreJSON, 0o640, force)
+	case store.BackendSQLite:
+		_, err := store.ImportJSONToSQLite(dataDir, backup.StoreJSON, force)
+		return err
+	default:
+		return fmt.Errorf("unsupported backup store backend %q", backup.Config.Server.StoreBackend)
+	}
 }
 
 func canWriteRestoreTarget(path string, force bool) error {

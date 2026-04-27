@@ -32,6 +32,10 @@ The configured `server.data_dir` contains runtime state:
 The config file also contains sensitive operational data such as password hashes and the
 privacy log salt. Treat backups as secrets.
 
+`sis backup create` stores runtime state as a portable logical `sis.db.json` snapshot for
+both JSON and SQLite deployments. `sis backup restore` recreates `sis.db.json` for JSON
+configs and rebuilds `sis.db` for SQLite configs.
+
 ## Pre-Upgrade Checklist
 
 ```sh
@@ -103,7 +107,7 @@ sudo systemctl start sis
 sudo ./scripts/verify-linux-service.sh
 ```
 
-To export SQLite state back to the JSON backup format for inspection or rollback planning:
+To export SQLite state back to JSON manually for inspection:
 
 ```sh
 sudo /usr/local/bin/sis store export-sqlite-json -data-dir /var/lib/sis -out /var/backups/sis/sis.db.json
