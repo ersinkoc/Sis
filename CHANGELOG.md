@@ -16,6 +16,7 @@ that require careful upgrade notes.
 - Cross-platform release artifacts for Linux and macOS on amd64 and arm64.
 - SPDX SBOM generation for release bundles.
 - Optional GPG signing for `SHA256SUMS`, with release public-key export.
+- Release signing key generation helper for preparing GitHub signing secrets.
 - Release artifact verifier for checksums, optional signatures, and SBOM presence.
 - Manual GitHub Actions release dry run workflow.
 - Security policy with supported versions and private vulnerability reporting flow.

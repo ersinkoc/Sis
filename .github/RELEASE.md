@@ -11,6 +11,18 @@ Checksum signing is optional but recommended for production releases. Add these 
 
 When these secrets are present, CI uploads `SHA256SUMS.asc` and `release-signing-public-key.asc` next to the release artifacts. Without them, the release still publishes checksums and SBOM, but the checksum file is not signed.
 
+To create a dedicated unprotected release-signing key for CI, run:
+
+```sh
+SIS_RELEASE_GPG_EMAIL=release@example.com ./scripts/generate-release-signing-key.sh
+```
+
+The script writes `release-signing-key/RELEASE_GPG_PRIVATE_KEY_B64.txt`; add that
+file's single-line value to the `RELEASE_GPG_PRIVATE_KEY_B64` repository secret.
+Store `release-signing-key/release-signing-private-key.asc` outside the repository,
+then delete the generated `release-signing-key` directory. If you use a passphrase
+on a manually-created key, also set `RELEASE_GPG_PASSPHRASE`.
+
 ## Cut A Release
 
 1. Make sure `main` is green in CI.
