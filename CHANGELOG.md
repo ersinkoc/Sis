@@ -20,6 +20,7 @@ that require careful upgrade notes.
 - Manual GitHub Actions release dry run workflow.
 - Security policy with supported versions and private vulnerability reporting flow.
 - Dependabot automation for Go modules, WebUI npm packages, and GitHub Actions.
+- GitHub issue and pull request templates for release, security, and operations hygiene.
 - Linux systemd installer and live service verification script.
 - Hardened example Linux service sandbox.
 - Local backup create, verify, and restore commands.
