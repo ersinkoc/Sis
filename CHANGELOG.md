@@ -8,6 +8,12 @@ that require careful upgrade notes.
 
 ## Unreleased
 
+No unreleased changes yet.
+
+## v0.1.0 - 2026-04-27
+
+Initial public release candidate for home and small-office DNS gateway deployments.
+
 ### Added
 
 - Release readiness gate covering local checks, release builds, optional checksum
@@ -48,9 +54,3 @@ that require careful upgrade notes.
 - The current file-backed JSON store is intended for home and small-office use.
   Larger multi-tenant or high-write deployments should wait for a durable database
   backend such as SQLite before treating Sis as a broad production platform.
-
-## v0.1.0 - Planned
-
-Initial public release candidate for home and small-office DNS gateway deployments.
-The release target is the current `Unreleased` scope after final signing setup,
-tag creation, GitHub release artifact verification, and live host validation.
