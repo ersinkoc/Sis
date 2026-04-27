@@ -25,7 +25,7 @@ server:
     cert_file: ""
     key_file: ""
   data_dir: "./data"
-  # json is the current durable store. SQLite is planned for larger deployments.
+  # Supported values: json, sqlite.
   store_backend: "json"
   tz: "Local"
 

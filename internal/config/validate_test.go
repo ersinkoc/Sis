@@ -205,6 +205,11 @@ func TestValidateLoggingRequiresCreatableLogDir(t *testing.T) {
 func TestValidateStoreBackend(t *testing.T) {
 	cfg := validConfig(t)
 	cfg.Server.StoreBackend = "sqlite"
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("sqlite backend should validate: %v", err)
+	}
+
+	cfg.Server.StoreBackend = "postgres"
 	err := Validate(cfg)
 	assertErrContains(t, err, "server.store_backend")
 }

@@ -5,6 +5,8 @@ import "fmt"
 const (
 	// BackendJSON selects the file-backed JSON store.
 	BackendJSON = "json"
+	// BackendSQLite selects the SQLite-backed store.
+	BackendSQLite = "sqlite"
 )
 
 // Store groups the durable repositories used by the Sis runtime.
@@ -22,8 +24,10 @@ func OpenBackend(backend, dataDir string) (Store, error) {
 	switch backend {
 	case "", BackendJSON:
 		return Open(dataDir)
+	case BackendSQLite:
+		return OpenSQLite(dataDir)
 	default:
-		return nil, fmt.Errorf("store backend %q is not supported", backend)
+		return nil, fmt.Errorf("store backend %q is not supported; supported values: json, sqlite", backend)
 	}
 }
 

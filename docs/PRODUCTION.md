@@ -14,9 +14,10 @@ store, provided these constraints are acceptable:
 - Very high write concurrency and very large query-history retention are out of scope for
   the first release.
 
-The store is isolated behind `internal/store` interfaces, so a future SQLite backend can be
-added without changing DNS, API, policy, or WebUI callers. The active backend is configured
-with `server.store_backend: json`; `json` is currently the only supported value.
+The store is isolated behind `internal/store` interfaces. The active backend is configured
+with `server.store_backend`; supported values are `json` and `sqlite`. New larger
+deployments should prefer `sqlite`, while existing small-site JSON deployments can continue
+using `json`.
 
 ## Files To Protect
 

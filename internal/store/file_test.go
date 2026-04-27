@@ -50,8 +50,95 @@ func TestOpenBackend(t *testing.T) {
 	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := OpenBackend("sqlite", t.TempDir()); err == nil || !strings.Contains(err.Error(), "not supported") {
-		t.Fatalf("OpenBackend sqlite err = %v", err)
+	s, err = OpenBackend(BackendSQLite, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenBackend("postgres", t.TempDir()); err == nil || !strings.Contains(err.Error(), "not supported") {
+		t.Fatalf("OpenBackend postgres err = %v", err)
+	}
+}
+
+func TestSQLiteStoreCRUDAndPersistence(t *testing.T) {
+	dir := t.TempDir()
+	s, err := OpenSQLite(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	client := &Client{Key: "192.168.1.30", Type: "ip", Group: "default"}
+	if err := s.Clients().Upsert(client); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CustomLists().Add("custom", "sqlite.example"); err != nil {
+		t.Fatal(err)
+	}
+	session := &Session{Token: "tok", Username: "admin", ExpiresAt: time.Now().Add(time.Hour)}
+	if err := s.Sessions().Upsert(session); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Stats().Put("1m", "20", &StatsRow{Counters: map[string]uint64{"queries": 20}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ConfigHistory().Append(&ConfigSnapshot{YAML: "server: {}"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "sis.db")); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := OpenSQLite(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+
+	gotClient, err := reopened.Clients().Get(client.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotClient.Group != "default" {
+		t.Fatalf("client group = %q", gotClient.Group)
+	}
+	domains, err := reopened.CustomLists().List("custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(domains) != 1 || domains[0] != "sqlite.example" {
+		t.Fatalf("domains = %#v", domains)
+	}
+	gotSession, err := reopened.Sessions().Get("tok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotSession.Username != "admin" {
+		t.Fatalf("username = %q", gotSession.Username)
+	}
+	rows, err := reopened.Stats().List("1m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Counters["queries"] != 20 {
+		t.Fatalf("rows = %#v", rows)
+	}
+	history, err := reopened.ConfigHistory().List(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 1 || history[0].YAML == "" {
+		t.Fatalf("history = %#v", history)
+	}
+	if err := reopened.Clients().Delete(client.Key); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reopened.Clients().Get(client.Key); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted client err = %v", err)
 	}
 }
 

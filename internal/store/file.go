@@ -24,6 +24,13 @@ type fileStore struct {
 	closed      bool
 }
 
+type jsonKVStore interface {
+	getJSON(key string, out any) error
+	putJSON(key string, value any) error
+	delete(key string) error
+	scan(prefix string) map[string]json.RawMessage
+}
+
 // Open opens the file-backed store in dataDir.
 func Open(dataDir string) (Store, error) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
@@ -234,7 +241,7 @@ func prefixOf(key string) string {
 }
 
 type clientStore struct {
-	s *fileStore
+	s jsonKVStore
 }
 
 func (c *clientStore) Get(key string) (*Client, error) {
@@ -271,7 +278,7 @@ func (c *clientStore) Delete(key string) error {
 }
 
 type customListStore struct {
-	s *fileStore
+	s jsonKVStore
 }
 
 func (c *customListStore) Add(listID, domain string) error {
@@ -297,7 +304,7 @@ func (c *customListStore) List(listID string) ([]string, error) {
 }
 
 type sessionStore struct {
-	s *fileStore
+	s jsonKVStore
 }
 
 func (ss *sessionStore) Get(token string) (*Session, error) {
@@ -337,7 +344,7 @@ func (ss *sessionStore) DeleteExpired() error {
 }
 
 type statsStore struct {
-	s *fileStore
+	s jsonKVStore
 }
 
 func (st *statsStore) Put(granularity, bucket string, row *StatsRow) error {
@@ -379,7 +386,7 @@ func (st *statsStore) List(granularity string) ([]*StatsRow, error) {
 }
 
 type configHistoryStore struct {
-	s *fileStore
+	s jsonKVStore
 }
 
 func (ch *configHistoryStore) Append(snapshot *ConfigSnapshot) error {
