@@ -15,6 +15,11 @@ func (s *Server) systemInfo(w http.ResponseWriter, _ *http.Request) {
 		info["http_listen"] = s.cfg.Get().Server.HTTP.Listen
 		info["http_tls"] = s.cfg.Get().Server.HTTP.TLS
 		info["data_dir"] = s.cfg.Get().Server.DataDir
+		backend := s.cfg.Get().Server.StoreBackend
+		if backend == "" {
+			backend = store.BackendJSON
+		}
+		info["store_backend"] = backend
 		info["first_run"] = s.cfg.Get().Auth.FirstRun
 	}
 	writeJSON(w, info)

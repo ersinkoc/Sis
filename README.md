@@ -172,6 +172,8 @@ Runtime signals:
 - `SIGUSR2`: write goroutine and heap profiles under `<data_dir>/dbg/`
 
 `SIGHUP` reloads policy, upstreams, cache settings, DNS rate limits, query/audit logging settings, and writes a config history snapshot.
+`sis system info` and `/api/v1/system/info` include the active `store_backend` so
+operators can confirm whether the running service is using JSON or SQLite.
 
 CLI examples:
 

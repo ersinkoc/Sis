@@ -98,6 +98,12 @@ for _ in $(seq 1 50); do
       echo "${cli_system_out}" >&2
       exit 1
     fi
+    if [[ "${cli_system_out}" != *'"store_backend": "json"'* ]]; then
+      echo "smoke: CLI API system info missing store backend" >&2
+      cat "${cli_system_err}" >&2
+      echo "${cli_system_out}" >&2
+      exit 1
+    fi
     echo "smoke: CLI API system info passed"
 
     cli_blocklist_err="${tmp}/cli-blocklist.err"

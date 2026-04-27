@@ -17,7 +17,8 @@ store backends, provided these constraints are acceptable:
 The store is isolated behind `internal/store` interfaces. The active backend is configured
 with `server.store_backend`; supported values are `json` and `sqlite`. New larger
 deployments should prefer `sqlite`, while existing small-site JSON deployments can continue
-using `json`.
+using `json`. The active backend is exposed by `sis system info` and the WebUI System
+panel.
 
 ## Files To Protect
 

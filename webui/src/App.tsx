@@ -237,7 +237,7 @@ function SystemPanel({ system, onChanged }: { system: SystemInfo; onChanged: () 
       </div>
       {message !== "" ? <p className="mt-3 text-sm text-[#1d6a4f]">{message}</p> : null}
       {error !== "" ? <p className="mt-3 text-sm text-[#a33a3a]">{error}</p> : null}
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
           <dt className="text-sm text-[#637083] dark:text-[#a6b1bd]">DNS</dt>
           <dd className="mt-1 truncate font-mono text-sm">{system.dns_listen?.join(", ") || "-"}</dd>
@@ -251,6 +251,10 @@ function SystemPanel({ system, onChanged }: { system: SystemInfo; onChanged: () 
         <div>
           <dt className="text-sm text-[#637083] dark:text-[#a6b1bd]">Data</dt>
           <dd className="mt-1 truncate font-mono text-sm">{system.data_dir || "-"}</dd>
+        </div>
+        <div>
+          <dt className="text-sm text-[#637083] dark:text-[#a6b1bd]">Store</dt>
+          <dd className="mt-1 font-mono text-sm">{system.store_backend || "json"}</dd>
         </div>
         <div>
           <dt className="text-sm text-[#637083] dark:text-[#a6b1bd]">First run</dt>

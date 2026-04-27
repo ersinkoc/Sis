@@ -120,6 +120,7 @@ export type SystemInfo = {
   http_listen?: string;
   http_tls?: boolean;
   data_dir?: string;
+  store_backend?: string;
   first_run?: boolean;
 };
 

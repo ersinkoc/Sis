@@ -15,6 +15,7 @@ that require careful upgrade notes.
 - Added store verification for JSON/SQLite backends and included it in Linux service
   verification.
 - Added store verification output to Linux diagnostics bundles.
+- Exposed the active store backend in system info responses and the WebUI System panel.
 
 ## v0.1.1 - 2026-04-27
 

@@ -511,6 +511,37 @@ func TestSetupAndLogin(t *testing.T) {
 	}
 }
 
+func TestSystemInfoIncludesStoreBackend(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	cfg := *holder.Get()
+	cfg.Server.StoreBackend = store.BackendSQLite
+	holder.Replace(&cfg)
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/system/info", nil)
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var info map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &info); err != nil {
+		t.Fatal(err)
+	}
+	if info["store_backend"] != store.BackendSQLite {
+		t.Fatalf("store_backend = %#v", info["store_backend"])
+	}
+}
+
 func TestSetupRejectsCompletedAndWeakPassword(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
