@@ -79,4 +79,16 @@ for path in \
   fi
 done
 
+for directive in \
+  "NoNewPrivileges=true" \
+  "ProtectSystem=strict" \
+  "PrivateDevices=true" \
+  "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
+  "MemoryDenyWriteExecute=true"; do
+  if ! grep -q "^${directive}$" "${tmp}/etc/systemd/system/sis.service"; then
+    echo "release-smoke: staged service missing hardening directive ${directive}" >&2
+    exit 1
+  fi
+done
+
 echo "release-smoke: release artifacts and staged Linux install passed"
