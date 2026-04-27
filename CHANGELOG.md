@@ -27,6 +27,7 @@ that require careful upgrade notes.
 - LAN DNS validation helper for UDP/TCP DNS, optional block policy, and health checks.
 - Production validation report helper combining service, SQLite, LAN DNS, and diagnostics checks.
 - Production validation record template for live host/network evidence.
+- Store compaction command for JSON rewrite and SQLite checkpoint/VACUUM maintenance.
 
 ## v0.1.0 - 2026-04-27
 

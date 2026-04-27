@@ -211,6 +211,49 @@ func TestMigrateJSONToSQLiteAndExport(t *testing.T) {
 	}
 }
 
+func TestCompactBackend(t *testing.T) {
+	jsonDir := t.TempDir()
+	jsonStore, err := Open(jsonDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := jsonStore.Clients().Upsert(&Client{Key: "192.0.2.60", Type: "ip"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := jsonStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+	path, err := CompactBackend(BackendJSON, jsonDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(path) != "sis.db.json" {
+		t.Fatalf("json compact path = %s", path)
+	}
+
+	sqliteDir := t.TempDir()
+	sqliteStore, err := OpenSQLite(sqliteDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sqliteStore.Clients().Upsert(&Client{Key: "192.0.2.61", Type: "ip"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := sqliteStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+	path, err = CompactBackend(BackendSQLite, sqliteDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(path) != "sis.db" {
+		t.Fatalf("sqlite compact path = %s", path)
+	}
+	if _, err := CompactBackend("postgres", t.TempDir()); err == nil || !strings.Contains(err.Error(), "not supported") {
+		t.Fatalf("unsupported compact err = %v", err)
+	}
+}
+
 func TestCustomListSessionStatsAndConfigHistory(t *testing.T) {
 	s, err := Open(t.TempDir())
 	if err != nil {

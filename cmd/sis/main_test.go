@@ -391,6 +391,9 @@ func TestRunStoreMigrateAndExport(t *testing.T) {
 	if !strings.Contains(string(raw), "192.0.2.55") {
 		t.Fatalf("export missing client: %s", raw)
 	}
+	if err := runStore([]string{"compact", "-data-dir", dir, "-backend", store.BackendSQLite}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestRunStoreRejectsInvalidArguments(t *testing.T) {
@@ -399,6 +402,7 @@ func TestRunStoreRejectsInvalidArguments(t *testing.T) {
 		{"nonesuch"},
 		{"migrate-json-to-sqlite"},
 		{"export-sqlite-json"},
+		{"compact"},
 	} {
 		if err := runStore(args); err == nil {
 			t.Fatalf("runStore(%v) succeeded, want error", args)

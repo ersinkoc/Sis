@@ -111,6 +111,23 @@ func (s *sqliteStore) Close() error {
 	return s.db.Close()
 }
 
+func (s *sqliteStore) compact() error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.closed {
+		return ErrClosed
+	}
+	for _, stmt := range []string{
+		`PRAGMA wal_checkpoint(TRUNCATE)`,
+		`VACUUM`,
+	} {
+		if _, err := s.db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *sqliteStore) getJSON(key string, out any) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

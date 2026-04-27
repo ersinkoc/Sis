@@ -157,6 +157,16 @@ To export SQLite state back to JSON manually for inspection:
 sudo /usr/local/bin/sis store export-sqlite-json -data-dir /var/lib/sis -out /var/backups/sis/sis.db.json
 ```
 
+After large imports, migration testing, or heavy churn, compact the active store while the
+service is stopped:
+
+```sh
+sudo systemctl stop sis
+sudo /usr/local/bin/sis store compact -data-dir /var/lib/sis -backend sqlite
+sudo systemctl start sis
+sudo ./scripts/verify-linux-service.sh
+```
+
 ## Diagnostics
 
 For support or incident triage, collect a small diagnostics bundle without including

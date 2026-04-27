@@ -577,13 +577,15 @@ func runBackup(args []string) error {
 
 func runStore(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: sis store <migrate-json-to-sqlite|export-sqlite-json>")
+		return fmt.Errorf("usage: sis store <migrate-json-to-sqlite|export-sqlite-json|compact>")
 	}
 	switch args[0] {
 	case "migrate-json-to-sqlite":
 		return runStoreMigrateJSONToSQLite(args[1:])
 	case "export-sqlite-json":
 		return runStoreExportSQLiteJSON(args[1:])
+	case "compact":
+		return runStoreCompact(args[1:])
 	default:
 		return fmt.Errorf("unknown store command %q", args[0])
 	}
@@ -623,6 +625,24 @@ func runStoreExportSQLiteJSON(args []string) error {
 		return err
 	}
 	fmt.Printf("exported %d records to %s\n", count, *out)
+	return nil
+}
+
+func runStoreCompact(args []string) error {
+	fs := flag.NewFlagSet("store compact", flag.ExitOnError)
+	dataDir := fs.String("data-dir", "", "data directory containing the store")
+	backend := fs.String("backend", store.BackendJSON, "store backend: json or sqlite")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 || *dataDir == "" {
+		return fmt.Errorf("usage: sis store compact -data-dir path [-backend json|sqlite]")
+	}
+	path, err := store.CompactBackend(*backend, *dataDir)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("compacted %s store at %s\n", *backend, path)
 	return nil
 }
 
