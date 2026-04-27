@@ -345,6 +345,18 @@ for _ in $(seq 1 50); do
       exit 1
     fi
     echo "smoke: cache flush passed"
+    cli_system_ops_err="${tmp}/cli-system-ops.err"
+    if ! cli_cache_out="$("${bin}" cache -api "http://${http_addr}" -cookie "${session_cookie}" flush 2>"${cli_system_ops_err}")"; then
+      echo "smoke: CLI cache flush failed" >&2
+      cat "${cli_system_ops_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_cache_out}" != *'"flushed": true'* || "${cli_cache_out}" != *'"entries":'* ]]; then
+      echo "smoke: CLI cache flush returned unexpected response" >&2
+      cat "${cli_system_ops_err}" >&2
+      echo "${cli_cache_out}" >&2
+      exit 1
+    fi
 
     reload_out="$(curl -fsS -b "${tmp}/cookies.txt" -X POST "http://${http_addr}/api/v1/system/config/reload")"
     if [[ "${reload_out}" != *'"reloaded":true'* ]]; then
@@ -359,6 +371,29 @@ for _ in $(seq 1 50); do
       exit 1
     fi
     echo "smoke: config reload and history passed"
+    if ! cli_reload_out="$("${bin}" system -api "http://${http_addr}" -cookie "${session_cookie}" reload 2>"${cli_system_ops_err}")"; then
+      echo "smoke: CLI system reload failed" >&2
+      cat "${cli_system_ops_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_reload_out}" != *'"reloaded": true'* ]]; then
+      echo "smoke: CLI system reload returned unexpected response" >&2
+      cat "${cli_system_ops_err}" >&2
+      echo "${cli_reload_out}" >&2
+      exit 1
+    fi
+    if ! cli_history_out="$("${bin}" system -api "http://${http_addr}" -cookie "${session_cookie}" history 1 2>"${cli_system_ops_err}")"; then
+      echo "smoke: CLI system history failed" >&2
+      cat "${cli_system_ops_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_history_out}" != *'"snapshots":'* || "${cli_history_out}" != *"server:"* ]]; then
+      echo "smoke: CLI system history missing reload snapshot" >&2
+      cat "${cli_system_ops_err}" >&2
+      echo "${cli_history_out}" >&2
+      exit 1
+    fi
+    echo "smoke: CLI cache and system operations passed"
     echo "smoke: auth setup, API summary, and API query policy passed"
     exit 0
   fi
