@@ -1,0 +1,92 @@
+# Sis reference configuration.
+#
+# For first boot, leave auth.first_run=true and create the admin user through:
+#   sis auth setup admin change-me-now
+#
+# For offline provisioning, create/update a user directly in this file with:
+#   sis user add -config examples/sis.yaml admin change-me-now
+#   sis user passwd -config examples/sis.yaml admin newer-password
+
+server:
+  dns:
+    # Use 127.0.0.1:5353 for local development. For production, use
+    # ["0.0.0.0:53", "[::]:53"] and run with permission to bind port 53.
+    listen: ["127.0.0.1:5353"]
+    # 0 = NumCPU * 4. TCP workers cap concurrent TCP connections.
+    udp_workers: 0
+    tcp_workers: 0
+    udp_size: 1232
+    # 0 disables rate limiting. Defaults are 200 qps with burst 400.
+    rate_limit_qps: 200
+    rate_limit_burst: 400
+  http:
+    listen: "127.0.0.1:8080"
+    tls: false
+    cert_file: ""
+    key_file: ""
+  data_dir: "./data"
+  tz: "Local"
+
+cache:
+  max_entries: 100000
+  min_ttl: "60s"
+  max_ttl: "24h"
+  negative_ttl: "1h"
+
+privacy:
+  strip_ecs: true
+  block_local_ptr: true
+  # full, hashed, or anonymous
+  log_mode: "full"
+  log_salt: ""
+
+logging:
+  query_log: true
+  audit_log: true
+  rotate_size_mb: 100
+  retention_days: 7
+  gzip: true
+
+block:
+  response_a: "0.0.0.0"
+  response_aaaa: "::"
+  response_ttl: "60s"
+  use_nxdomain: false
+
+upstreams:
+  - id: "cloudflare"
+    name: "Cloudflare 1.1.1.1"
+    url: "https://cloudflare-dns.com/dns-query"
+    bootstrap: ["1.1.1.1", "1.0.0.1"]
+    timeout: "3s"
+
+blocklists:
+  - id: "ads"
+    name: "StevenBlack Unified"
+    url: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
+    enabled: true
+    refresh_interval: "24h"
+
+allowlist:
+  domains: []
+
+groups:
+  - name: "default"
+    blocklists: ["ads"]
+    allowlist: []
+    schedules: []
+
+# Optional static metadata. Sis also auto-discovers clients at query time.
+# clients:
+#   - key: "192.168.1.50"
+#     type: "ip"
+#     name: "Living Room TV"
+#     group: "default"
+#     hidden: false
+clients: []
+
+auth:
+  first_run: true
+  users: []
+  session_ttl: "24h"
+  cookie_name: "sis_session"

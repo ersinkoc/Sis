@@ -8,5 +8,6 @@ cookies.txt
 *.log
 *.pprof
 sis.yaml
+!examples/sis.yaml
 *.test
 .DS_Store
