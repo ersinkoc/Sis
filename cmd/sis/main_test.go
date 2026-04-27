@@ -1,6 +1,10 @@
 package main
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -135,6 +139,92 @@ func TestRedactHelpers(t *testing.T) {
 	if redactString("salt") != "redacted" {
 		t.Fatal("non-empty string should be redacted")
 	}
+}
+
+func TestRunBackupCreateIncludesConfigStoreAndManifest(t *testing.T) {
+	path := writeUserTestConfig(t)
+	cfg, err := (&config.Loader{Path: path}).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(cfg.Server.DataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Clients().Upsert(&store.Client{Key: "192.0.2.30", Type: "ip", Group: "default"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	out := filepath.Join(t.TempDir(), "sis-backup.tar.gz")
+	if err := runBackup([]string{"create", "-config", path, "-out", out}); err != nil {
+		t.Fatal(err)
+	}
+
+	files := readBackupFiles(t, out)
+	for _, name := range []string{"manifest.json", "sis.yaml", "sis.db.json"} {
+		if len(files[name]) == 0 {
+			t.Fatalf("backup missing %s; files=%v", name, files)
+		}
+	}
+	var manifest map[string]string
+	if err := json.Unmarshal(files["manifest.json"], &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest["config_path"] != path || manifest["data_dir"] != cfg.Server.DataDir {
+		t.Fatalf("manifest = %#v", manifest)
+	}
+	if !strings.Contains(string(files["sis.db.json"]), "192.0.2.30") {
+		t.Fatalf("store backup missing client: %s", files["sis.db.json"])
+	}
+}
+
+func TestRunBackupCreateWithoutStoreFile(t *testing.T) {
+	path := writeUserTestConfig(t)
+	out := filepath.Join(t.TempDir(), "sis-backup.tar.gz")
+	if err := runBackup([]string{"create", "-config", path, "-out", out}); err != nil {
+		t.Fatal(err)
+	}
+	files := readBackupFiles(t, out)
+	if len(files["manifest.json"]) == 0 || len(files["sis.yaml"]) == 0 {
+		t.Fatalf("backup files = %v", files)
+	}
+	if _, ok := files["sis.db.json"]; ok {
+		t.Fatal("empty data dir should not include sis.db.json")
+	}
+}
+
+func readBackupFiles(t *testing.T, path string) map[string][]byte {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	files := make(map[string][]byte)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := io.ReadAll(tr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files[header.Name] = raw
+	}
+	return files
 }
 
 func writeUserTestConfig(t *testing.T) string {

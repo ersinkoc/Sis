@@ -1,7 +1,10 @@
 package main
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -82,9 +85,12 @@ func main() {
 		case "query":
 			must(runQuery(os.Args[2:]))
 			return
+		case "backup":
+			must(runBackup(os.Args[2:]))
+			return
 		}
 	}
-	fmt.Fprintf(os.Stderr, "usage: sis <serve|config|version|auth|user|client|cache|upstream|logs|stats|system|allowlist|blocklist|group|query>\n")
+	fmt.Fprintf(os.Stderr, "usage: sis <serve|config|version|auth|user|client|cache|upstream|logs|stats|system|allowlist|blocklist|group|query|backup>\n")
 	os.Exit(2)
 }
 
@@ -548,6 +554,117 @@ func runConfig(args []string) error {
 	default:
 		return fmt.Errorf("unknown config command %q", args[0])
 	}
+}
+
+func runBackup(args []string) error {
+	if len(args) == 0 || args[0] != "create" {
+		return fmt.Errorf("usage: sis backup create [-config path] [-out path]")
+	}
+	fs := flag.NewFlagSet("backup create", flag.ExitOnError)
+	path := fs.String("config", defaultConfigPath(), "config file path")
+	out := fs.String("out", "", "backup output path")
+	if err := fs.Parse(args[1:]); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 {
+		return fmt.Errorf("usage: sis backup create [-config path] [-out path]")
+	}
+	cfg, err := (&config.Loader{Path: *path}).Load()
+	if err != nil {
+		return err
+	}
+	outPath := *out
+	if outPath == "" {
+		outPath = "sis-backup-" + time.Now().UTC().Format("20060102-150405") + ".tar.gz"
+	}
+	if err := createBackup(*path, cfg.Server.DataDir, outPath); err != nil {
+		return err
+	}
+	fmt.Printf("backup written to %s\n", outPath)
+	return nil
+}
+
+func createBackup(configPath, dataDir, outPath string) error {
+	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	gz := gzip.NewWriter(out)
+	tw := tar.NewWriter(gz)
+	closeArchive := func() error {
+		if err := tw.Close(); err != nil {
+			_ = gz.Close()
+			return err
+		}
+		return gz.Close()
+	}
+
+	manifest := map[string]string{
+		"created_at":  time.Now().UTC().Format(time.RFC3339),
+		"version":     version.String(),
+		"config_path": configPath,
+		"data_dir":    dataDir,
+	}
+	if err := addJSONToTar(tw, "manifest.json", manifest); err != nil {
+		_ = closeArchive()
+		return err
+	}
+	if err := addFileToTar(tw, configPath, "sis.yaml"); err != nil {
+		_ = closeArchive()
+		return err
+	}
+	dbPath := filepath.Join(dataDir, "sis.db.json")
+	if _, err := os.Stat(dbPath); err == nil {
+		if err := addFileToTar(tw, dbPath, "sis.db.json"); err != nil {
+			_ = closeArchive()
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		_ = closeArchive()
+		return err
+	}
+	return closeArchive()
+}
+
+func addJSONToTar(tw *tar.Writer, name string, value any) error {
+	raw, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	raw = append(raw, '\n')
+	return addBytesToTar(tw, name, raw, 0o600)
+}
+
+func addFileToTar(tw *tar.Writer, path, name string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	mode := info.Mode().Perm()
+	if mode == 0 {
+		mode = 0o600
+	}
+	return addBytesToTar(tw, name, raw, mode)
+}
+
+func addBytesToTar(tw *tar.Writer, name string, raw []byte, mode os.FileMode) error {
+	header := &tar.Header{
+		Name:    name,
+		Mode:    int64(mode),
+		Size:    int64(len(raw)),
+		ModTime: time.Now().UTC(),
+	}
+	if err := tw.WriteHeader(header); err != nil {
+		return err
+	}
+	_, err := tw.Write(raw)
+	return err
 }
 
 func redactUsers(users []config.User) []config.User {
