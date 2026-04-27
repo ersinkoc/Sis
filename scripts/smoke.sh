@@ -139,6 +139,45 @@ for _ in $(seq 1 50); do
     fi
     echo "smoke: CLI blocklist mutation passed"
 
+    cli_allowlist_err="${tmp}/cli-allowlist.err"
+    if ! cli_allowlist_add_out="$("${bin}" allowlist -api "http://${http_addr}" -cookie "${session_cookie}" add blocked.example.com 2>"${cli_allowlist_err}")"; then
+      echo "smoke: CLI allowlist add failed" >&2
+      cat "${cli_allowlist_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_allowlist_add_out}" != *'"domain": "blocked.example.com"'* ]]; then
+      echo "smoke: CLI allowlist add returned unexpected response" >&2
+      cat "${cli_allowlist_err}" >&2
+      echo "${cli_allowlist_add_out}" >&2
+      exit 1
+    fi
+    if ! cli_allowlist_out="$("${bin}" allowlist -api "http://${http_addr}" -cookie "${session_cookie}" list 2>"${cli_allowlist_err}")"; then
+      echo "smoke: CLI allowlist list failed" >&2
+      cat "${cli_allowlist_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_allowlist_out}" != *"blocked.example.com"* ]]; then
+      echo "smoke: CLI allowlist list did not include domain" >&2
+      cat "${cli_allowlist_err}" >&2
+      echo "${cli_allowlist_out}" >&2
+      exit 1
+    fi
+    cli_allow_query_out="$(curl -fsS -b "${tmp}/cookies.txt" \
+      -H 'content-type: application/json' \
+      -d '{"domain":"blocked.example.com","type":"A"}' \
+      "http://${http_addr}/api/v1/query/test")"
+    if [[ "${cli_allow_query_out}" == *"0.0.0.0"* ]]; then
+      echo "smoke: CLI allowlist did not override blocklist" >&2
+      echo "${cli_allow_query_out}" >&2
+      exit 1
+    fi
+    if ! "${bin}" allowlist -api "http://${http_addr}" -cookie "${session_cookie}" remove blocked.example.com 2>"${cli_allowlist_err}"; then
+      echo "smoke: CLI allowlist remove failed" >&2
+      cat "${cli_allowlist_err}" >&2
+      exit 1
+    fi
+    echo "smoke: CLI allowlist mutation passed"
+
     settings_out="$(curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/settings")"
     if [[ "${settings_out}" != *'"cache":'* || "${settings_out}" != *'"privacy":'* ]]; then
       echo "smoke: settings API failed" >&2
