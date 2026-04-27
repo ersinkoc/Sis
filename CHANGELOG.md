@@ -21,6 +21,7 @@ that require careful upgrade notes.
 - Linux release upgrade helper that performs a verified pre-upgrade backup before
   installing and verifying a release.
 - SQLite store backend support behind `server.store_backend: sqlite`.
+- Store migration commands for JSON-to-SQLite import and SQLite-to-JSON export.
 
 ## v0.1.0 - 2026-04-27
 

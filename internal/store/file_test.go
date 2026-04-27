@@ -142,6 +142,75 @@ func TestSQLiteStoreCRUDAndPersistence(t *testing.T) {
 	}
 }
 
+func TestMigrateJSONToSQLiteAndExport(t *testing.T) {
+	dir := t.TempDir()
+	jsonStore, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := jsonStore.Clients().Upsert(&Client{Key: "192.0.2.44", Type: "ip", Group: "default"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := jsonStore.CustomLists().Add("custom", "migrated.example"); err != nil {
+		t.Fatal(err)
+	}
+	if err := jsonStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := MigrateJSONToSQLite(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count == 0 {
+		t.Fatal("migrated zero records")
+	}
+	if _, err := MigrateJSONToSQLite(dir, false); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("second migration err = %v", err)
+	}
+
+	sqliteStore, err := OpenSQLite(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := sqliteStore.Clients().Get("192.0.2.44")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.Group != "default" {
+		t.Fatalf("client group = %q", client.Group)
+	}
+	domains, err := sqliteStore.CustomLists().List("custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(domains) != 1 || domains[0] != "migrated.example" {
+		t.Fatalf("domains = %#v", domains)
+	}
+	if err := sqliteStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	exportPath := filepath.Join(t.TempDir(), "export.json")
+	exported, err := ExportSQLiteToJSON(dir, exportPath, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exported < count {
+		t.Fatalf("exported %d records, migrated %d", exported, count)
+	}
+	raw, err := os.ReadFile(exportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "migrated.example") {
+		t.Fatalf("export missing migrated domain: %s", raw)
+	}
+	if _, err := ExportSQLiteToJSON(dir, exportPath, false); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("second export err = %v", err)
+	}
+}
+
 func TestCustomListSessionStatsAndConfigHistory(t *testing.T) {
 	s, err := Open(t.TempDir())
 	if err != nil {

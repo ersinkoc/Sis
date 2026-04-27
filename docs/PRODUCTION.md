@@ -24,6 +24,7 @@ using `json`.
 The configured `server.data_dir` contains runtime state:
 
 - `sis.db.json`: clients, sessions, custom lists, stats rows, and config history
+- `sis.db`: SQLite store when `server.store_backend: sqlite` is enabled
 - `logs/`: query and audit logs
 - `blocklists/`: downloaded blocklist cache
 - `dbg/`: optional SIGUSR2 profile dumps
@@ -90,7 +91,23 @@ Watch for these signals:
 - Config/history or stats writes become visibly slow.
 - The host serves a large network with heavy churn in client/session/stats records.
 
-When these appear, move the deployment to the planned SQLite backend before expanding scope.
+When these appear, move the deployment to SQLite before expanding scope:
+
+```sh
+sudo systemctl stop sis
+sudo /usr/local/bin/sis backup create -config /etc/sis/sis.yaml -out /var/backups/sis/pre-sqlite.tar.gz
+sudo /usr/local/bin/sis store migrate-json-to-sqlite -data-dir /var/lib/sis
+sudo sed -i 's/store_backend: "json"/store_backend: "sqlite"/' /etc/sis/sis.yaml
+sudo /usr/local/bin/sis config check -config /etc/sis/sis.yaml
+sudo systemctl start sis
+sudo ./scripts/verify-linux-service.sh
+```
+
+To export SQLite state back to the JSON backup format for inspection or rollback planning:
+
+```sh
+sudo /usr/local/bin/sis store export-sqlite-json -data-dir /var/lib/sis -out /var/backups/sis/sis.db.json
+```
 
 ## Diagnostics
 

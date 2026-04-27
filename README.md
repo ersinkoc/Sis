@@ -185,6 +185,8 @@ sis query -api http://127.0.0.1:8080 -cookie 'sis_session=...' test example.com 
 sis backup create -config examples/sis.yaml -out sis-backup.tar.gz
 sis backup verify -in sis-backup.tar.gz
 sis backup restore -in sis-backup.tar.gz -config restored/sis.yaml -data-dir restored/data
+sis store migrate-json-to-sqlite -data-dir ./data
+sis store export-sqlite-json -data-dir ./data -out sis.db.json
 ```
 
 ## Development

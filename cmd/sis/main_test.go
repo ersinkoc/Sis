@@ -298,6 +298,51 @@ func TestRunBackupRejectsInvalidArguments(t *testing.T) {
 	}
 }
 
+func TestRunStoreMigrateAndExport(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Clients().Upsert(&store.Client{Key: "192.0.2.55", Type: "ip", Group: "default"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runStore([]string{"migrate-json-to-sqlite", "-data-dir", dir}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "sis.db")); err != nil {
+		t.Fatal(err)
+	}
+	exportPath := filepath.Join(t.TempDir(), "sis.db.json")
+	if err := runStore([]string{"export-sqlite-json", "-data-dir", dir, "-out", exportPath}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(exportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "192.0.2.55") {
+		t.Fatalf("export missing client: %s", raw)
+	}
+}
+
+func TestRunStoreRejectsInvalidArguments(t *testing.T) {
+	for _, args := range [][]string{
+		nil,
+		{"nonesuch"},
+		{"migrate-json-to-sqlite"},
+		{"export-sqlite-json"},
+	} {
+		if err := runStore(args); err == nil {
+			t.Fatalf("runStore(%v) succeeded, want error", args)
+		}
+	}
+}
+
 func TestRunBackupCreateUsesDefaultOutputPath(t *testing.T) {
 	path := writeUserTestConfig(t)
 	workDir := t.TempDir()

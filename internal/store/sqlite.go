@@ -133,13 +133,17 @@ func (s *sqliteStore) putJSON(key string, value any) error {
 	if err != nil {
 		return err
 	}
+	return s.putRawJSON(key, raw)
+}
+
+func (s *sqliteStore) putRawJSON(key string, raw json.RawMessage) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.closed {
 		return ErrClosed
 	}
 
-	_, err = s.db.Exec(
+	_, err := s.db.Exec(
 		`INSERT INTO kv(key, value) VALUES(?, ?)
 		ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
 		key,

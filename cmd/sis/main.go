@@ -88,9 +88,12 @@ func main() {
 		case "backup":
 			must(runBackup(os.Args[2:]))
 			return
+		case "store":
+			must(runStore(os.Args[2:]))
+			return
 		}
 	}
-	fmt.Fprintf(os.Stderr, "usage: sis <serve|config|version|auth|user|client|cache|upstream|logs|stats|system|allowlist|blocklist|group|query|backup>\n")
+	fmt.Fprintf(os.Stderr, "usage: sis <serve|config|version|auth|user|client|cache|upstream|logs|stats|system|allowlist|blocklist|group|query|backup|store>\n")
 	os.Exit(2)
 }
 
@@ -570,6 +573,57 @@ func runBackup(args []string) error {
 	default:
 		return fmt.Errorf("unknown backup command %q", args[0])
 	}
+}
+
+func runStore(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: sis store <migrate-json-to-sqlite|export-sqlite-json>")
+	}
+	switch args[0] {
+	case "migrate-json-to-sqlite":
+		return runStoreMigrateJSONToSQLite(args[1:])
+	case "export-sqlite-json":
+		return runStoreExportSQLiteJSON(args[1:])
+	default:
+		return fmt.Errorf("unknown store command %q", args[0])
+	}
+}
+
+func runStoreMigrateJSONToSQLite(args []string) error {
+	fs := flag.NewFlagSet("store migrate-json-to-sqlite", flag.ExitOnError)
+	dataDir := fs.String("data-dir", "", "data directory containing sis.db.json")
+	force := fs.Bool("force", false, "overwrite existing sis.db")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 || *dataDir == "" {
+		return fmt.Errorf("usage: sis store migrate-json-to-sqlite -data-dir path [-force]")
+	}
+	count, err := store.MigrateJSONToSQLite(*dataDir, *force)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("migrated %d records to %s\n", count, filepath.Join(*dataDir, "sis.db"))
+	return nil
+}
+
+func runStoreExportSQLiteJSON(args []string) error {
+	fs := flag.NewFlagSet("store export-sqlite-json", flag.ExitOnError)
+	dataDir := fs.String("data-dir", "", "data directory containing sis.db")
+	out := fs.String("out", "", "JSON export output path")
+	force := fs.Bool("force", false, "overwrite existing output")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 || *dataDir == "" || *out == "" {
+		return fmt.Errorf("usage: sis store export-sqlite-json -data-dir path -out path [-force]")
+	}
+	count, err := store.ExportSQLiteToJSON(*dataDir, *out, *force)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("exported %d records to %s\n", count, *out)
+	return nil
 }
 
 func runBackupCreate(args []string) error {
