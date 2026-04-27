@@ -83,6 +83,27 @@ sudo systemctl start sis
 sudo ./scripts/verify-linux-service.sh
 ```
 
+## LAN DNS Validation
+
+After binding DNS to the LAN interface and updating DHCP/router DNS settings, validate the
+client-visible path:
+
+```sh
+sudo SIS_LAN_VALIDATE_DNS_SERVER=192.168.1.2:53 ./scripts/validate-lan-dns.sh
+```
+
+For policy validation, pass a domain that should be blocked:
+
+```sh
+sudo SIS_LAN_VALIDATE_DNS_SERVER=192.168.1.2:53 \
+  SIS_LAN_VALIDATE_BLOCKED_DOMAIN=blocked.example.com \
+  ./scripts/validate-lan-dns.sh
+```
+
+The helper checks config validity, UDP DNS, TCP DNS, optional blocked-domain behavior, and
+HTTP health/readiness. Set `SIS_LAN_VALIDATE_SKIP_HTTP=1` when HTTP is intentionally not
+reachable from the validation environment.
+
 ## Storage Limits
 
 The JSON store writes the whole logical database through an atomic temp-file and rename flow.

@@ -132,6 +132,12 @@ against a restored backup copy before changing the live service.
 For a direct LAN DNS deployment, uncomment `SIS_DNS_LISTEN=0.0.0.0:53,[::]:53`
 and `SIS_DATA_DIR=/var/lib/sis` in `/etc/sis/sis.env`. Keep the HTTP listener
 on localhost unless a trusted management network, firewall, or reverse proxy protects it.
+After updating router/DHCP DNS settings, validate the LAN path from a client-reachable
+address:
+
+```sh
+sudo SIS_LAN_VALIDATE_DNS_SERVER=192.168.1.2:53 ./scripts/validate-lan-dns.sh
+```
 
 Useful early API checks:
 
