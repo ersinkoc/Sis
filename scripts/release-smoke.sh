@@ -37,6 +37,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+mkdir -p "${tmp}/data"
+printf '{}\n' > "${tmp}/data/sis.db.json"
+SIS_DATA_DIR="${tmp}/data" "${linux_bin}" backup create -config examples/sis.yaml -out "${tmp}/sis-backup.tar.gz"
+"${linux_bin}" backup verify -in "${tmp}/sis-backup.tar.gz"
+"${linux_bin}" backup restore -in "${tmp}/sis-backup.tar.gz" -config "${tmp}/restore/sis.yaml" -data-dir "${tmp}/restore/data"
+if [[ ! -s "${tmp}/restore/sis.yaml" || ! -s "${tmp}/restore/data/sis.db.json" ]]; then
+  echo "release-smoke: backup restore did not write expected files" >&2
+  exit 1
+fi
+
 SIS_INSTALL_ROOT="${tmp}" SIS_INSTALL_BIN="${linux_bin}" ./scripts/install-linux-service.sh
 "${tmp}/usr/local/bin/sis" version
 
