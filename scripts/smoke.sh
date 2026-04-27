@@ -394,6 +394,69 @@ for _ in $(seq 1 50); do
       exit 1
     fi
     echo "smoke: CLI cache and system operations passed"
+    persist_add_out="$(curl -fsS -b "${tmp}/cookies.txt" \
+      -H 'content-type: application/json' \
+      -d '{"domain":"persist-smoke.example.com"}' \
+      "http://${http_addr}/api/v1/custom-blocklist")"
+    if [[ "${persist_add_out}" != *'"domain":"persist-smoke.example.com"'* ]]; then
+      echo "smoke: persistent custom blocklist add failed" >&2
+      echo "${persist_add_out}" >&2
+      exit 1
+    fi
+
+    kill -TERM "${pid}" >/dev/null 2>&1 || true
+    wait "${pid}" >/dev/null 2>&1 || true
+    pid=""
+    "${bin}" serve -config "${tmp}/sis.yaml" >"${tmp}/serve-restart.log" 2>&1 &
+    pid="$!"
+
+    restarted=""
+    for _ in $(seq 1 50); do
+      if curl -fsS "http://${http_addr}/healthz" >/dev/null 2>&1; then
+        ready_after_restart="$(curl -fsS "http://${http_addr}/readyz")"
+        if [[ "${ready_after_restart}" != *'"ready":true'* ]]; then
+          echo "smoke: restarted service readiness failed" >&2
+          echo "${ready_after_restart}" >&2
+          exit 1
+        fi
+        restarted="true"
+        break
+      fi
+      sleep 0.1
+    done
+    if [[ -z "${restarted}" ]]; then
+      echo "smoke: restarted service health check failed" >&2
+      cat "${tmp}/serve-restart.log" >&2
+      exit 1
+    fi
+
+    curl -fsS -c "${tmp}/restart-cookies.txt" \
+      -H 'content-type: application/json' \
+      -d '{"username":"admin","password":"change-me-now"}' \
+      "http://${http_addr}/api/v1/auth/login" >/dev/null
+    restart_cookie="$(awk '$6 == "sis_session" {print $6 "=" $7; exit}' "${tmp}/restart-cookies.txt")"
+    if [[ -z "${restart_cookie}" ]]; then
+      echo "smoke: restart login did not create a session cookie" >&2
+      cat "${tmp}/restart-cookies.txt" >&2
+      exit 1
+    fi
+    persisted_list_out="$(curl -fsS -b "${tmp}/restart-cookies.txt" "http://${http_addr}/api/v1/custom-blocklist")"
+    if [[ "${persisted_list_out}" != *"persist-smoke.example.com"* ]]; then
+      echo "smoke: custom blocklist did not persist across restart" >&2
+      echo "${persisted_list_out}" >&2
+      exit 1
+    fi
+    persisted_query_out="$(curl -fsS -b "${tmp}/restart-cookies.txt" \
+      -H 'content-type: application/json' \
+      -d '{"domain":"persist-smoke.example.com","type":"A"}' \
+      "http://${http_addr}/api/v1/query/test")"
+    if [[ "${persisted_query_out}" != *'"source":"synthetic"'* || "${persisted_query_out}" != *"0.0.0.0"* ]]; then
+      echo "smoke: persisted custom blocklist did not update policy after restart" >&2
+      echo "${persisted_query_out}" >&2
+      exit 1
+    fi
+    echo "smoke: restart persistence passed"
+
     echo "smoke: auth setup, API summary, and API query policy passed"
     exit 0
   fi
