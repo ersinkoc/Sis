@@ -10,7 +10,7 @@ GO_PACKAGES ?= $(shell go list ./... 2>/dev/null | grep -v '/webui/node_modules/
 BENCHTIME ?= 100ms
 BENCHCOUNT ?= 1
 
-.PHONY: preflight build test coverage bench godoc lint fmt webui webui-check check all release clean
+.PHONY: preflight build test coverage bench godoc lint fmt webui webui-check check all release release-smoke clean
 
 preflight:
 	./scripts/preflight.sh
@@ -50,6 +50,9 @@ all: preflight webui fmt lint coverage build
 
 release:
 	./scripts/build.sh
+
+release-smoke: release
+	./scripts/release-smoke.sh
 
 clean:
 	rm -rf bin dist

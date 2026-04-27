@@ -5,21 +5,27 @@ Sis releases are tag-driven. CI runs the full check gate, benchmark suite, cross
 ## Cut A Release
 
 1. Make sure `main` is green in CI.
-2. Choose the next semantic version tag, for example `v1.0.0`.
-3. Create and push the tag:
+2. Run the local release smoke:
+
+   ```sh
+   make release-smoke
+   ```
+
+3. Choose the next semantic version tag, for example `v1.0.0`.
+4. Create and push the tag:
 
    ```sh
    git tag v1.0.0
    git push origin v1.0.0
    ```
 
-4. GitHub Actions builds the release artifacts with:
+5. GitHub Actions builds the release artifacts with:
 
    ```sh
    make release
    ```
 
-5. The release job uploads:
+6. The release job uploads:
 
    - `dist/sis_linux_amd64`
    - `dist/sis_linux_arm64`
@@ -58,8 +64,5 @@ Before announcing a release, verify:
 - A staged Linux service install works with:
 
   ```sh
-  ./scripts/build.sh
-  tmp="$(mktemp -d)"
-  SIS_INSTALL_ROOT="$tmp" SIS_INSTALL_BIN=dist/sis_linux_amd64 ./scripts/install-linux-service.sh
-  "$tmp/usr/local/bin/sis" version
+  ./scripts/release-smoke.sh
   ```

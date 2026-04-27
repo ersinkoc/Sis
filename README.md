@@ -164,11 +164,14 @@ make bench
 make godoc
 make build
 make release
+make release-smoke
 ```
 
 `scripts/check.sh` runs the same main gate without requiring `make`: Go format drift check,
 GoDoc, WebUI install/build/lint, Go coverage, Go vet, binary build, and a local serve smoke test.
 `scripts/build.sh` creates the release binaries and `dist/SHA256SUMS`.
+`scripts/release-smoke.sh` verifies release checksums, the Linux artifact, config validation,
+and a staged Linux service install without touching the host system.
 `scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies health/readiness,
 DNS queries, blocklist enforcement, auth setup, CLI API access, inventory APIs, custom blocklist
 mutation, query logs, stats, cache flush, and config reload/history.
