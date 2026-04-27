@@ -150,6 +150,17 @@ for _ in $(seq 1 50); do
       echo "${custom_query_out}" >&2
       exit 1
     fi
+    curl -fsS -b "${tmp}/cookies.txt" -X DELETE \
+      "http://${http_addr}/api/v1/custom-blocklist/custom-smoke.example.com" >/dev/null
+    custom_delete_query_out="$(curl -fsS -b "${tmp}/cookies.txt" \
+      -H 'content-type: application/json' \
+      -d '{"domain":"custom-smoke.example.com","type":"A"}' \
+      "http://${http_addr}/api/v1/query/test")"
+    if [[ "${custom_delete_query_out}" == *"0.0.0.0"* ]]; then
+      echo "smoke: custom blocklist delete did not update policy" >&2
+      echo "${custom_delete_query_out}" >&2
+      exit 1
+    fi
     echo "smoke: custom blocklist mutation passed"
 
     curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/stats/summary" >/dev/null
