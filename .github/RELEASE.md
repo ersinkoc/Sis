@@ -20,22 +20,25 @@ When these secrets are present, CI uploads `SHA256SUMS.asc` and `release-signing
    ./scripts/release-readiness.sh v1.0.0
    ```
 
-3. Choose the next semantic version tag, for example `v1.0.0`.
-4. Create and push the tag:
+3. Optionally run the GitHub Actions `CI` workflow manually with `release_version=v1.0.0-dryrun`.
+   This exercises the release build, optional signing, and release smoke without publishing a
+   GitHub Release.
+4. Choose the next semantic version tag, for example `v1.0.0`.
+5. Create and push the tag:
 
    ```sh
    git tag v1.0.0
    git push origin v1.0.0
    ```
 
-5. GitHub Actions builds and smoke-tests the release artifacts with:
+6. GitHub Actions builds and smoke-tests the release artifacts with:
 
    ```sh
    ./scripts/build.sh
    ./scripts/release-smoke.sh
    ```
 
-6. The release job uploads:
+7. The release job uploads:
 
    - `dist/sis_linux_amd64`
    - `dist/sis_linux_arm64`
