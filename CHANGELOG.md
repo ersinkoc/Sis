@@ -8,7 +8,10 @@ that require careful upgrade notes.
 
 ## Unreleased
 
-No unreleased changes yet.
+### Added
+
+- Release binary installation and verification instructions in README and the
+  production runbook.
 
 ## v0.1.0 - 2026-04-27
 

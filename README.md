@@ -29,6 +29,25 @@ See [CHANGELOG.md](CHANGELOG.md) for release scope, upgrade notes, and known lim
 
 ## Usage
 
+Install the latest Linux release:
+
+```sh
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_linux_amd64
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_linux_arm64
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_darwin_amd64
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_darwin_arm64
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/SHA256SUMS
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/SHA256SUMS.asc
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/release-signing-public-key.asc
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis.spdx.json
+chmod +x sis_linux_amd64
+SIS_RELEASE_DIST=. ./scripts/verify-release-artifacts.sh
+./sis_linux_amd64 version
+sudo SIS_INSTALL_BIN=./sis_linux_amd64 ./scripts/install-linux-service.sh
+sudo systemctl enable --now sis
+sudo ./scripts/verify-linux-service.sh
+```
+
 Quick local start:
 
 ```sh

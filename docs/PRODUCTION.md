@@ -40,6 +40,22 @@ sudo ./scripts/verify-linux-service.sh
 
 ## Upgrade Checklist
 
+Download and verify the release bundle before replacing the installed binary:
+
+```sh
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_linux_amd64
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_linux_arm64
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_darwin_amd64
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis_darwin_arm64
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/SHA256SUMS
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/SHA256SUMS.asc
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/release-signing-public-key.asc
+curl -LO https://github.com/ersinkoc/Sis/releases/download/v0.1.0/sis.spdx.json
+SIS_RELEASE_DIST=. ./scripts/verify-release-artifacts.sh
+chmod +x sis_linux_amd64
+./sis_linux_amd64 version
+```
+
 ```sh
 sudo systemctl stop sis
 sudo install -m 0755 sis_linux_amd64 /usr/local/bin/sis
