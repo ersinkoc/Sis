@@ -81,3 +81,9 @@ Before announcing a release, verify:
   ```sh
   ./scripts/release-smoke.sh
   ```
+
+Downloaded artifact bundles can be checked with:
+
+```sh
+SIS_RELEASE_DIST=dist ./scripts/verify-release-artifacts.sh
+```

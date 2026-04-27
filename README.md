@@ -197,6 +197,8 @@ make release-smoke
 `scripts/check.sh` runs the same main gate without requiring `make`: Go format drift check,
 GoDoc, WebUI install/build/lint, Go coverage, Go vet, binary build, and a local serve smoke test.
 `scripts/build.sh` creates the release binaries and `dist/SHA256SUMS`.
+`scripts/verify-release-artifacts.sh` validates release checksums, optional GPG signatures,
+and the SPDX SBOM for a downloaded or locally-built release bundle.
 `scripts/release-smoke.sh` verifies release checksums, the Linux artifact, config validation,
 backup restore, service hardening directives, and a staged Linux service install without touching the host system.
 `scripts/release-readiness.sh vX.Y.Z` checks branch/tag cleanliness, runs the full gate,
