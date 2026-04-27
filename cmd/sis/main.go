@@ -351,11 +351,13 @@ func runSystem(args []string) error {
 		return err
 	}
 	if len(rest) == 0 {
-		return fmt.Errorf("usage: sis system <info|history|reload>")
+		return fmt.Errorf("usage: sis system <info|store-verify|history|reload>")
 	}
 	switch rest[0] {
 	case "info":
 		return printResponse(client.get("/api/v1/system/info", responseBuffer()))
+	case "store-verify":
+		return printResponse(client.get("/api/v1/system/store/verify", responseBuffer()))
 	case "history":
 		if len(rest) > 2 {
 			return fmt.Errorf("usage: sis system history [limit]")

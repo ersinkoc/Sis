@@ -38,6 +38,8 @@ both JSON and SQLite deployments. `sis backup restore` recreates `sis.db.json` f
 configs and rebuilds `sis.db` for SQLite configs.
 `sis store verify -config /etc/sis/sis.yaml` confirms the configured store can be read;
 for SQLite it also runs `PRAGMA quick_check`.
+The same check is available remotely to authenticated operators through
+`sis system store-verify` or `/api/v1/system/store/verify`.
 
 ## Pre-Upgrade Checklist
 

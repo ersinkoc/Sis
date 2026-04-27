@@ -11,10 +11,10 @@ import (
 
 // VerifyResult summarizes a durable store verification.
 type VerifyResult struct {
-	Backend       string
-	Path          string
-	Records       int
-	SchemaVersion int
+	Backend       string `json:"backend"`
+	Path          string `json:"path"`
+	Records       int    `json:"records"`
+	SchemaVersion int    `json:"schema_version"`
 }
 
 // VerifyBackend validates that the configured store backend can be read.

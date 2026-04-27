@@ -542,6 +542,48 @@ func TestSystemInfoIncludesStoreBackend(t *testing.T) {
 	}
 }
 
+func TestSystemStoreVerify(t *testing.T) {
+	dataDir := t.TempDir()
+	st, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Clients().Upsert(&store.Client{Key: "192.0.2.88", Type: "ip"}); err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	cfg := *holder.Get()
+	cfg.Server.DataDir = dataDir
+	cfg.Server.StoreBackend = store.BackendJSON
+	holder.Replace(&cfg)
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/system/store/verify", nil)
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		OK    bool `json:"ok"`
+		Store struct {
+			Backend string `json:"backend"`
+			Records int    `json:"records"`
+		} `json:"store"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if !out.OK || out.Store.Backend != store.BackendJSON || out.Store.Records == 0 {
+		t.Fatalf("store verify response = %#v", out)
+	}
+}
+
 func TestSetupRejectsCompletedAndWeakPassword(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {

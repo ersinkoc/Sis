@@ -159,6 +159,7 @@ curl -b cookies.txt http://127.0.0.1:8080/api/v1/custom-blocklist
 curl -b cookies.txt http://127.0.0.1:8080/api/v1/settings
 curl -b cookies.txt http://127.0.0.1:8080/api/v1/upstreams
 curl -b cookies.txt http://127.0.0.1:8080/api/v1/system/config/history
+curl -b cookies.txt http://127.0.0.1:8080/api/v1/system/store/verify
 curl -b cookies.txt 'http://127.0.0.1:8080/api/v1/blocklists/ads/entries?q=example&limit=50'
 curl -b cookies.txt -X POST http://127.0.0.1:8080/api/v1/query/test -d '{"domain":"example.com","type":"A"}'
 curl -b cookies.txt 'http://127.0.0.1:8080/api/v1/logs/query?limit=50'
@@ -193,6 +194,7 @@ sis stats -cookie 'sis_session=...' top-domains
 sis logs -cookie 'sis_session=...' list 50 example.com
 sis logs -cookie 'sis_session=...' tail
 sis system -cookie 'sis_session=...' info
+sis system -cookie 'sis_session=...' store-verify
 sis system -cookie 'sis_session=...' history 10
 sis query -server 127.0.0.1:5353 test example.com A
 sis query -api http://127.0.0.1:8080 -cookie 'sis_session=...' test example.com A

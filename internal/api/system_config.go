@@ -25,6 +25,20 @@ func (s *Server) systemInfo(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, info)
 }
 
+func (s *Server) storeVerify(w http.ResponseWriter, _ *http.Request) {
+	if s.cfg == nil || s.cfg.Get() == nil {
+		http.Error(w, "config unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	cfg := s.cfg.Get()
+	result, err := store.VerifyBackend(cfg.Server.StoreBackend, cfg.Server.DataDir)
+	if err != nil {
+		s.internalError(w, "store verification failed", err)
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true, "store": result})
+}
+
 func (s *Server) configReload(w http.ResponseWriter, _ *http.Request) {
 	if s.configPath == "" || s.cfg == nil {
 		http.Error(w, "config reload unavailable", http.StatusServiceUnavailable)

@@ -123,6 +123,7 @@ func NewWithDeps(opts Options) *Server {
 	mux.HandleFunc("PATCH /api/v1/settings", s.settingsPatch)
 	mux.HandleFunc("POST /api/v1/query/test", s.queryTest)
 	mux.HandleFunc("GET /api/v1/system/info", s.systemInfo)
+	mux.HandleFunc("GET /api/v1/system/store/verify", s.storeVerify)
 	mux.HandleFunc("POST /api/v1/system/cache/flush", s.cacheFlush)
 	mux.HandleFunc("GET /api/v1/system/config/history", s.configHistory)
 	mux.HandleFunc("POST /api/v1/system/config/reload", s.configReload)

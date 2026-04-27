@@ -106,6 +106,19 @@ for _ in $(seq 1 50); do
     fi
     echo "smoke: CLI API system info passed"
 
+    if ! cli_store_verify_out="$("${bin}" system -api "http://${http_addr}" -cookie "${session_cookie}" store-verify 2>"${cli_system_err}")"; then
+      echo "smoke: CLI API store verification failed" >&2
+      cat "${cli_system_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_store_verify_out}" != *'"ok": true'* || "${cli_store_verify_out}" != *'"backend": "json"'* ]]; then
+      echo "smoke: CLI API store verification returned unexpected response" >&2
+      cat "${cli_system_err}" >&2
+      echo "${cli_store_verify_out}" >&2
+      exit 1
+    fi
+    echo "smoke: CLI API store verification passed"
+
     cli_blocklist_err="${tmp}/cli-blocklist.err"
     if ! cli_blocklist_add_out="$("${bin}" blocklist -api "http://${http_addr}" -cookie "${session_cookie}" add cli-smoke.example.com 2>"${cli_blocklist_err}")"; then
       echo "smoke: CLI blocklist add failed" >&2
