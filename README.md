@@ -224,3 +224,4 @@ The v1 design lives in:
 - `.project/TASKS.md`
 
 Release process notes live in `.github/RELEASE.md`.
+Production operation notes live in `docs/PRODUCTION.md`.

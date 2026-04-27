@@ -33,7 +33,7 @@ This document breaks the v1 build into discrete, reviewable tasks. Each task is 
 
 Notes:
 
-- The CobaltDB dependency is treated as a **working assumption** via `replace github.com/cobaltdb/cobalt => ../cobalt` in `go.mod` until CobaltDB is published. Tasks that depend on store behavior have an integration smoke test (T072) that flags any CobaltDB regression early.
+- The current implementation uses a file-backed JSON store through `internal/store` interfaces. A future SQLite backend can replace it without changing callers.
 - All frontend tasks (M8) can begin once T046 (auth handlers) and T056 (API client) are stubbed; UI screens land independently after that.
 
 ---
@@ -115,13 +115,13 @@ Notes:
 - **Est:** 2h
 - **Acceptance:** Audit entries land in `sis-audit.log`, never mixed with query log.
 
-### T008 — Store interface + CobaltDB wrapper
+### T008 — Store interface + file backend
 
 - **Scope:**
   - `internal/store/store.go` — interface (`Store`, `ClientStore`, `CustomListStore`, `SessionStore`, `StatsStore`, `ConfigHistoryStore`).
-  - `internal/store/cobalt.go` — implementation atop CobaltDB.
+  - `internal/store/file.go` — implementation atop an atomic JSON file.
   - Migration registry (`0001_init`).
-  - `replace` directive to local CobaltDB checkout.
+  - Crash-resilient temp-file, fsync, rename, and parent-directory fsync writes.
 - **Deps:** T001
 - **Est:** 8h
 - **Acceptance:** Open/close cycle clean; basic CRUD on each store passes unit tests.
@@ -269,7 +269,7 @@ Notes:
 ### T022 — Custom block/allow lists
 
 - **Scope:**
-  - Persisted to CobaltDB via `CustomListStore`.
+  - Persisted via `CustomListStore`.
   - First-class entries in policy engine (custom block list, custom allow list).
   - `Add`/`Remove`/`List` operations exposed for API consumption.
 - **Deps:** T008, T018
@@ -829,7 +829,7 @@ Notes:
 - **Scope:**
   - `tests/integration/` — fake DoH upstream, real DNS client.
   - End-to-end scenarios from SPEC §19 automated.
-  - CobaltDB integration smoke (open, write, restart, read).
+  - Store integration smoke (open, write, restart, read).
 - **Deps:** all M2–M7
 - **Est:** 8h
 - **Acceptance:** All 10 acceptance scenarios pass via `make test-integration`.

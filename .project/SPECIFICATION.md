@@ -78,7 +78,7 @@ Every incoming query flows through a fixed pipeline:
                  │            ┌───────┴───────┐        │
                  │            ▼               ▼        │
                  │        Storage          Logger      │
-                 │       (CobaltDB)         (JSON)     │
+                 │     (sis.db.json)        (JSON)     │
                  │            ▲                        │
                  │            │                        │
                  │   ┌────────┴────────┐               │
@@ -521,18 +521,18 @@ Precedence (highest first):
 | Data                | Location                     |
 |---------------------|------------------------------|
 | Config (current)    | YAML file (canonical)        |
-| Config history      | CobaltDB (last N revisions)  |
-| Clients             | CobaltDB                     |
-| Custom block/allow  | CobaltDB                     |
-| Sessions (WebUI)    | CobaltDB                     |
+| Config history      | `sis.db.json` (last N revisions) |
+| Clients             | `sis.db.json`                |
+| Custom block/allow  | `sis.db.json`                |
+| Sessions (WebUI)    | `sis.db.json`                |
 | Cached blocklists   | `<data_dir>/blocklists/`     |
 | Query logs          | `<data_dir>/logs/`           |
 | Audit logs          | `<data_dir>/logs/`           |
-| Stats aggregates    | CobaltDB (1m/1h/1d buckets)  |
+| Stats aggregates    | `sis.db.json` (1m/1h/1d buckets) |
 
 ### 10.2 Stats Aggregation
 
-Real-time counters live in memory. Every minute, a tick flushes aggregates to CobaltDB:
+Real-time counters live in memory. Every minute, a tick flushes aggregates to the store:
 
 - Total queries, cache hits, blocks (global)
 - Per-client counters (queries, blocks, top domains)
@@ -682,7 +682,7 @@ Base path: `/api/v1`. All requests after `/auth/login` require a valid session c
 
 - Local user/password only in v1.
 - Passwords hashed with bcrypt (cost 12).
-- Sessions: random 32-byte tokens, stored server-side (CobaltDB), HttpOnly + SameSite=Lax cookie.
+- Sessions: random 32-byte tokens, stored server-side, HttpOnly + SameSite=Lax cookie.
 - Session TTL configurable, default 24h, sliding expiration.
 - Brute-force: per-IP login rate limit (5/min), exponential backoff on repeated failures.
 
@@ -775,7 +775,7 @@ Targets verified via included benchmark harness (`sis bench`).
 - **`github.com/charmbracelet/bubbletea`** — TUI framework.
 - **`github.com/charmbracelet/lipgloss`** — TUI styling.
 - **`golang.org/x/crypto/bcrypt`** — password hashing.
-- **CobaltDB** (sibling project) — embedded storage.
+- **`internal/store` file backend** — embedded JSON persistence behind narrow interfaces.
 
 ### 16.2 No Other Runtime Dependencies
 
@@ -826,7 +826,8 @@ sis/
 │   │   ├── health.go
 │   │   └── bootstrap.go
 │   ├── store/
-│   │   └── store.go         # CobaltDB wrapper
+│   │   ├── store.go         # persistence interfaces
+│   │   └── file.go          # JSON file backend
 │   ├── log/
 │   │   ├── query.go
 │   │   ├── audit.go
@@ -899,7 +900,7 @@ A v1 release is considered ready when:
 7. **Cache hit:** Two queries for `example.com` from different clients. Second query returns from cache, log shows `cache_hit: true`, latency < 1 ms.
 8. **Hot reload:** Admin edits a group's schedule via WebUI. Pipeline picks up the change without dropping in-flight queries; audit log records the change with before/after diff.
 9. **Privacy mode:** `log_mode: hashed` is set. Query log shows HMAC-SHA256 client keys; per-client stats still aggregate correctly because the hash is stable.
-10. **Restart persistence:** Sis is stopped and restarted. Clients, groups, custom lists, and stats are recovered from CobaltDB. In-memory cache is cold (expected).
+10. **Restart persistence:** Sis is stopped and restarted. Clients, groups, custom lists, and stats are recovered from `sis.db.json`. In-memory cache is cold (expected).
 
 ---
 

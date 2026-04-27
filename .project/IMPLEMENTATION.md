@@ -16,7 +16,7 @@ github.com/ersinkoc/sis
 ├── cmd/sis              entry point, CLI dispatch
 ├── internal/
 │   ├── config           load/validate/reload, schema
-│   ├── store            CobaltDB-backed persistence
+│   ├── store            interface-backed persistence, current JSON file backend
 │   ├── dns              listeners, pipeline, cache, client identity
 │   ├── policy           groups, schedules, blocklists, allowlists, eval
 │   ├── upstream         DoH client, pool, health
@@ -48,7 +48,7 @@ github.com/ersinkoc/sis
 main.go
   parse flags
   load config (file → env → flags overlay)
-  open store (CobaltDB)
+  open store (file-backed JSON backend)
   build dependency graph
   start subsystems in order
   wait for SIGINT/SIGTERM/SIGHUP
@@ -207,7 +207,8 @@ type ClientStore interface {
 
 ### 4.2 Backend
 
-CobaltDB embedded, opened at `<data_dir>/sis.db`. One logical "table" per concern, implemented as a key-prefix:
+The current implementation uses a file-backed JSON store at `<data_dir>/sis.db.json`.
+One logical "table" per concern is implemented as a key-prefix:
 
 ```
 clients:<key>           → Client JSON
@@ -234,9 +235,13 @@ type Migration struct {
 
 ### 4.4 Concurrency
 
-- All reads concurrent.
-- Writes serialized per-prefix via fine-grained `sync.Mutex` map (one mutex per prefix).
-- Long-running scans (e.g., stats compaction) use snapshot reads and never block writers.
+- Reads and writes are protected by the file store lock.
+- Writes serialize the in-memory map to a temporary file, fsync it, atomically rename it over
+  `sis.db.json`, and fsync the parent directory.
+- Long-running scans use snapshot copies so callers do not mutate shared store state.
+
+The store package remains interface-driven so a future SQLite backend can be introduced without
+changing DNS, API, policy, stats, or WebUI callers.
 
 ---
 
@@ -1288,7 +1293,7 @@ For development and field debugging:
 | No DNSSEC validation                      | Upstream resolvers already validate           | Air-gap or compliance use cases |
 | No DoT/DoH ingress                        | Home LAN clients almost all speak Plain      | When Sis goes past LAN |
 | Hand-rolled HTTP middleware               | Avoids router framework dependency           | If routes explode in count |
-| Single CobaltDB file                      | Deployment simplicity                        | Sharded if multi-tenant |
+| Single local store file                   | Deployment simplicity                        | SQLite or sharding if multi-tenant |
 | YAML config (mutable by API)              | Friction-free editing for power users        | If schema grows complex enough to warrant a different format |
 
 ---

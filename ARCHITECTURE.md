@@ -598,8 +598,8 @@ Useful entry points:
 
 ## Known Architectural Gaps / Next Hardening Areas
 
-- The store backend is a temporary file-backed JSON database; it is suitable for early v1 development but not ideal for high write concurrency or large installations.
+- The store backend is a file-backed JSON database. It is acceptable for the first small-site release with documented backup/restore and atomic persistence, but SQLite remains the preferred future backend for high write concurrency or large installations.
 - The WebUI source and embedded `internal/webui/dist` must stay synchronized through `make webui`.
 - Runtime reload updates many shared components, but DNS listen addresses themselves are established at server start.
 - More explicit architecture-level integration tests would help cover full DNS-to-API-to-store behavior across reloads.
-- Long-term persistence, backup, and migration strategy should be finalized before a production v1 release.
+- Long-term persistence migration should be finalized before scaling beyond the first small-site release profile.
