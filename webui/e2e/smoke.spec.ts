@@ -13,8 +13,11 @@ test("first-run setup opens dashboard and runs a blocked query", async ({ page }
   await expect(page.getByRole("heading", { name: "System" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Query Test" })).toBeVisible();
 
-  await page.getByLabel("Domain").fill("blocked.example.com");
-  await page.getByRole("button", { name: "Run" }).click();
+  const queryTest = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Query Test" }) });
+  await queryTest.getByRole("textbox", { name: "Domain" }).fill("blocked.example.com");
+  await queryTest.getByRole("button", { name: "Run" }).click();
 
   await expect(page.getByText("NOERROR")).toBeVisible();
   await expect(page.getByText("synthetic")).toBeVisible();
