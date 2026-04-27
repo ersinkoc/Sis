@@ -163,6 +163,28 @@ for _ in $(seq 1 50); do
     fi
     echo "smoke: custom blocklist mutation passed"
 
+    allow_add_out="$(curl -fsS -b "${tmp}/cookies.txt" \
+      -H 'content-type: application/json' \
+      -d '{"domain":"blocked.example.com"}' \
+      "http://${http_addr}/api/v1/allowlist")"
+    if [[ "${allow_add_out}" != *'"domain":"blocked.example.com"'* ]]; then
+      echo "smoke: allowlist add failed" >&2
+      echo "${allow_add_out}" >&2
+      exit 1
+    fi
+    allow_query_out="$(curl -fsS -b "${tmp}/cookies.txt" \
+      -H 'content-type: application/json' \
+      -d '{"domain":"blocked.example.com","type":"A"}' \
+      "http://${http_addr}/api/v1/query/test")"
+    if [[ "${allow_query_out}" == *"0.0.0.0"* ]]; then
+      echo "smoke: allowlist did not override blocklist" >&2
+      echo "${allow_query_out}" >&2
+      exit 1
+    fi
+    curl -fsS -b "${tmp}/cookies.txt" -X DELETE \
+      "http://${http_addr}/api/v1/allowlist/blocked.example.com" >/dev/null
+    echo "smoke: allowlist override passed"
+
     curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/stats/summary" >/dev/null
     api_query_out="$(curl -fsS -b "${tmp}/cookies.txt" \
       -H 'content-type: application/json' \
