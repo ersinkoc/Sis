@@ -82,6 +82,9 @@ func applyDefaults(c *Config) {
 	if c.Server.DataDir == "" {
 		c.Server.DataDir = "./data"
 	}
+	if c.Server.StoreBackend == "" {
+		c.Server.StoreBackend = "json"
+	}
 	if c.Server.TZ == "" {
 		c.Server.TZ = "Local"
 	}
@@ -126,6 +129,8 @@ func applyDefaults(c *Config) {
 func applyEnvOverrides(c *Config) {
 	setString(os.Getenv("SIS_DATA_DIR"), &c.Server.DataDir)
 	setString(os.Getenv("SIS_SERVER_DATA_DIR"), &c.Server.DataDir)
+	setString(os.Getenv("SIS_STORE_BACKEND"), &c.Server.StoreBackend)
+	setString(os.Getenv("SIS_SERVER_STORE_BACKEND"), &c.Server.StoreBackend)
 	setString(os.Getenv("SIS_HTTP_LISTEN"), &c.Server.HTTP.Listen)
 	setString(os.Getenv("SIS_SERVER_HTTP_LISTEN"), &c.Server.HTTP.Listen)
 	setString(os.Getenv("SIS_HTTP_CERT_FILE"), &c.Server.HTTP.CertFile)

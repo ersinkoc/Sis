@@ -81,10 +81,11 @@ type Config struct {
 
 // Server groups listener, storage, and timezone settings.
 type Server struct {
-	DNS     DNSServer  `yaml:"dns" json:"dns"`
-	HTTP    HTTPServer `yaml:"http" json:"http"`
-	DataDir string     `yaml:"data_dir" json:"data_dir"`
-	TZ      string     `yaml:"tz" json:"tz"`
+	DNS          DNSServer  `yaml:"dns" json:"dns"`
+	HTTP         HTTPServer `yaml:"http" json:"http"`
+	DataDir      string     `yaml:"data_dir" json:"data_dir"`
+	StoreBackend string     `yaml:"store_backend" json:"store_backend"`
+	TZ           string     `yaml:"tz" json:"tz"`
 }
 
 // DNSServer configures classic DNS listeners and throttling.

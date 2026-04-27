@@ -15,7 +15,8 @@ store, provided these constraints are acceptable:
   the first release.
 
 The store is isolated behind `internal/store` interfaces, so a future SQLite backend can be
-added without changing DNS, API, policy, or WebUI callers.
+added without changing DNS, API, policy, or WebUI callers. The active backend is configured
+with `server.store_backend: json`; `json` is currently the only supported value.
 
 ## Files To Protect
 

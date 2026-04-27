@@ -1,5 +1,12 @@
 package store
 
+import "fmt"
+
+const (
+	// BackendJSON selects the file-backed JSON store.
+	BackendJSON = "json"
+)
+
 // Store groups the durable repositories used by the Sis runtime.
 type Store interface {
 	Clients() ClientStore
@@ -8,6 +15,16 @@ type Store interface {
 	Stats() StatsStore
 	ConfigHistory() ConfigHistoryStore
 	Close() error
+}
+
+// OpenBackend opens the requested store backend in dataDir.
+func OpenBackend(backend, dataDir string) (Store, error) {
+	switch backend {
+	case "", BackendJSON:
+		return Open(dataDir)
+	default:
+		return nil, fmt.Errorf("store backend %q is not supported", backend)
+	}
 }
 
 // ClientStore persists discovered and configured client metadata.

@@ -42,6 +42,19 @@ func TestStoreCRUD(t *testing.T) {
 	}
 }
 
+func TestOpenBackend(t *testing.T) {
+	s, err := OpenBackend(BackendJSON, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OpenBackend("sqlite", t.TempDir()); err == nil || !strings.Contains(err.Error(), "not supported") {
+		t.Fatalf("OpenBackend sqlite err = %v", err)
+	}
+}
+
 func TestCustomListSessionStatsAndConfigHistory(t *testing.T) {
 	s, err := Open(t.TempDir())
 	if err != nil {

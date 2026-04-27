@@ -20,6 +20,8 @@ that require careful upgrade notes.
 - Linux diagnostics helper for support bundles without config, database, or backup contents.
 - Linux release upgrade helper that performs a verified pre-upgrade backup before
   installing and verifying a release.
+- Explicit `server.store_backend` configuration and store backend selection point
+  for the planned SQLite storage backend.
 
 ## v0.1.0 - 2026-04-27
 

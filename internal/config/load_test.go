@@ -29,6 +29,7 @@ func TestEnvOverridePrecedence(t *testing.T) {
 	t.Setenv("SIS_CACHE_MIN_TTL", "30s")
 	t.Setenv("SIS_LOGGING_GZIP", "true")
 	t.Setenv("SIS_AUTH_SESSION_TTL", "2h")
+	t.Setenv("SIS_STORE_BACKEND", "json")
 	cfg, err := (&Loader{Path: filepath.Join("..", "..", "examples", "sis.yaml")}).Load()
 	if err != nil {
 		t.Fatal(err)
@@ -50,6 +51,9 @@ func TestEnvOverridePrecedence(t *testing.T) {
 	}
 	if cfg.Auth.SessionTTL.Duration != 2*time.Hour {
 		t.Fatalf("session ttl = %s", cfg.Auth.SessionTTL.Duration)
+	}
+	if cfg.Server.StoreBackend != "json" {
+		t.Fatalf("store backend = %q", cfg.Server.StoreBackend)
 	}
 }
 

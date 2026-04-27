@@ -125,6 +125,9 @@ func Validate(c *Config) error {
 			errf("server.http.listen", "invalid address %q", c.Server.HTTP.Listen)
 		}
 	}
+	if c.Server.StoreBackend != "" && !oneOf(c.Server.StoreBackend, "json") {
+		errf("server.store_backend", "unsupported %q; supported values: json", c.Server.StoreBackend)
+	}
 
 	for i, d := range c.Allowlist.Domains {
 		if !validDomainPattern(d) {

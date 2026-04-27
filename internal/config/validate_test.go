@@ -202,6 +202,13 @@ func TestValidateLoggingRequiresCreatableLogDir(t *testing.T) {
 	assertErrContains(t, err, "server.data_dir")
 }
 
+func TestValidateStoreBackend(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Server.StoreBackend = "sqlite"
+	err := Validate(cfg)
+	assertErrContains(t, err, "server.store_backend")
+}
+
 func TestValidateAuthCookieName(t *testing.T) {
 	cfg := validConfig(t)
 	cfg.Auth.CookieName = "bad name"

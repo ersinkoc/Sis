@@ -914,7 +914,7 @@ func runServe(args []string) error {
 		return nil
 	})
 
-	st, err := store.Open(cfg.Server.DataDir)
+	st, err := store.OpenBackend(cfg.Server.StoreBackend, cfg.Server.DataDir)
 	if err != nil {
 		return err
 	}
