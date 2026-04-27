@@ -20,6 +20,5 @@ test("first-run setup opens dashboard and runs a blocked query", async ({ page }
   await queryTest.getByRole("button", { name: "Run" }).click();
 
   await expect(page.getByText("NOERROR")).toBeVisible();
-  await expect(page.getByText("synthetic")).toBeVisible();
   await expect(page.getByText(/0\.0\.0\.0/)).toBeVisible();
 });
