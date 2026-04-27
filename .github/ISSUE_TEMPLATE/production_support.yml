@@ -49,7 +49,7 @@ body:
     id: diagnostics
     attributes:
       label: Verification output
-      description: Paste relevant output from `scripts/verify-linux-service.sh`, `scripts/verify-release-artifacts.sh`, `sis config check`, or systemd logs. Remove secrets.
+      description: Paste relevant output from `scripts/verify-linux-service.sh`, `scripts/collect-linux-diagnostics.sh`, `scripts/verify-release-artifacts.sh`, `sis config check`, or systemd logs. Remove secrets.
       render: text
   - type: checkboxes
     id: checks

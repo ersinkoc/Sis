@@ -219,6 +219,8 @@ and runs release smoke before a tag is pushed.
 variables for staged or partial checks.
 `scripts/backup-linux-service.sh` writes a timestamped verified backup for the installed
 Linux service; override `SIS_BACKUP_*` variables for non-default paths.
+`scripts/collect-linux-diagnostics.sh` writes a support bundle with version, config-check,
+service, and host diagnostics without including config, database, or backup contents.
 `scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies health/readiness,
 DNS queries, blocklist enforcement, auth setup, CLI API access, inventory APIs, custom blocklist
 mutation, query logs, stats, cache flush, and config reload/history.

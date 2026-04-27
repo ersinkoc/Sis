@@ -17,6 +17,7 @@ that require careful upgrade notes.
 - Linux release install helper that downloads, verifies, installs, enables, and
   checks the service on the target host.
 - Linux service backup helper for timestamped, verified operational backups.
+- Linux diagnostics helper for support bundles without config, database, or backup contents.
 
 ## v0.1.0 - 2026-04-27
 

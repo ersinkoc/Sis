@@ -84,6 +84,18 @@ Watch for these signals:
 
 When these appear, move the deployment to the planned SQLite backend before expanding scope.
 
+## Diagnostics
+
+For support or incident triage, collect a small diagnostics bundle without including
+config file contents, backups, or runtime databases:
+
+```sh
+sudo ./scripts/collect-linux-diagnostics.sh
+```
+
+Journal logs are skipped by default because they may contain domain or client data.
+Set `SIS_DIAG_INCLUDE_JOURNAL=1` only after accepting that exposure.
+
 ## Release Gate
 
 Before pushing a public tag, run:
