@@ -55,3 +55,11 @@ Before announcing a release, verify:
 - The release notes have no private implementation notes.
 - `examples/sis.yaml` matches the current config schema.
 - `README.md` quick start works from a clean checkout.
+- A staged Linux service install works with:
+
+  ```sh
+  ./scripts/build.sh
+  tmp="$(mktemp -d)"
+  SIS_INSTALL_ROOT="$tmp" SIS_INSTALL_BIN=dist/sis_linux_amd64 ./scripts/install-linux-service.sh
+  "$tmp/usr/local/bin/sis" version
+  ```

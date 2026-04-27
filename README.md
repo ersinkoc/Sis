@@ -84,6 +84,16 @@ sudo systemctl enable --now sis
 systemctl status sis
 ```
 
+Or use the installer script after building or unpacking a Linux release binary:
+
+```sh
+sudo SIS_INSTALL_BIN=./sis_linux_amd64 ./scripts/install-linux-service.sh
+sudo systemctl enable --now sis
+```
+
+The installer keeps existing `/etc/sis/sis.yaml` and `/etc/sis/sis.env` files,
+writing refreshed examples beside them as `.example` files during upgrades.
+
 For a direct LAN DNS deployment, uncomment `SIS_DNS_LISTEN=0.0.0.0:53,[::]:53`
 and `SIS_DATA_DIR=/var/lib/sis` in `/etc/sis/sis.env`. Keep the HTTP listener
 on localhost unless a trusted management network, firewall, or reverse proxy protects it.
