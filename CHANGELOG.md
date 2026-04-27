@@ -40,14 +40,14 @@ that require careful upgrade notes.
 
 - Runtime deployment documentation now calls out artifact verification, release
   signing, backup sensitivity, and systemd hardening expectations.
+- GitHub release dry run verifies signed checksums with the repository release
+  signing secret configured.
 
 ### Known Limitations
 
 - The current file-backed JSON store is intended for home and small-office use.
   Larger multi-tenant or high-write deployments should wait for a durable database
   backend such as SQLite before treating Sis as a broad production platform.
-- Public release checksums are unsigned until repository signing secrets are
-  configured.
 
 ## v0.1.0 - Planned
 
