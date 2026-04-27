@@ -1,0 +1,86 @@
+# Production Validation Record
+
+This document is the durable record for the first real host/network validation. Do not mark
+the deployment fully production-validated until the checks below are run on the target host
+and the evidence is copied or summarized here.
+
+## Current Status
+
+- Status: Pending live host validation
+- Last repository release gate: passing
+- Last GitHub CI gate: passing
+- Live Linux host install: not recorded
+- Live SQLite migration dry-run: not recorded
+- Live LAN DNS validation: not recorded
+- Live client traffic observation: not recorded
+
+## Required Command
+
+Run this on the target host after installation, DNS binding, and router/DHCP DNS updates:
+
+```sh
+sudo SIS_PROD_VALIDATE_LAN_DNS_SERVER=192.168.1.2:53 \
+  SIS_PROD_VALIDATE_BLOCKED_DOMAIN=blocked.example.com \
+  SIS_PROD_VALIDATE_DIAGNOSTICS=1 \
+  ./scripts/run-production-validation.sh
+```
+
+Adjust `SIS_PROD_VALIDATE_LAN_DNS_SERVER` to the host IP and DNS port clients use. Use a
+real domain from the deployed block policy for `SIS_PROD_VALIDATE_BLOCKED_DOMAIN`.
+
+## Acceptance Criteria
+
+All required checks must pass:
+
+- `verify-linux-service.sh` confirms binary, config, service state, HTTP health/readiness,
+  and DNS query.
+- `validate-sqlite-migration.sh` creates a backup, restores it into a temporary directory,
+  migrates that copy to SQLite, exports it back to JSON, and validates SQLite config loading.
+- `validate-lan-dns.sh` confirms UDP DNS, TCP DNS, optional blocked-domain policy, and HTTP
+  health/readiness from the validation environment.
+- At least one real client uses Sis through router/DHCP DNS settings and appears in the
+  clients or query log API.
+- A diagnostics bundle is generated without including config, database, backup contents, or
+  journal logs unless explicitly accepted.
+
+## Evidence To Paste
+
+After running `scripts/run-production-validation.sh`, copy the summary section from the
+generated `sis-validation/production-validation-*.md` report here.
+
+```text
+Paste validation summary here.
+```
+
+## Host Details
+
+- Validation date:
+- Sis version:
+- Commit or release tag:
+- Host OS/kernel:
+- Host IP:
+- DNS listen address:
+- HTTP listen address:
+- Store backend:
+- Data directory:
+- Router/DHCP DNS setting:
+
+## Results
+
+| Check | Result | Notes |
+| --- | --- | --- |
+| Service verification | Pending | |
+| SQLite migration dry-run | Pending | |
+| LAN UDP DNS | Pending | |
+| LAN TCP DNS | Pending | |
+| Blocked-domain policy | Pending | |
+| HTTP health/readiness | Pending | |
+| Real client query observed | Pending | |
+| Diagnostics bundle generated | Pending | |
+
+## Open Risks Until Completed
+
+- Port 53 binding, firewall rules, and router/DHCP behavior are environment-dependent.
+- Client devices may cache previous DNS settings until DHCP renewal or reconnect.
+- SQLite is durable and backup-aware, but records are still stored as JSON KV rows rather
+  than normalized SQL tables.

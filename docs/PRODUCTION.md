@@ -118,6 +118,8 @@ sudo SIS_PROD_VALIDATE_LAN_DNS_SERVER=192.168.1.2:53 \
 The report is written under `sis-validation/` by default and includes command outputs for
 service verification, SQLite migration dry-run, LAN DNS validation, and optional diagnostics.
 Set `SIS_PROD_VALIDATE_DIAGNOSTICS=1` to attach a diagnostics bundle run.
+Copy the generated summary into `docs/PRODUCTION_VALIDATION.md` so the live production
+evidence is tracked in the repository.
 
 ## Storage Limits
 

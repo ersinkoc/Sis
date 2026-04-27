@@ -26,6 +26,7 @@ that require careful upgrade notes.
 - Non-destructive SQLite migration validation helper for restored backup dry-runs.
 - LAN DNS validation helper for UDP/TCP DNS, optional block policy, and health checks.
 - Production validation report helper combining service, SQLite, LAN DNS, and diagnostics checks.
+- Production validation record template for live host/network evidence.
 
 ## v0.1.0 - 2026-04-27
 
