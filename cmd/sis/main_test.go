@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"io"
@@ -193,6 +194,82 @@ func TestRunBackupCreateWithoutStoreFile(t *testing.T) {
 	}
 	if _, ok := files["sis.db.json"]; ok {
 		t.Fatal("empty data dir should not include sis.db.json")
+	}
+}
+
+func TestRunBackupRejectsInvalidArguments(t *testing.T) {
+	for _, args := range [][]string{
+		nil,
+		{"restore"},
+		{"create", "extra"},
+	} {
+		if err := runBackup(args); err == nil {
+			t.Fatalf("runBackup(%v) succeeded, want error", args)
+		}
+	}
+
+	if err := runBackup([]string{"create", "-config", filepath.Join(t.TempDir(), "missing.yaml")}); err == nil {
+		t.Fatal("missing config succeeded, want error")
+	}
+}
+
+func TestRunBackupCreateUsesDefaultOutputPath(t *testing.T) {
+	path := writeUserTestConfig(t)
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	if err := runBackup([]string{"create", "-config", path}); err != nil {
+		t.Fatal(err)
+	}
+
+	matches, err := filepath.Glob(filepath.Join(workDir, "sis-backup-*.tar.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("default backup files = %v, want one", matches)
+	}
+	files := readBackupFiles(t, matches[0])
+	if len(files["manifest.json"]) == 0 || len(files["sis.yaml"]) == 0 {
+		t.Fatalf("backup files = %v", files)
+	}
+}
+
+func TestCreateBackupReturnsOutputAndStoreErrors(t *testing.T) {
+	path := writeUserTestConfig(t)
+	cfg, err := (&config.Loader{Path: path}).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := createBackup(path, cfg.Server.DataDir, filepath.Join(t.TempDir(), "missing", "backup.tar.gz")); err == nil {
+		t.Fatal("backup in missing output directory succeeded, want error")
+	}
+
+	dbDir := filepath.Join(cfg.Server.DataDir, "sis.db.json")
+	if err := os.MkdirAll(dbDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := createBackup(path, cfg.Server.DataDir, filepath.Join(t.TempDir(), "sis-backup.tar.gz")); err == nil {
+		t.Fatal("directory store file succeeded, want error")
+	}
+}
+
+func TestBackupHelperErrors(t *testing.T) {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+
+	if err := addJSONToTar(tw, "bad.json", func() {}); err == nil {
+		t.Fatal("unmarshalable JSON backup entry succeeded, want error")
+	}
+	if err := addFileToTar(tw, filepath.Join(t.TempDir(), "missing"), "missing"); err == nil {
+		t.Fatal("missing file backup entry succeeded, want error")
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := addBytesToTar(tw, "closed", []byte("x"), 0o600); err == nil {
+		t.Fatal("write to closed tar succeeded, want error")
 	}
 }
 
