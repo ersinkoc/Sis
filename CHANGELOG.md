@@ -14,6 +14,8 @@ that require careful upgrade notes.
   production runbook.
 - Release download helper script for fetching and verifying all published
   artifacts with one command.
+- Linux release install helper that downloads, verifies, installs, enables, and
+  checks the service on the target host.
 
 ## v0.1.0 - 2026-04-27
 

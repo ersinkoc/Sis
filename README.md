@@ -32,11 +32,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release scope, upgrade notes, and known lim
 Install the latest Linux release:
 
 ```sh
-./scripts/download-release.sh v0.1.0 dist/v0.1.0
-dist/v0.1.0/sis_linux_amd64 version
-sudo SIS_INSTALL_BIN=dist/v0.1.0/sis_linux_amd64 ./scripts/install-linux-service.sh
-sudo systemctl enable --now sis
-sudo ./scripts/verify-linux-service.sh
+sudo ./scripts/install-release-linux.sh v0.1.0
 ```
 
 Quick local start:
@@ -213,6 +209,8 @@ GoDoc, WebUI install/build/lint, Go coverage, Go vet, binary build, and a local 
 and the SPDX SBOM for a downloaded or locally-built release bundle.
 `scripts/download-release.sh vX.Y.Z` downloads all release artifacts into `dist/`,
 marks Linux binaries executable, and runs `scripts/verify-release-artifacts.sh`.
+`scripts/install-release-linux.sh vX.Y.Z` downloads a release, selects the host Linux
+binary, installs the systemd service, enables it, and runs live verification.
 `scripts/release-smoke.sh` verifies release checksums, the Linux artifact, config validation,
 backup restore, service hardening directives, and a staged Linux service install without touching the host system.
 `scripts/release-readiness.sh vX.Y.Z` checks branch/tag cleanliness, runs the full gate,

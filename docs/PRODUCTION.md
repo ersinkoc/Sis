@@ -55,6 +55,13 @@ sudo systemctl start sis
 sudo ./scripts/verify-linux-service.sh
 ```
 
+For a first install or a standard upgrade on the host architecture, the wrapper
+performs the download, verification, install, systemd enable/start, and live checks:
+
+```sh
+sudo ./scripts/install-release-linux.sh v0.1.0
+```
+
 If the service fails after an upgrade, restore the last verified backup:
 
 ```sh
