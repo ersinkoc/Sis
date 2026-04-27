@@ -18,6 +18,8 @@ that require careful upgrade notes.
   checks the service on the target host.
 - Linux service backup helper for timestamped, verified operational backups.
 - Linux diagnostics helper for support bundles without config, database, or backup contents.
+- Linux release upgrade helper that performs a verified pre-upgrade backup before
+  installing and verifying a release.
 
 ## v0.1.0 - 2026-04-27
 

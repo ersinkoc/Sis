@@ -61,6 +61,12 @@ performs the download, verification, install, systemd enable/start, and live che
 sudo ./scripts/install-release-linux.sh v0.1.0
 ```
 
+For upgrades of an existing host, prefer the backup-first wrapper:
+
+```sh
+sudo ./scripts/upgrade-release-linux.sh v0.1.0
+```
+
 If the service fails after an upgrade, restore the last verified backup:
 
 ```sh
