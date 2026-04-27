@@ -59,6 +59,16 @@ func TestCustomListSessionStatsAndConfigHistory(t *testing.T) {
 	if len(domains) != 1 || domains[0] != "example.com" {
 		t.Fatalf("domains = %#v", domains)
 	}
+	if err := s.CustomLists().Remove("custom", "example.com"); err != nil {
+		t.Fatal(err)
+	}
+	domains, err = s.CustomLists().List("custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(domains) != 0 {
+		t.Fatalf("removed domains = %#v", domains)
+	}
 
 	session := &Session{Token: "tok", Username: "admin", ExpiresAt: time.Now().Add(time.Hour)}
 	if err := s.Sessions().Upsert(session); err != nil {
@@ -70,6 +80,12 @@ func TestCustomListSessionStatsAndConfigHistory(t *testing.T) {
 	}
 	if gotSession.Username != "admin" {
 		t.Fatalf("username = %q", gotSession.Username)
+	}
+	if err := s.Sessions().Delete("tok"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Sessions().Get("tok"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted session err = %v", err)
 	}
 
 	row := &StatsRow{Counters: map[string]uint64{"queries": 42}}

@@ -120,6 +120,23 @@ func TestRunQueryRejectsInvalidProto(t *testing.T) {
 	}
 }
 
+func TestRedactHelpers(t *testing.T) {
+	users := []config.User{{Username: "admin", PasswordHash: "secret-hash"}}
+	redacted := redactUsers(users)
+	if users[0].PasswordHash != "secret-hash" {
+		t.Fatalf("input users mutated: %#v", users)
+	}
+	if redacted[0].PasswordHash != "redacted" {
+		t.Fatalf("redacted users = %#v", redacted)
+	}
+	if redactString("") != "" {
+		t.Fatal("empty string should stay empty")
+	}
+	if redactString("salt") != "redacted" {
+		t.Fatal("non-empty string should be redacted")
+	}
+}
+
 func writeUserTestConfig(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
