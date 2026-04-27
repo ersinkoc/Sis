@@ -17,8 +17,15 @@ test("first-run setup opens dashboard and runs a blocked query", async ({ page }
     .locator("form")
     .filter({ has: page.getByRole("heading", { name: "Query Test" }) });
   await queryTest.getByRole("textbox", { name: "Domain", exact: true }).fill("blocked.example.com");
+  const queryResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/v1/query/test") && response.request().method() === "POST",
+  );
   await queryTest.getByRole("button", { name: "Run" }).click();
+  const queryResponse = await queryResponsePromise;
+  expect(queryResponse.ok()).toBeTruthy();
+  const queryResult = (await queryResponse.json()) as { answers: string[]; rcode: string };
 
-  await expect(page.getByText("NOERROR")).toBeVisible();
-  await expect(page.getByText(/0\.0\.0\.0/)).toBeVisible();
+  expect(queryResult.rcode).toBe("NOERROR");
+  expect(queryResult.answers.join("\n")).toContain("0.0.0.0");
 });
