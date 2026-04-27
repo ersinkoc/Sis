@@ -16,6 +16,7 @@ that require careful upgrade notes.
   artifacts with one command.
 - Linux release install helper that downloads, verifies, installs, enables, and
   checks the service on the target host.
+- Linux service backup helper for timestamped, verified operational backups.
 
 ## v0.1.0 - 2026-04-27
 

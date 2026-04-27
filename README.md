@@ -111,8 +111,7 @@ ports, paths, or staged checks.
 Create an operational backup before upgrades or config-heavy changes:
 
 ```sh
-sudo /usr/local/bin/sis backup create -config /etc/sis/sis.yaml -out sis-backup.tar.gz
-sudo /usr/local/bin/sis backup verify -in sis-backup.tar.gz
+sudo ./scripts/backup-linux-service.sh
 ```
 
 Backups include `sis.yaml`, `sis.db.json` when present, and a small manifest.
@@ -218,6 +217,8 @@ builds release artifacts with that version, signs checksums when signing env is 
 and runs release smoke before a tag is pushed.
 `scripts/verify-linux-service.sh` verifies a live Linux installation; use `SIS_VERIFY_SKIP_*`
 variables for staged or partial checks.
+`scripts/backup-linux-service.sh` writes a timestamped verified backup for the installed
+Linux service; override `SIS_BACKUP_*` variables for non-default paths.
 `scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies health/readiness,
 DNS queries, blocklist enforcement, auth setup, CLI API access, inventory APIs, custom blocklist
 mutation, query logs, stats, cache flush, and config reload/history.

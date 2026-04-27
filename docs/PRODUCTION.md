@@ -32,8 +32,7 @@ privacy log salt. Treat backups as secrets.
 ## Pre-Upgrade Checklist
 
 ```sh
-sudo /usr/local/bin/sis backup create -config /etc/sis/sis.yaml -out sis-backup.tar.gz
-sudo /usr/local/bin/sis backup verify -in sis-backup.tar.gz
+sudo ./scripts/backup-linux-service.sh
 sudo systemctl status sis
 sudo ./scripts/verify-linux-service.sh
 ```
@@ -66,7 +65,7 @@ If the service fails after an upgrade, restore the last verified backup:
 
 ```sh
 sudo systemctl stop sis
-sudo /usr/local/bin/sis backup restore -in sis-backup.tar.gz -config /etc/sis/sis.yaml -data-dir /var/lib/sis -force
+sudo /usr/local/bin/sis backup restore -in /var/backups/sis/sis-YYYYMMDDTHHMMSSZ.tar.gz -config /etc/sis/sis.yaml -data-dir /var/lib/sis -force
 sudo systemctl start sis
 sudo ./scripts/verify-linux-service.sh
 ```
