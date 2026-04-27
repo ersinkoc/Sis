@@ -100,6 +100,45 @@ for _ in $(seq 1 50); do
     fi
     echo "smoke: CLI API system info passed"
 
+    cli_blocklist_err="${tmp}/cli-blocklist.err"
+    if ! cli_blocklist_add_out="$("${bin}" blocklist -api "http://${http_addr}" -cookie "${session_cookie}" add cli-smoke.example.com 2>"${cli_blocklist_err}")"; then
+      echo "smoke: CLI blocklist add failed" >&2
+      cat "${cli_blocklist_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_blocklist_add_out}" != *'"domain": "cli-smoke.example.com"'* ]]; then
+      echo "smoke: CLI blocklist add returned unexpected response" >&2
+      cat "${cli_blocklist_err}" >&2
+      echo "${cli_blocklist_add_out}" >&2
+      exit 1
+    fi
+    if ! cli_blocklist_list_out="$("${bin}" blocklist -api "http://${http_addr}" -cookie "${session_cookie}" custom 2>"${cli_blocklist_err}")"; then
+      echo "smoke: CLI custom blocklist list failed" >&2
+      cat "${cli_blocklist_err}" >&2
+      exit 1
+    fi
+    if [[ "${cli_blocklist_list_out}" != *"cli-smoke.example.com"* ]]; then
+      echo "smoke: CLI custom blocklist list did not include domain" >&2
+      cat "${cli_blocklist_err}" >&2
+      echo "${cli_blocklist_list_out}" >&2
+      exit 1
+    fi
+    cli_query_out="$(curl -fsS -b "${tmp}/cookies.txt" \
+      -H 'content-type: application/json' \
+      -d '{"domain":"cli-smoke.example.com","type":"A"}' \
+      "http://${http_addr}/api/v1/query/test")"
+    if [[ "${cli_query_out}" != *'"source":"synthetic"'* || "${cli_query_out}" != *"0.0.0.0"* ]]; then
+      echo "smoke: CLI blocklist add did not update policy" >&2
+      echo "${cli_query_out}" >&2
+      exit 1
+    fi
+    if ! "${bin}" blocklist -api "http://${http_addr}" -cookie "${session_cookie}" remove cli-smoke.example.com 2>"${cli_blocklist_err}"; then
+      echo "smoke: CLI blocklist remove failed" >&2
+      cat "${cli_blocklist_err}" >&2
+      exit 1
+    fi
+    echo "smoke: CLI blocklist mutation passed"
+
     settings_out="$(curl -fsS -b "${tmp}/cookies.txt" "http://${http_addr}/api/v1/settings")"
     if [[ "${settings_out}" != *'"cache":'* || "${settings_out}" != *'"privacy":'* ]]; then
       echo "smoke: settings API failed" >&2
