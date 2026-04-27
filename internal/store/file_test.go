@@ -161,6 +161,44 @@ func TestStoreSaveUsesRestrictedFinalFileWithoutTempLeftovers(t *testing.T) {
 	}
 }
 
+func TestStorePersistsAcrossReopen(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Clients().Upsert(&Client{Key: "192.0.2.20", Type: "ip", Group: "default"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CustomLists().Add("custom", "persisted.example"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+
+	client, err := reopened.Clients().Get("192.0.2.20")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.Group != "default" {
+		t.Fatalf("client group = %q", client.Group)
+	}
+	domains, err := reopened.CustomLists().List("custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(domains) != 1 || domains[0] != "persisted.example" {
+		t.Fatalf("domains = %#v", domains)
+	}
+}
+
 func TestConfigHistoryAppendDoesNotMutateInputSnapshot(t *testing.T) {
 	s, err := Open(t.TempDir())
 	if err != nil {
