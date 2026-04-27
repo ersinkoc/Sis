@@ -199,6 +199,9 @@ GoDoc, WebUI install/build/lint, Go coverage, Go vet, binary build, and a local 
 `scripts/build.sh` creates the release binaries and `dist/SHA256SUMS`.
 `scripts/release-smoke.sh` verifies release checksums, the Linux artifact, config validation,
 backup restore, service hardening directives, and a staged Linux service install without touching the host system.
+`scripts/release-readiness.sh vX.Y.Z` checks branch/tag cleanliness, runs the full gate,
+builds release artifacts with that version, signs checksums when signing env is configured,
+and runs release smoke before a tag is pushed.
 `scripts/verify-linux-service.sh` verifies a live Linux installation; use `SIS_VERIFY_SKIP_*`
 variables for staged or partial checks.
 `scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies health/readiness,

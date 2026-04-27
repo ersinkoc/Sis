@@ -14,10 +14,10 @@ When these secrets are present, CI uploads `SHA256SUMS.asc` and `release-signing
 ## Cut A Release
 
 1. Make sure `main` is green in CI.
-2. Run the local release smoke:
+2. Run the local release readiness gate:
 
    ```sh
-   make release-smoke
+   ./scripts/release-readiness.sh v1.0.0
    ```
 
 3. Choose the next semantic version tag, for example `v1.0.0`.
