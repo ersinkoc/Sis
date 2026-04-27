@@ -44,6 +44,7 @@ write_cmd() {
 if [[ -x "${bin}" ]]; then
   write_cmd "sis-version.txt" "${bin}" version
   write_cmd "config-check.txt" "${bin}" config check -config "${config}"
+  write_cmd "store-verify.txt" "${bin}" store verify -config "${config}"
   sha256sum "${bin}" > "${bundle}/binary-sha256.txt" 2>&1 || true
 else
   echo "binary not found or not executable: ${bin}" > "${bundle}/sis-version.txt"

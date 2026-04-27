@@ -180,6 +180,8 @@ sudo ./scripts/collect-linux-diagnostics.sh
 
 Journal logs are skipped by default because they may contain domain or client data.
 Set `SIS_DIAG_INCLUDE_JOURNAL=1` only after accepting that exposure.
+The bundle includes `sis store verify` output, which reports backend, path, record count,
+and schema version without copying database contents.
 
 ## Release Gate
 
