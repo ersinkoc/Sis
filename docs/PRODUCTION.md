@@ -104,6 +104,21 @@ The helper checks config validity, UDP DNS, TCP DNS, optional blocked-domain beh
 HTTP health/readiness. Set `SIS_LAN_VALIDATE_SKIP_HTTP=1` when HTTP is intentionally not
 reachable from the validation environment.
 
+## Production Validation Report
+
+After host installation, SQLite dry-run validation, and LAN DNS configuration, generate a
+single validation report:
+
+```sh
+sudo SIS_PROD_VALIDATE_LAN_DNS_SERVER=192.168.1.2:53 \
+  SIS_PROD_VALIDATE_BLOCKED_DOMAIN=blocked.example.com \
+  ./scripts/run-production-validation.sh
+```
+
+The report is written under `sis-validation/` by default and includes command outputs for
+service verification, SQLite migration dry-run, LAN DNS validation, and optional diagnostics.
+Set `SIS_PROD_VALIDATE_DIAGNOSTICS=1` to attach a diagnostics bundle run.
+
 ## Storage Limits
 
 The JSON store writes the whole logical database through an atomic temp-file and rename flow.

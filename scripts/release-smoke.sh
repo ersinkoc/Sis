@@ -58,6 +58,7 @@ SIS_VERIFY_BIN="${tmp}/usr/local/bin/sis" \
   SIS_VERIFY_SKIP_DNS=1 \
   ./scripts/verify-linux-service.sh
 bash -n ./scripts/validate-lan-dns.sh
+bash -n ./scripts/run-production-validation.sh
 
 for path in \
   "${tmp}/etc/sis/sis.yaml" \
