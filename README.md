@@ -60,6 +60,7 @@ sis config check -config examples/sis.yaml
 sis config show -config examples/sis.yaml
 sis user add -config examples/sis.yaml admin change-me-now
 sis backup create -config examples/sis.yaml -out sis-backup.tar.gz
+sis backup verify -in sis-backup.tar.gz
 sis serve -config examples/sis.yaml
 ```
 
@@ -99,11 +100,19 @@ Create an operational backup before upgrades or config-heavy changes:
 
 ```sh
 sudo /usr/local/bin/sis backup create -config /etc/sis/sis.yaml -out sis-backup.tar.gz
+sudo /usr/local/bin/sis backup verify -in sis-backup.tar.gz
 ```
 
 Backups include `sis.yaml`, `sis.db.json` when present, and a small manifest.
 Treat them as sensitive because they can include password hashes, sessions, client metadata,
 custom lists, and the privacy log salt.
+Restore refuses to overwrite existing files unless `-force` is passed:
+
+```sh
+sudo systemctl stop sis
+sudo /usr/local/bin/sis backup restore -in sis-backup.tar.gz -config /etc/sis/sis.yaml -data-dir /var/lib/sis -force
+sudo systemctl start sis
+```
 
 For a direct LAN DNS deployment, uncomment `SIS_DNS_LISTEN=0.0.0.0:53,[::]:53`
 and `SIS_DATA_DIR=/var/lib/sis` in `/etc/sis/sis.env`. Keep the HTTP listener
@@ -162,6 +171,8 @@ sis system -cookie 'sis_session=...' history 10
 sis query -server 127.0.0.1:5353 test example.com A
 sis query -api http://127.0.0.1:8080 -cookie 'sis_session=...' test example.com A
 sis backup create -config examples/sis.yaml -out sis-backup.tar.gz
+sis backup verify -in sis-backup.tar.gz
+sis backup restore -in sis-backup.tar.gz -config restored/sis.yaml -data-dir restored/data
 ```
 
 ## Development

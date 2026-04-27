@@ -557,13 +557,26 @@ func runConfig(args []string) error {
 }
 
 func runBackup(args []string) error {
-	if len(args) == 0 || args[0] != "create" {
-		return fmt.Errorf("usage: sis backup create [-config path] [-out path]")
+	if len(args) == 0 {
+		return fmt.Errorf("usage: sis backup <create|verify|restore>")
 	}
+	switch args[0] {
+	case "create":
+		return runBackupCreate(args[1:])
+	case "verify":
+		return runBackupVerify(args[1:])
+	case "restore":
+		return runBackupRestore(args[1:])
+	default:
+		return fmt.Errorf("unknown backup command %q", args[0])
+	}
+}
+
+func runBackupCreate(args []string) error {
 	fs := flag.NewFlagSet("backup create", flag.ExitOnError)
 	path := fs.String("config", defaultConfigPath(), "config file path")
 	out := fs.String("out", "", "backup output path")
-	if err := fs.Parse(args[1:]); err != nil {
+	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 0 {
@@ -581,6 +594,52 @@ func runBackup(args []string) error {
 		return err
 	}
 	fmt.Printf("backup written to %s\n", outPath)
+	return nil
+}
+
+func runBackupVerify(args []string) error {
+	fs := flag.NewFlagSet("backup verify", flag.ExitOnError)
+	in := fs.String("in", "", "backup input path")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 || *in == "" {
+		return fmt.Errorf("usage: sis backup verify -in path")
+	}
+	if _, err := readBackupArchive(*in); err != nil {
+		return err
+	}
+	fmt.Println("backup ok")
+	return nil
+}
+
+func runBackupRestore(args []string) error {
+	fs := flag.NewFlagSet("backup restore", flag.ExitOnError)
+	in := fs.String("in", "", "backup input path")
+	configPath := fs.String("config", defaultConfigPath(), "config restore path")
+	dataDir := fs.String("data-dir", "", "data directory restore path")
+	force := fs.Bool("force", false, "overwrite existing files")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 || *in == "" {
+		return fmt.Errorf("usage: sis backup restore -in path [-config path] [-data-dir path] [-force]")
+	}
+	backup, err := readBackupArchive(*in)
+	if err != nil {
+		return err
+	}
+	targetDataDir := *dataDir
+	if targetDataDir == "" {
+		targetDataDir = backup.Config.Server.DataDir
+	}
+	if targetDataDir == "" {
+		return fmt.Errorf("backup config does not define server.data_dir; pass -data-dir")
+	}
+	if err := restoreBackupArchive(backup, *configPath, targetDataDir, *force); err != nil {
+		return err
+	}
+	fmt.Printf("backup restored to %s and %s\n", *configPath, targetDataDir)
 	return nil
 }
 
@@ -626,6 +685,148 @@ func createBackup(configPath, dataDir, outPath string) error {
 		return err
 	}
 	return closeArchive()
+}
+
+type backupArchive struct {
+	Manifest   map[string]string
+	Config     config.Config
+	ConfigYAML []byte
+	StoreJSON  []byte
+}
+
+func readBackupArchive(path string) (*backupArchive, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	backup := &backupArchive{}
+	seen := map[string]bool{}
+	for {
+		header, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if header.Typeflag != tar.TypeReg {
+			return nil, fmt.Errorf("backup contains non-file entry %q", header.Name)
+		}
+		if header.Name != "manifest.json" && header.Name != "sis.yaml" && header.Name != "sis.db.json" {
+			return nil, fmt.Errorf("backup contains unexpected entry %q", header.Name)
+		}
+		if seen[header.Name] {
+			return nil, fmt.Errorf("backup contains duplicate entry %q", header.Name)
+		}
+		seen[header.Name] = true
+		raw, err := io.ReadAll(tr)
+		if err != nil {
+			return nil, err
+		}
+		switch header.Name {
+		case "manifest.json":
+			if err := json.Unmarshal(raw, &backup.Manifest); err != nil {
+				return nil, fmt.Errorf("invalid backup manifest: %w", err)
+			}
+		case "sis.yaml":
+			backup.ConfigYAML = raw
+			if err := yaml.Unmarshal(raw, &backup.Config); err != nil {
+				return nil, fmt.Errorf("invalid backup config: %w", err)
+			}
+		case "sis.db.json":
+			if !json.Valid(raw) {
+				return nil, fmt.Errorf("invalid backup store JSON")
+			}
+			backup.StoreJSON = raw
+		}
+	}
+	if len(backup.Manifest) == 0 {
+		return nil, fmt.Errorf("backup missing manifest.json")
+	}
+	if len(backup.ConfigYAML) == 0 {
+		return nil, fmt.Errorf("backup missing sis.yaml")
+	}
+	return backup, nil
+}
+
+func restoreBackupArchive(backup *backupArchive, configPath, dataDir string, force bool) error {
+	if err := canWriteRestoreTarget(configPath, force); err != nil {
+		return err
+	}
+	if len(backup.StoreJSON) > 0 {
+		if err := canWriteRestoreTarget(filepath.Join(dataDir, "sis.db.json"), force); err != nil {
+			return err
+		}
+	}
+	if err := writeFileAtomic(configPath, backup.ConfigYAML, 0o640, force); err != nil {
+		return err
+	}
+	if len(backup.StoreJSON) == 0 {
+		return nil
+	}
+	return writeFileAtomic(filepath.Join(dataDir, "sis.db.json"), backup.StoreJSON, 0o640, force)
+}
+
+func canWriteRestoreTarget(path string, force bool) error {
+	if !force {
+		if _, err := os.Stat(path); err == nil {
+			return fmt.Errorf("%s already exists; pass -force to overwrite", path)
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeFileAtomic(path string, raw []byte, mode os.FileMode, force bool) error {
+	if err := canWriteRestoreTarget(path, force); err != nil {
+		return err
+	}
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.Write(raw); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return err
+	}
+	return syncParentDir(dir)
+}
+
+func syncParentDir(dir string) error {
+	f, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Sync()
 }
 
 func addJSONToTar(tw *tar.Writer, name string, value any) error {

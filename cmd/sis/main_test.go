@@ -197,11 +197,96 @@ func TestRunBackupCreateWithoutStoreFile(t *testing.T) {
 	}
 }
 
+func TestRunBackupVerifyAndRestore(t *testing.T) {
+	path := writeUserTestConfig(t)
+	cfg, err := (&config.Loader{Path: path}).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(cfg.Server.DataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.CustomLists().Add("custom", "blocked.test"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	backupPath := filepath.Join(t.TempDir(), "sis-backup.tar.gz")
+	if err := runBackup([]string{"create", "-config", path, "-out", backupPath}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBackup([]string{"verify", "-in", backupPath}); err != nil {
+		t.Fatal(err)
+	}
+
+	restoreDir := t.TempDir()
+	restoreConfig := filepath.Join(restoreDir, "sis.yaml")
+	restoreData := filepath.Join(restoreDir, "data")
+	if err := runBackup([]string{"restore", "-in", backupPath, "-config", restoreConfig, "-data-dir", restoreData}); err != nil {
+		t.Fatal(err)
+	}
+	if raw, err := os.ReadFile(restoreConfig); err != nil || !strings.Contains(string(raw), "cloudflare") {
+		t.Fatalf("restored config raw=%q err=%v", raw, err)
+	}
+	if raw, err := os.ReadFile(filepath.Join(restoreData, "sis.db.json")); err != nil || !strings.Contains(string(raw), "blocked.test") {
+		t.Fatalf("restored store raw=%q err=%v", raw, err)
+	}
+	if err := runBackup([]string{"restore", "-in", backupPath, "-config", restoreConfig, "-data-dir", restoreData}); err == nil {
+		t.Fatal("restore overwrote existing files without -force")
+	}
+	if err := runBackup([]string{"restore", "-in", backupPath, "-config", restoreConfig, "-data-dir", restoreData, "-force"}); err != nil {
+		t.Fatal(err)
+	}
+
+	partialDir := t.TempDir()
+	partialConfig := filepath.Join(partialDir, "sis.yaml")
+	partialData := filepath.Join(partialDir, "data")
+	if err := os.MkdirAll(partialData, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(partialData, "sis.db.json"), []byte("{}"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBackup([]string{"restore", "-in", backupPath, "-config", partialConfig, "-data-dir", partialData}); err == nil {
+		t.Fatal("partial restore succeeded despite existing store file")
+	}
+	if _, err := os.Stat(partialConfig); !os.IsNotExist(err) {
+		t.Fatalf("restore wrote config before detecting store conflict: %v", err)
+	}
+}
+
+func TestRunBackupVerifyRejectsInvalidArchive(t *testing.T) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	if err := addBytesToTar(tw, "evil.txt", []byte("nope"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "invalid.tar.gz")
+	if err := os.WriteFile(path, buf.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := runBackup([]string{"verify", "-in", path}); err == nil {
+		t.Fatal("invalid backup verified successfully")
+	}
+}
+
 func TestRunBackupRejectsInvalidArguments(t *testing.T) {
 	for _, args := range [][]string{
 		nil,
-		{"restore"},
+		{"nonesuch"},
+		{"verify"},
 		{"create", "extra"},
+		{"restore"},
 	} {
 		if err := runBackup(args); err == nil {
 			t.Fatalf("runBackup(%v) succeeded, want error", args)
