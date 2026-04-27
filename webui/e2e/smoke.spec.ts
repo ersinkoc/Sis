@@ -13,6 +13,8 @@ test("first-run setup opens dashboard and runs a blocked query", async ({ page }
   await expect(page.getByRole("heading", { name: "System" })).toBeVisible();
   await expect(page.getByText("Store")).toBeVisible();
   await expect(page.getByText("json").first()).toBeVisible();
+  await page.getByRole("button", { name: "Verify store" }).click();
+  await expect(page.getByText(/store json verified:/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Query Test" })).toBeVisible();
 
   const queryTest = page

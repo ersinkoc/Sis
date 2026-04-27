@@ -28,6 +28,7 @@ import {
   Settings,
   StatsSummary,
   StatsRow,
+  StoreVerifyResult,
   syncBlocklist,
   SystemInfo,
   testUpstream,
@@ -40,6 +41,7 @@ import {
   updateSettings,
   updateUpstream,
   useDashboard,
+  verifyStore,
 } from "./lib/dashboard";
 import { useTheme } from "./lib/theme";
 
@@ -192,7 +194,7 @@ function SystemPanel({ system, onChanged }: { system: SystemInfo; onChanged: () 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function run(action: "flush" | "reload") {
+  async function run(action: "flush" | "reload" | "verify") {
     setBusy(action);
     setMessage("");
     setError("");
@@ -200,6 +202,8 @@ function SystemPanel({ system, onChanged }: { system: SystemInfo; onChanged: () 
       if (action === "flush") {
         const result = await flushCache();
         setMessage(`flushed ${result.entries} entries`);
+      } else if (action === "verify") {
+        setMessage(storeVerifyMessage(await verifyStore()));
       } else {
         await reloadConfig();
         setMessage("config reloaded");
@@ -224,6 +228,14 @@ function SystemPanel({ system, onChanged }: { system: SystemInfo; onChanged: () 
             onClick={() => void run("flush")}
           >
             {busy === "flush" ? "Flushing" : "Flush cache"}
+          </button>
+          <button
+            className="rounded border border-[#c8d1dc] px-3 py-1 text-sm hover:bg-[#ecf1f5] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a4654] dark:hover:bg-[#1d252d]"
+            disabled={busy !== ""}
+            type="button"
+            onClick={() => void run("verify")}
+          >
+            {busy === "verify" ? "Verifying" : "Verify store"}
           </button>
           <button
             className="rounded border border-[#c8d1dc] px-3 py-1 text-sm hover:bg-[#ecf1f5] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a4654] dark:hover:bg-[#1d252d]"
@@ -263,6 +275,10 @@ function SystemPanel({ system, onChanged }: { system: SystemInfo; onChanged: () 
       </dl>
     </section>
   );
+}
+
+function storeVerifyMessage(result: StoreVerifyResult): string {
+  return `store ${result.store.backend} verified: ${result.store.records} records, schema ${result.store.schema_version}`;
 }
 
 function TimeseriesPanel({ rows, error }: { rows: StatsRow[]; error: string }) {

@@ -129,6 +129,16 @@ export type CacheFlushResult = {
   entries: number;
 };
 
+export type StoreVerifyResult = {
+  ok: boolean;
+  store: {
+    backend: string;
+    path: string;
+    records: number;
+    schema_version: number;
+  };
+};
+
 export type ConfigSnapshot = {
   ts: string;
   yaml: string;
@@ -439,6 +449,10 @@ export async function updateSettings(settings: Settings): Promise<Settings> {
 
 export async function flushCache(): Promise<CacheFlushResult> {
   return apiRequest<CacheFlushResult>("/api/v1/system/cache/flush", { method: "POST" });
+}
+
+export async function verifyStore(): Promise<StoreVerifyResult> {
+  return apiRequest<StoreVerifyResult>("/api/v1/system/store/verify");
 }
 
 export async function reloadConfig(): Promise<void> {

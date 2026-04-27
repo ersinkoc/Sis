@@ -17,6 +17,7 @@ that require careful upgrade notes.
 - Added store verification output to Linux diagnostics bundles.
 - Exposed the active store backend in system info responses and the WebUI System panel.
 - Added authenticated API and CLI access to store verification through system operations.
+- Added WebUI System panel action for authenticated store verification.
 
 ## v0.1.1 - 2026-04-27
 

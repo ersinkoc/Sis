@@ -24,6 +24,7 @@ This repository is in early v1 implementation. The current tree includes:
 - Cookie auth with server-side sliding sessions
 - Config-backed settings, groups, blocklists, and upstream CRUD endpoints
 - Vite/React/Tailwind WebUI shell with persisted light/dark/system theme, setup/login flow, stats summary, query trend, top domain/client analytics, system cache/config operations, query test tool, config history preview, filtered query log, upstream create/edit/test/delete with reset controls, expanded settings edits with reset/dirty-state controls, group create/edit/delete with reset controls, blocklist create/edit/sync/delete/inspect with reset controls, allow/block list edits, searchable client list, and client rename/group/hide/forget actions with reset controls embedded through the Go API server
+- WebUI store backend visibility and authenticated store verification from the System panel
 
 See [CHANGELOG.md](CHANGELOG.md) for release scope, upgrade notes, and known limitations.
 
