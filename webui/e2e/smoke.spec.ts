@@ -16,7 +16,7 @@ test("first-run setup opens dashboard and runs a blocked query", async ({ page }
   const queryTest = page
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "Query Test" }) });
-  await queryTest.getByRole("textbox", { name: "Domain" }).fill("blocked.example.com");
+  await queryTest.getByRole("textbox", { name: "Domain", exact: true }).fill("blocked.example.com");
   await queryTest.getByRole("button", { name: "Run" }).click();
 
   await expect(page.getByText("NOERROR")).toBeVisible();
