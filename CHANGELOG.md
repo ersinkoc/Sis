@@ -22,6 +22,7 @@ that require careful upgrade notes.
   with report-time cookie redaction.
 - Added a helper to import production validation report summaries into the durable
   production validation record.
+- Added optional real-client observation validation for production reports.
 
 ## v0.1.1 - 2026-04-27
 

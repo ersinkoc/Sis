@@ -9,6 +9,7 @@ config="${SIS_PROD_VALIDATE_CONFIG:-/etc/sis/sis.yaml}"
 run_sqlite="${SIS_PROD_VALIDATE_SQLITE:-1}"
 run_lan="${SIS_PROD_VALIDATE_LAN:-1}"
 run_diagnostics="${SIS_PROD_VALIDATE_DIAGNOSTICS:-0}"
+run_real_client="${SIS_PROD_VALIDATE_REAL_CLIENT:-0}"
 api_url="${SIS_PROD_VALIDATE_API_URL:-${SIS_PROD_VALIDATE_HTTP_URL:-http://127.0.0.1:8080}}"
 api_cookie="${SIS_PROD_VALIDATE_API_COOKIE:-}"
 
@@ -58,6 +59,30 @@ run_auth_store_verify() {
   return 0
 }
 
+run_real_client_observation() {
+  local name="real client observation"
+  local log="${tmp}/${#checks[@]}.log"
+  checks+=("${name}")
+  logs+=("${log}")
+  set +e
+  {
+    printf '$ env SIS_CLIENT_VALIDATE_HTTP_URL=%q SIS_CLIENT_VALIDATE_COOKIE=%q SIS_CLIENT_VALIDATE_CLIENT=%q SIS_CLIENT_VALIDATE_QNAME=%q ./scripts/validate-real-client.sh\n\n' \
+      "${api_url}" \
+      "redacted" \
+      "${SIS_PROD_VALIDATE_REAL_CLIENT_ID:-}" \
+      "${SIS_PROD_VALIDATE_REAL_CLIENT_QNAME:-}"
+    SIS_CLIENT_VALIDATE_HTTP_URL="${api_url}" \
+      SIS_CLIENT_VALIDATE_COOKIE="${api_cookie}" \
+      SIS_CLIENT_VALIDATE_CLIENT="${SIS_PROD_VALIDATE_REAL_CLIENT_ID:-}" \
+      SIS_CLIENT_VALIDATE_QNAME="${SIS_PROD_VALIDATE_REAL_CLIENT_QNAME:-}" \
+      ./scripts/validate-real-client.sh 2>&1
+  } | sed -E 's/(SIS_CLIENT_VALIDATE_COOKIE=)[^ ]+/\1redacted/g; s/(cookie: [^=]+=).*/\1redacted/' > "${log}"
+  local status=${PIPESTATUS[0]}
+  set -e
+  statuses+=("${status}")
+  return 0
+}
+
 run_check "service verification" env \
   SIS_VERIFY_BIN="${bin}" \
   SIS_VERIFY_CONFIG="${config}" \
@@ -95,6 +120,10 @@ if [[ -n "${api_cookie}" ]]; then
   run_auth_store_verify
 fi
 
+if [[ "${run_real_client}" == "1" ]]; then
+  run_real_client_observation
+fi
+
 if [[ "${run_diagnostics}" == "1" ]]; then
   run_check "diagnostics bundle" env \
     SIS_DIAG_BIN="${bin}" \
@@ -118,6 +147,11 @@ fi
     echo "- Authenticated API checks: enabled"
   else
     echo "- Authenticated API checks: skipped (set SIS_PROD_VALIDATE_API_COOKIE)"
+  fi
+  if [[ "${run_real_client}" == "1" ]]; then
+    echo "- Real client observation: enabled"
+  else
+    echo "- Real client observation: skipped (set SIS_PROD_VALIDATE_REAL_CLIENT=1)"
   fi
   echo
   echo "## Summary"

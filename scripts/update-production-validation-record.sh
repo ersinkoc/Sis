@@ -84,7 +84,7 @@ awk -v status="${status}" \
     print "| Blocked-domain policy | " result_for("lan dns validation", lower_summary) " | Covered when SIS_PROD_VALIDATE_BLOCKED_DOMAIN is set. |"
     print "| HTTP health/readiness | " result_for("service verification", lower_summary) " | Also covered by LAN DNS validation when HTTP is enabled. |"
     print "| Authenticated API store verification | " result_for("authenticated api store verification", lower_summary) " | |"
-    print "| Real client query observed | Pending | Must be confirmed manually from a real LAN client. |"
+    print "| Real client query observed | " result_for("real client observation", lower_summary) " | Use SIS_PROD_VALIDATE_REAL_CLIENT=1 during live validation. |"
     print "| Diagnostics bundle generated | " result_for("diagnostics bundle", lower_summary) " | |"
   }
 

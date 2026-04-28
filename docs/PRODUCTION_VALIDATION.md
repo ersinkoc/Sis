@@ -27,6 +27,8 @@ Run this on the target host after installation, DNS binding, and router/DHCP DNS
 sudo SIS_PROD_VALIDATE_LAN_DNS_SERVER=192.168.1.2:53 \
   SIS_PROD_VALIDATE_BLOCKED_DOMAIN=blocked.example.com \
   SIS_PROD_VALIDATE_API_COOKIE='sis_session=...' \
+  SIS_PROD_VALIDATE_REAL_CLIENT=1 \
+  SIS_PROD_VALIDATE_REAL_CLIENT_ID=192.168.1.50 \
   SIS_PROD_VALIDATE_DIAGNOSTICS=1 \
   ./scripts/run-production-validation.sh
 ```
@@ -35,6 +37,8 @@ Adjust `SIS_PROD_VALIDATE_LAN_DNS_SERVER` to the host IP and DNS port clients us
 real domain from the deployed block policy for `SIS_PROD_VALIDATE_BLOCKED_DOMAIN`.
 Use a short-lived authenticated session cookie for `SIS_PROD_VALIDATE_API_COOKIE`; the
 generated report redacts the cookie value from the logged command.
+Set `SIS_PROD_VALIDATE_REAL_CLIENT_ID` to a real client IP/key after that client has made
+at least one DNS query through Sis; omit it only when any query-log entry is acceptable.
 
 ## Acceptance Criteria
 
@@ -49,7 +53,8 @@ All required checks must pass:
 - Authenticated API store verification confirms `/api/v1/system/store/verify` is reachable
   through the management API when `SIS_PROD_VALIDATE_API_COOKIE` is provided.
 - At least one real client uses Sis through router/DHCP DNS settings and appears in the
-  clients or query log API.
+  clients or query log API. `SIS_PROD_VALIDATE_REAL_CLIENT=1` runs this check through
+  `scripts/validate-real-client.sh`.
 - A diagnostics bundle is generated without including config, database, backup contents, or
   journal logs unless explicitly accepted.
 
@@ -95,7 +100,7 @@ Paste validation summary here.
 | Blocked-domain policy | Pending | |
 | HTTP health/readiness | Pending | |
 | Authenticated API store verification | Pending | |
-| Real client query observed | Pending | |
+| Real client query observed | Pending | Use SIS_PROD_VALIDATE_REAL_CLIENT=1 during live validation. |
 | Diagnostics bundle generated | Pending | |
 
 ## Open Risks Until Completed
