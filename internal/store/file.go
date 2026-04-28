@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 type fileStore struct {
 	path        string
@@ -133,6 +133,16 @@ func migrations() []Migration {
 					return nil
 				}
 				return sqlite.ensureCollectionColumn()
+			},
+		},
+		{
+			Version: 3,
+			Apply: func(s Store) error {
+				sqlite, ok := s.(*sqliteStore)
+				if !ok {
+					return nil
+				}
+				return sqlite.ensureSQLiteSchema()
 			},
 		},
 	}

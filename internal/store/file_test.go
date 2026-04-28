@@ -108,6 +108,17 @@ func TestSQLiteStoreCRUDAndPersistence(t *testing.T) {
 	if gotClient.Group != "default" {
 		t.Fatalf("client group = %q", gotClient.Group)
 	}
+	sqlite, ok := reopened.(*sqliteStore)
+	if !ok {
+		t.Fatalf("reopened sqlite store type = %T", reopened)
+	}
+	var tableGroup string
+	if err := sqlite.db.QueryRow(`SELECT client_group FROM clients WHERE key = ?`, client.Key).Scan(&tableGroup); err != nil {
+		t.Fatal(err)
+	}
+	if tableGroup != "default" {
+		t.Fatalf("client table group = %q", tableGroup)
+	}
 	domains, err := reopened.CustomLists().List("custom")
 	if err != nil {
 		t.Fatal(err)
@@ -141,6 +152,13 @@ func TestSQLiteStoreCRUDAndPersistence(t *testing.T) {
 	}
 	if _, err := reopened.Clients().Get(client.Key); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted client err = %v", err)
+	}
+	var tableClients int
+	if err := sqlite.db.QueryRow(`SELECT COUNT(*) FROM clients WHERE key = ?`, client.Key).Scan(&tableClients); err != nil {
+		t.Fatal(err)
+	}
+	if tableClients != 0 {
+		t.Fatalf("deleted client remained in table: %d", tableClients)
 	}
 }
 
@@ -194,6 +212,13 @@ func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
 	if collection != "clients" {
 		t.Fatalf("collection = %q", collection)
 	}
+	var tableGroup string
+	if err := db.QueryRow(`SELECT client_group FROM clients WHERE key = ?`, "192.0.2.31").Scan(&tableGroup); err != nil {
+		t.Fatal(err)
+	}
+	if tableGroup != "default" {
+		t.Fatalf("client table group = %q", tableGroup)
+	}
 
 	result, err := VerifyBackend(BackendSQLite, dir)
 	if err != nil {
@@ -246,6 +271,13 @@ func TestSQLiteOpenRepairsMissingCollectionColumn(t *testing.T) {
 	}
 	if collection != "store_meta" {
 		t.Fatalf("collection = %q", collection)
+	}
+	hasClients, err := sqliteHasTable(db, "clients")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasClients {
+		t.Fatal("sqlite open did not repair clients table")
 	}
 }
 

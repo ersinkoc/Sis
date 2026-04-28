@@ -26,6 +26,8 @@ that require careful upgrade notes.
 - Added collection-level store verification counts for JSON and SQLite backends.
 - Added a SQLite store migration that records each KV row's collection in an indexed
   SQL column, preparing safer collection-level inspection and future normalization.
+- Added a normalized SQLite `clients` table that is kept in sync with the portable KV
+  payload and used by SQLite client CRUD operations.
 
 ## v0.1.1 - 2026-04-27
 
