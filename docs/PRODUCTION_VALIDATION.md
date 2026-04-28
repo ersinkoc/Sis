@@ -25,6 +25,7 @@ Run this on the target host after installation, DNS binding, and router/DHCP DNS
 
 ```sh
 sudo SIS_PROD_VALIDATE_LAN_DNS_SERVER=192.168.1.2:53 \
+  SIS_PROD_VALIDATE_STRICT=1 \
   SIS_PROD_VALIDATE_BLOCKED_DOMAIN=blocked.example.com \
   SIS_PROD_VALIDATE_API_COOKIE='sis_session=...' \
   SIS_PROD_VALIDATE_REAL_CLIENT=1 \
@@ -39,6 +40,8 @@ Use a short-lived authenticated session cookie for `SIS_PROD_VALIDATE_API_COOKIE
 generated report redacts the cookie value from the logged command.
 Set `SIS_PROD_VALIDATE_REAL_CLIENT_ID` to a real client IP/key after that client has made
 at least one DNS query through Sis; omit it only when any query-log entry is acceptable.
+`SIS_PROD_VALIDATE_STRICT=1` fails before running checks when the report would be incomplete
+for a release-candidate gate.
 
 ## Acceptance Criteria
 

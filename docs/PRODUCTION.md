@@ -116,14 +116,19 @@ single validation report:
 
 ```sh
 sudo SIS_PROD_VALIDATE_LAN_DNS_SERVER=192.168.1.2:53 \
+  SIS_PROD_VALIDATE_STRICT=1 \
   SIS_PROD_VALIDATE_BLOCKED_DOMAIN=blocked.example.com \
+  SIS_PROD_VALIDATE_API_COOKIE='sis_session=...' \
   SIS_PROD_VALIDATE_REAL_CLIENT=1 \
   SIS_PROD_VALIDATE_REAL_CLIENT_ID=192.168.1.50 \
+  SIS_PROD_VALIDATE_DIAGNOSTICS=1 \
   ./scripts/run-production-validation.sh
 ```
 
 The report is written under `sis-validation/` by default and includes command outputs for
 service verification, SQLite migration dry-run, LAN DNS validation, and optional diagnostics.
+Set `SIS_PROD_VALIDATE_STRICT=1` for release-candidate evidence so incomplete validation
+inputs fail before the live checks start.
 Set `SIS_PROD_VALIDATE_API_COOKIE='sis_session=...'` to also verify the authenticated
 system store-verification API; the generated report redacts the cookie value.
 Set `SIS_PROD_VALIDATE_REAL_CLIENT=1` after a real LAN client has queried through Sis to

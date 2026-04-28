@@ -141,6 +141,8 @@ sudo SIS_LAN_VALIDATE_DNS_SERVER=192.168.1.2:53 ./scripts/validate-lan-dns.sh
 ```
 Use `scripts/run-production-validation.sh` to write a timestamped Markdown report that
 combines service verification, SQLite migration dry-run, and LAN DNS validation.
+Set `SIS_PROD_VALIDATE_STRICT=1` for release-candidate evidence so missing authenticated
+API, real-client, diagnostics, LAN DNS, or blocked-domain checks fail before the run starts.
 Set `SIS_PROD_VALIDATE_REAL_CLIENT=1` with an authenticated API cookie to include a real
 client observation check against query logs or client inventory.
 Record the real host results in `docs/PRODUCTION_VALIDATION.md`; after the report is written,

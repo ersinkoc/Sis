@@ -40,6 +40,7 @@ that require careful upgrade notes.
 - Added a release-candidate validation check that blocks RC tagging until the live
   production validation record is complete.
 - Added release-candidate validation gate smoke coverage to the main check script.
+- Added strict production-validation preflight checks for release-candidate evidence.
 
 ## v0.1.1 - 2026-04-27
 

@@ -14,6 +14,7 @@ fi
 git diff --exit-code
 ./scripts/godoc.sh
 ./scripts/release-candidate-check-smoke.sh
+./scripts/production-validation-preflight-smoke.sh
 
 (
   cd webui

@@ -10,8 +10,53 @@ run_sqlite="${SIS_PROD_VALIDATE_SQLITE:-1}"
 run_lan="${SIS_PROD_VALIDATE_LAN:-1}"
 run_diagnostics="${SIS_PROD_VALIDATE_DIAGNOSTICS:-0}"
 run_real_client="${SIS_PROD_VALIDATE_REAL_CLIENT:-0}"
+strict="${SIS_PROD_VALIDATE_STRICT:-0}"
+precheck_only="${SIS_PROD_VALIDATE_PRECHECK_ONLY:-0}"
 api_url="${SIS_PROD_VALIDATE_API_URL:-${SIS_PROD_VALIDATE_HTTP_URL:-http://127.0.0.1:8080}}"
 api_cookie="${SIS_PROD_VALIDATE_API_COOKIE:-}"
+
+preflight() {
+  local failures=()
+  if [[ "${run_real_client}" == "1" && -z "${api_cookie}" ]]; then
+    failures+=("SIS_PROD_VALIDATE_REAL_CLIENT=1 requires SIS_PROD_VALIDATE_API_COOKIE")
+  fi
+  if [[ "${strict}" == "1" ]]; then
+    if [[ "${run_sqlite}" != "1" ]]; then
+      failures+=("SIS_PROD_VALIDATE_STRICT=1 requires SIS_PROD_VALIDATE_SQLITE=1")
+    fi
+    if [[ "${run_lan}" != "1" ]]; then
+      failures+=("SIS_PROD_VALIDATE_STRICT=1 requires SIS_PROD_VALIDATE_LAN=1")
+    fi
+    if [[ -z "${SIS_PROD_VALIDATE_LAN_DNS_SERVER:-}" ]]; then
+      failures+=("SIS_PROD_VALIDATE_STRICT=1 requires SIS_PROD_VALIDATE_LAN_DNS_SERVER")
+    fi
+    if [[ -z "${SIS_PROD_VALIDATE_BLOCKED_DOMAIN:-}" ]]; then
+      failures+=("SIS_PROD_VALIDATE_STRICT=1 requires SIS_PROD_VALIDATE_BLOCKED_DOMAIN")
+    fi
+    if [[ -z "${api_cookie}" ]]; then
+      failures+=("SIS_PROD_VALIDATE_STRICT=1 requires SIS_PROD_VALIDATE_API_COOKIE")
+    fi
+    if [[ "${run_real_client}" != "1" ]]; then
+      failures+=("SIS_PROD_VALIDATE_STRICT=1 requires SIS_PROD_VALIDATE_REAL_CLIENT=1")
+    fi
+    if [[ "${run_diagnostics}" != "1" ]]; then
+      failures+=("SIS_PROD_VALIDATE_STRICT=1 requires SIS_PROD_VALIDATE_DIAGNOSTICS=1")
+    fi
+  fi
+  if [[ "${#failures[@]}" -gt 0 ]]; then
+    echo "run-production-validation: preflight failed" >&2
+    for failure in "${failures[@]}"; do
+      echo "- ${failure}" >&2
+    done
+    return 2
+  fi
+}
+
+preflight
+if [[ "${precheck_only}" == "1" ]]; then
+  echo "run-production-validation: preflight passed"
+  exit 0
+fi
 
 mkdir -p "$(dirname "${out}")"
 tmp="$(mktemp -d)"
@@ -143,6 +188,11 @@ fi
   echo "- DNS server: ${SIS_PROD_VALIDATE_DNS_SERVER:-127.0.0.1:53}"
   echo "- LAN DNS server: ${SIS_PROD_VALIDATE_LAN_DNS_SERVER:-${SIS_PROD_VALIDATE_DNS_SERVER:-127.0.0.1:53}}"
   echo "- API URL: ${api_url}"
+  if [[ "${strict}" == "1" ]]; then
+    echo "- Strict validation: enabled"
+  else
+    echo "- Strict validation: disabled"
+  fi
   if [[ -n "${api_cookie}" ]]; then
     echo "- Authenticated API checks: enabled"
   else
