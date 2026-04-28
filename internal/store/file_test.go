@@ -126,6 +126,36 @@ func TestSQLiteStoreCRUDAndPersistence(t *testing.T) {
 	if len(domains) != 1 || domains[0] != "sqlite.example" {
 		t.Fatalf("domains = %#v", domains)
 	}
+	var customListRows int
+	if err := sqlite.db.QueryRow(`SELECT COUNT(*) FROM custom_lists WHERE list_id = ? AND domain = ?`, "custom", "sqlite.example").Scan(&customListRows); err != nil {
+		t.Fatal(err)
+	}
+	if customListRows != 1 {
+		t.Fatalf("custom list table rows = %d", customListRows)
+	}
+	if err := reopened.CustomLists().Remove("custom", "sqlite.example"); err != nil {
+		t.Fatal(err)
+	}
+	domains, err = reopened.CustomLists().List("custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(domains) != 0 {
+		t.Fatalf("removed domains = %#v", domains)
+	}
+	if err := sqlite.db.QueryRow(`SELECT COUNT(*) FROM custom_lists WHERE list_id = ? AND domain = ?`, "custom", "sqlite.example").Scan(&customListRows); err != nil {
+		t.Fatal(err)
+	}
+	if customListRows != 0 {
+		t.Fatalf("deleted custom list remained in table: %d", customListRows)
+	}
+	var customListKV int
+	if err := sqlite.db.QueryRow(`SELECT COUNT(*) FROM kv WHERE key = ?`, "customlist:custom:sqlite.example").Scan(&customListKV); err != nil {
+		t.Fatal(err)
+	}
+	if customListKV != 0 {
+		t.Fatalf("deleted custom list remained in kv: %d", customListKV)
+	}
 	gotSession, err := reopened.Sessions().Get("tok")
 	if err != nil {
 		t.Fatal(err)
@@ -229,6 +259,9 @@ func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "session:tok", rawSession); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "customlist:custom:legacy.example", []byte(`true`)); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "store_meta:schema_version", []byte(`1`)); err != nil {
 		t.Fatal(err)
 	}
@@ -277,12 +310,19 @@ func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
 	if tableSessionUser != "admin" {
 		t.Fatalf("session table username = %q", tableSessionUser)
 	}
+	var tableCustomList int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM custom_lists WHERE list_id = ? AND domain = ?`, "custom", "legacy.example").Scan(&tableCustomList); err != nil {
+		t.Fatal(err)
+	}
+	if tableCustomList != 1 {
+		t.Fatalf("custom list table rows = %d", tableCustomList)
+	}
 
 	result, err := VerifyBackend(BackendSQLite, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.SchemaVersion != schemaVersion || result.CollectionCounts["clients"] != 1 || result.CollectionCounts["session"] != 1 || result.CollectionCounts["store_meta"] != 1 {
+	if result.SchemaVersion != schemaVersion || result.CollectionCounts["clients"] != 1 || result.CollectionCounts["session"] != 1 || result.CollectionCounts["customlist"] != 1 || result.CollectionCounts["store_meta"] != 1 {
 		t.Fatalf("verify after migration = %#v", result)
 	}
 }
@@ -343,6 +383,13 @@ func TestSQLiteOpenRepairsMissingCollectionColumn(t *testing.T) {
 	}
 	if !hasSessions {
 		t.Fatal("sqlite open did not repair sessions table")
+	}
+	hasCustomLists, err := sqliteHasTable(db, "custom_lists")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCustomLists {
+		t.Fatal("sqlite open did not repair custom lists table")
 	}
 }
 

@@ -142,10 +142,10 @@ The JSON store writes the whole logical database through an atomic temp-file and
 This keeps the implementation simple and crash-resilient for small installs, but it is not a
 replacement for SQLite on large installations.
 The SQLite backend stores logical records in `sis.db`, keeps an indexed collection column
-for each KV row, and uses normalized `clients` and `sessions` tables for client/session
-CRUD while preserving portable KV payloads for backup/export. It runs `PRAGMA quick_check`
-during store verification. Prefer it for deployments that expect more client, session,
-stats, or config-history churn.
+for each KV row, and uses normalized `clients`, `sessions`, and `custom_lists` tables for
+client/session/list CRUD while preserving portable KV payloads for backup/export. It runs
+`PRAGMA quick_check` during store verification. Prefer it for deployments that expect more
+client, session, custom-list, stats, or config-history churn.
 
 Watch for these signals:
 

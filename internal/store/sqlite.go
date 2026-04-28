@@ -92,7 +92,10 @@ func (s *sqliteStore) ensureSQLiteSchema() error {
 	if err := s.ensureClientTable(); err != nil {
 		return err
 	}
-	return s.ensureSessionTable()
+	if err := s.ensureSessionTable(); err != nil {
+		return err
+	}
+	return s.ensureCustomListTable()
 }
 
 func (s *sqliteStore) ensureCollectionColumn() error {
@@ -296,6 +299,72 @@ func (s *sqliteStore) createSessionTableLocked() error {
 	return nil
 }
 
+func (s *sqliteStore) ensureCustomListTable() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return ErrClosed
+	}
+	if err := s.createCustomListTableLocked(); err != nil {
+		return err
+	}
+	rows, err := s.db.Query(`SELECT key FROM kv WHERE collection = 'customlist' OR key >= ? AND key < ?`, "customlist:", "customlist:\xff")
+	if err != nil {
+		return err
+	}
+	type pendingEntry struct {
+		listID string
+		domain string
+	}
+	var pending []pendingEntry
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		listID, domain, ok := splitCustomListKey(key)
+		if !ok {
+			continue
+		}
+		pending = append(pending, pendingEntry{listID: listID, domain: domain})
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, row := range pending {
+		if err := upsertCustomListSQL(tx, row.listID, row.domain); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *sqliteStore) createCustomListTableLocked() error {
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS custom_lists (
+			list_id TEXT NOT NULL,
+			domain TEXT NOT NULL,
+			PRIMARY KEY(list_id, domain)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_custom_lists_domain ON custom_lists(domain)`,
+	} {
+		if _, err := s.db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func sqliteHasColumn(db *sql.DB, table, column string) (bool, error) {
 	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
 	if err != nil {
@@ -337,7 +406,7 @@ func (s *sqliteStore) Clients() ClientStore {
 }
 
 func (s *sqliteStore) CustomLists() CustomListStore {
-	return &customListStore{s: s}
+	return &sqliteCustomListStore{s: s}
 }
 
 func (s *sqliteStore) Sessions() SessionStore {
@@ -431,6 +500,13 @@ func (s *sqliteStore) putRawJSON(key string, raw json.RawMessage) error {
 		}
 		return s.putSessionLocked(key, &session, raw)
 	}
+	if collectionName(key) == "customlist" {
+		listID, domain, ok := splitCustomListKey(key)
+		if !ok {
+			return fmt.Errorf("customlist: invalid key %q", key)
+		}
+		return s.putCustomListLocked(key, listID, domain, raw)
+	}
 
 	_, err := s.db.Exec(
 		`INSERT INTO kv(key, collection, value) VALUES(?, ?, ?)
@@ -508,6 +584,42 @@ func (s *sqliteStore) delete(key string) error {
 			return err
 		}
 		if sessionAffected == 0 && kvAffected == 0 {
+			_ = tx.Rollback()
+			return ErrNotFound
+		}
+		return tx.Commit()
+	}
+	if strings.HasPrefix(key, "customlist:") {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return err
+		}
+		listID, domain, ok := splitCustomListKey(key)
+		if !ok {
+			_ = tx.Rollback()
+			return fmt.Errorf("customlist: invalid key %q", key)
+		}
+		listRes, err := tx.Exec(`DELETE FROM custom_lists WHERE list_id = ? AND domain = ?`, listID, domain)
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		kvRes, err := tx.Exec(`DELETE FROM kv WHERE key = ?`, key)
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		listAffected, err := listRes.RowsAffected()
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		kvAffected, err := kvRes.RowsAffected()
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if listAffected == 0 && kvAffected == 0 {
 			_ = tx.Rollback()
 			return ErrNotFound
 		}
@@ -826,6 +938,99 @@ func scanSQLiteSession(row sqliteScanner) (*Session, error) {
 		return nil, err
 	}
 	return &session, nil
+}
+
+type sqliteCustomListStore struct {
+	s *sqliteStore
+}
+
+func (c *sqliteCustomListStore) Add(listID, domain string) error {
+	if listID == "" || domain == "" {
+		return fmt.Errorf("customlist: list id and domain are required")
+	}
+	raw, err := json.Marshal(true)
+	if err != nil {
+		return err
+	}
+	c.s.mu.RLock()
+	defer c.s.mu.RUnlock()
+	if c.s.closed {
+		return ErrClosed
+	}
+	return c.s.putCustomListLocked("customlist:"+listID+":"+domain, listID, domain, raw)
+}
+
+func (c *sqliteCustomListStore) Remove(listID, domain string) error {
+	return c.s.delete("customlist:" + listID + ":" + domain)
+}
+
+func (c *sqliteCustomListStore) List(listID string) ([]string, error) {
+	c.s.mu.RLock()
+	defer c.s.mu.RUnlock()
+	if c.s.closed {
+		return nil, ErrClosed
+	}
+	rows, err := c.s.db.Query(`SELECT domain FROM custom_lists WHERE list_id = ? ORDER BY domain`, listID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var domain string
+		if err := rows.Scan(&domain); err != nil {
+			return nil, err
+		}
+		out = append(out, domain)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) putCustomListLocked(key, listID, domain string, raw json.RawMessage) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	if err := upsertCustomListSQL(tx, listID, domain); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO kv(key, collection, value) VALUES(?, ?, ?)
+		ON CONFLICT(key) DO UPDATE SET collection = excluded.collection, value = excluded.value`,
+		key,
+		collectionName(key),
+		raw,
+	); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func upsertCustomListSQL(tx *sql.Tx, listID, domain string) error {
+	_, err := tx.Exec(
+		`INSERT INTO custom_lists(list_id, domain) VALUES(?, ?)
+		ON CONFLICT(list_id, domain) DO NOTHING`,
+		listID,
+		domain,
+	)
+	return err
+}
+
+func splitCustomListKey(key string) (string, string, bool) {
+	rest, ok := strings.CutPrefix(key, "customlist:")
+	if !ok {
+		return "", "", false
+	}
+	listID, domain, ok := strings.Cut(rest, ":")
+	if !ok || listID == "" || domain == "" {
+		return "", "", false
+	}
+	return listID, domain, true
 }
 
 func (s *sqliteStore) scan(prefix string) map[string]json.RawMessage {
