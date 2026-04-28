@@ -31,6 +31,53 @@ if grep -Eiq 'Pending live host validation|not recorded|Paste validation summary
   failures+=("production validation record still contains pending placeholders")
 fi
 
+required_metadata=(
+  "Status"
+  "Last production validation report"
+  "Validation binary"
+  "Validation config"
+  "Validation LAN DNS server"
+  "Validation API URL"
+)
+
+for field in "${required_metadata[@]}"; do
+  if ! awk -v field="${field}" '
+    $0 ~ "^- " field ":" {
+      value=$0
+      sub("^- " field ":[[:space:]]*", "", value)
+      if (value != "") {
+        found=1
+      }
+    }
+    END {exit found ? 0 : 1}
+  ' "${record}"; then
+    failures+=("validation metadata is empty: ${field}")
+  fi
+done
+
+if ! awk '
+  /^- Status:/ {
+    value=$0
+    sub(/^- Status:[[:space:]]*/, "", value)
+    if (value == "Validation report recorded") {
+      ok=1
+    }
+  }
+  END {exit ok ? 0 : 1}
+' "${record}"; then
+  failures+=("validation status is not complete")
+fi
+
+if ! awk '
+  /^<!-- sis-validation-summary:start -->$/ {in_summary=1; next}
+  /^<!-- sis-validation-summary:end -->$/ {in_summary=0; seen=1; next}
+  in_summary && /^- PASS:/ {pass=1}
+  in_summary && /^- FAIL:/ {fail=1}
+  END {exit seen && pass && !fail ? 0 : 1}
+' "${record}"; then
+  failures+=("production validation summary is missing, failed, or has no passes")
+fi
+
 if awk -F'|' '
   /^## Results$/ {in_results=1; next}
   /^## / && in_results {in_results=0}

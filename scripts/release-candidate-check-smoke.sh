@@ -11,6 +11,7 @@ trap cleanup EXIT
 pending_record="${tmp}/pending.md"
 complete_record="${tmp}/complete.md"
 missing_result_record="${tmp}/missing-result.md"
+missing_metadata_record="${tmp}/missing-metadata.md"
 
 cat > "${pending_record}" <<'EOF'
 # Production Validation Record
@@ -58,6 +59,21 @@ cat > "${complete_record}" <<'EOF'
 
 - Status: Validation report recorded
 - Last production validation report: 20260428T120000Z
+- Validation binary: /usr/local/bin/sis
+- Validation config: /etc/sis/sis.yaml
+- Validation LAN DNS server: 192.0.2.10:53
+- Validation API URL: http://127.0.0.1:8080
+
+<!-- sis-validation-summary:start -->
+```text
+- PASS: service verification
+- PASS: SQLite migration dry-run
+- PASS: LAN DNS validation
+- PASS: authenticated API store verification
+- PASS: real client observation
+- PASS: diagnostics bundle
+```
+<!-- sis-validation-summary:end -->
 
 ## Host Details
 
@@ -100,6 +116,20 @@ fi
 if ! grep -q 'production validation result is missing or not Pass: Real client query observed' "${missing_result_out}"; then
   echo "release-candidate-check-smoke: missing result was not reported" >&2
   cat "${missing_result_out}" >&2
+  exit 1
+fi
+
+sed '/^- Validation API URL:/d' "${complete_record}" > "${missing_metadata_record}"
+missing_metadata_out="${tmp}/missing-metadata.out"
+if SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_VALIDATION_RECORD="${missing_metadata_record}" ./scripts/release-candidate-check.sh "${tag}" >"${missing_metadata_out}" 2>&1; then
+  echo "release-candidate-check-smoke: missing metadata record unexpectedly passed" >&2
+  cat "${missing_metadata_out}" >&2
+  exit 1
+fi
+
+if ! grep -q 'validation metadata is empty: Validation API URL' "${missing_metadata_out}"; then
+  echo "release-candidate-check-smoke: missing metadata was not reported" >&2
+  cat "${missing_metadata_out}" >&2
   exit 1
 fi
 
