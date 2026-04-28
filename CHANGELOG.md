@@ -18,6 +18,8 @@ that require careful upgrade notes.
 - Exposed the active store backend in system info responses and the WebUI System panel.
 - Added authenticated API and CLI access to store verification through system operations.
 - Added WebUI System panel action for authenticated store verification.
+- Added optional authenticated API store verification to production validation reports,
+  with report-time cookie redaction.
 
 ## v0.1.1 - 2026-04-27
 

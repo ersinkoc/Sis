@@ -9,6 +9,8 @@ config="${SIS_PROD_VALIDATE_CONFIG:-/etc/sis/sis.yaml}"
 run_sqlite="${SIS_PROD_VALIDATE_SQLITE:-1}"
 run_lan="${SIS_PROD_VALIDATE_LAN:-1}"
 run_diagnostics="${SIS_PROD_VALIDATE_DIAGNOSTICS:-0}"
+api_url="${SIS_PROD_VALIDATE_API_URL:-${SIS_PROD_VALIDATE_HTTP_URL:-http://127.0.0.1:8080}}"
+api_cookie="${SIS_PROD_VALIDATE_API_COOKIE:-}"
 
 mkdir -p "$(dirname "${out}")"
 tmp="$(mktemp -d)"
@@ -35,6 +37,22 @@ run_check() {
     "$@"
   } > "${log}" 2>&1
   local status=$?
+  set -e
+  statuses+=("${status}")
+  return 0
+}
+
+run_auth_store_verify() {
+  local name="authenticated API store verification"
+  local log="${tmp}/${#checks[@]}.log"
+  checks+=("${name}")
+  logs+=("${log}")
+  set +e
+  {
+    printf '$ %q system -api %q -cookie %q store-verify\n\n' "${bin}" "${api_url}" "redacted"
+    "${bin}" system -api "${api_url}" -cookie "${api_cookie}" store-verify 2>&1
+  } | sed -E 's/(cookie: [^=]+=).*/\1redacted/' > "${log}"
+  local status=${PIPESTATUS[0]}
   set -e
   statuses+=("${status}")
   return 0
@@ -73,6 +91,10 @@ if [[ "${run_lan}" == "1" ]]; then
     ./scripts/validate-lan-dns.sh
 fi
 
+if [[ -n "${api_cookie}" ]]; then
+  run_auth_store_verify
+fi
+
 if [[ "${run_diagnostics}" == "1" ]]; then
   run_check "diagnostics bundle" env \
     SIS_DIAG_BIN="${bin}" \
@@ -91,6 +113,12 @@ fi
   echo "- Service: ${SIS_PROD_VALIDATE_SERVICE:-sis}"
   echo "- DNS server: ${SIS_PROD_VALIDATE_DNS_SERVER:-127.0.0.1:53}"
   echo "- LAN DNS server: ${SIS_PROD_VALIDATE_LAN_DNS_SERVER:-${SIS_PROD_VALIDATE_DNS_SERVER:-127.0.0.1:53}}"
+  echo "- API URL: ${api_url}"
+  if [[ -n "${api_cookie}" ]]; then
+    echo "- Authenticated API checks: enabled"
+  else
+    echo "- Authenticated API checks: skipped (set SIS_PROD_VALIDATE_API_COOKIE)"
+  fi
   echo
   echo "## Summary"
   echo
