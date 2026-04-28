@@ -37,6 +37,8 @@ that require careful upgrade notes.
 - Added a normalized SQLite `config_history` table that is kept in sync with the portable
   KV payload and used by SQLite config history listing.
 - Added SQLite schema upgrade-path regression coverage across schema versions 1 through 7.
+- Added a release-candidate validation check that blocks RC tagging until the live
+  production validation record is complete.
 
 ## v0.1.1 - 2026-04-27
 

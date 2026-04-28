@@ -204,7 +204,13 @@ collection-level record counts, and schema version without copying database cont
 
 ## Release Gate
 
-Before pushing a public tag, run:
+Before pushing a release candidate tag, confirm that the live validation record is complete:
+
+```sh
+./scripts/release-candidate-check.sh vX.Y.Z-rc.1
+```
+
+Before pushing any public release tag, run:
 
 ```sh
 ./scripts/release-readiness.sh vX.Y.Z

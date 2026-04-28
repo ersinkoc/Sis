@@ -28,31 +28,37 @@ on a manually-created key, also set `RELEASE_GPG_PASSPHRASE`.
 1. Make sure `main` is green in CI.
 2. Update `CHANGELOG.md` so the release scope, upgrade notes, and known limitations
    match the tag being cut.
-3. Run the local release readiness gate:
+3. For a release candidate, make sure the live host validation record is complete:
+
+   ```sh
+   ./scripts/release-candidate-check.sh v1.0.0-rc.1
+   ```
+
+4. Run the local release readiness gate:
 
    ```sh
    ./scripts/release-readiness.sh v1.0.0
    ```
 
-4. Optionally run the GitHub Actions `CI` workflow manually with `release_version=v1.0.0-dryrun`.
+5. Optionally run the GitHub Actions `CI` workflow manually with `release_version=v1.0.0-dryrun`.
    This exercises the release build, release signing helper, optional signing, and release
    smoke without publishing a GitHub Release.
-5. Choose the next semantic version tag, for example `v1.0.0`.
-6. Create and push the tag:
+6. Choose the next semantic version tag, for example `v1.0.0`.
+7. Create and push the tag:
 
    ```sh
    git tag v1.0.0
    git push origin v1.0.0
    ```
 
-7. GitHub Actions builds and smoke-tests the release artifacts with:
+8. GitHub Actions builds and smoke-tests the release artifacts with:
 
    ```sh
    ./scripts/build.sh
    ./scripts/release-smoke.sh
    ```
 
-8. The release job uploads:
+9. The release job uploads:
 
    - `dist/sis_linux_amd64`
    - `dist/sis_linux_arm64`

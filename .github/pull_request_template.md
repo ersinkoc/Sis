@@ -6,6 +6,7 @@
 
 - [ ] `./scripts/check.sh`
 - [ ] `./scripts/release-readiness.sh v0.0.0-readiness` for release-impacting changes
+- [ ] `./scripts/release-candidate-check.sh v0.0.0-rc.1` before release-candidate tags
 - [ ] GitHub CI is green
 
 ## Release Impact
