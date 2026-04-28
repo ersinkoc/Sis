@@ -9,6 +9,11 @@ and the evidence is copied or summarized here.
 - Status: Pending live host validation
 - Last repository release gate: passing
 - Last GitHub CI gate: passing
+- Last production validation report:
+- Validation binary:
+- Validation config:
+- Validation LAN DNS server:
+- Validation API URL:
 - Live Linux host install: not recorded
 - Live SQLite migration dry-run: not recorded
 - Live LAN DNS validation: not recorded
@@ -51,11 +56,20 @@ All required checks must pass:
 ## Evidence To Paste
 
 After running `scripts/run-production-validation.sh`, copy the summary section from the
-generated `sis-validation/production-validation-*.md` report here.
+generated `sis-validation/production-validation-*.md` report here, or run:
 
+```sh
+./scripts/update-production-validation-record.sh sis-validation/production-validation-YYYYMMDDTHHMMSSZ.md
+```
+
+The helper updates only the generated summary and results table sections. Keep host details
+and real-client observations accurate by editing them after the live run.
+
+<!-- sis-validation-summary:start -->
 ```text
 Paste validation summary here.
 ```
+<!-- sis-validation-summary:end -->
 
 ## Host Details
 

@@ -141,7 +141,9 @@ sudo SIS_LAN_VALIDATE_DNS_SERVER=192.168.1.2:53 ./scripts/validate-lan-dns.sh
 ```
 Use `scripts/run-production-validation.sh` to write a timestamped Markdown report that
 combines service verification, SQLite migration dry-run, and LAN DNS validation.
-Record the real host results in `docs/PRODUCTION_VALIDATION.md`.
+Record the real host results in `docs/PRODUCTION_VALIDATION.md`; after the report is written,
+`scripts/update-production-validation-record.sh sis-validation/production-validation-*.md`
+can import the summary and results table without overwriting host notes.
 
 Useful early API checks:
 

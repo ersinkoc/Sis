@@ -126,7 +126,10 @@ Set `SIS_PROD_VALIDATE_API_COOKIE='sis_session=...'` to also verify the authenti
 system store-verification API; the generated report redacts the cookie value.
 Set `SIS_PROD_VALIDATE_DIAGNOSTICS=1` to attach a diagnostics bundle run.
 Copy the generated summary into `docs/PRODUCTION_VALIDATION.md` so the live production
-evidence is tracked in the repository.
+evidence is tracked in the repository. To avoid manual copy/paste drift, run
+`scripts/update-production-validation-record.sh sis-validation/production-validation-*.md`
+from the repository checkout after the report is generated, then fill in the host details
+and real-client observation fields.
 
 ## Storage Limits
 

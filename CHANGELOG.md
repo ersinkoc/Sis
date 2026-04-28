@@ -20,6 +20,8 @@ that require careful upgrade notes.
 - Added WebUI System panel action for authenticated store verification.
 - Added optional authenticated API store verification to production validation reports,
   with report-time cookie redaction.
+- Added a helper to import production validation report summaries into the durable
+  production validation record.
 
 ## v0.1.1 - 2026-04-27
 

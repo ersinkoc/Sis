@@ -60,6 +60,7 @@ SIS_VERIFY_BIN="${tmp}/usr/local/bin/sis" \
   ./scripts/verify-linux-service.sh
 bash -n ./scripts/validate-lan-dns.sh
 bash -n ./scripts/run-production-validation.sh
+bash -n ./scripts/update-production-validation-record.sh
 
 for path in \
   "${tmp}/etc/sis/sis.yaml" \
