@@ -214,6 +214,8 @@ sis store verify -config examples/sis.yaml
 
 `sis store verify` prints total and collection-level record counts so operators can spot
 client, session, stats, or config-history growth before choosing maintenance or migration work.
+SQLite stores those collections in an indexed metadata column while preserving the portable
+logical JSON payload used by backup and restore.
 
 ## Development
 

@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -49,6 +50,7 @@ func (s *sqliteStore) init() error {
 		`PRAGMA synchronous = NORMAL`,
 		`CREATE TABLE IF NOT EXISTS kv (
 			key TEXT PRIMARY KEY,
+			collection TEXT NOT NULL DEFAULT 'unknown',
 			value BLOB NOT NULL
 		)`,
 	} {
@@ -63,7 +65,7 @@ func (s *sqliteStore) runMigrations() error {
 	var current int
 	_ = s.getJSON("store_meta:schema_version", &current)
 	if current >= schemaVersion {
-		return nil
+		return s.ensureCollectionColumn()
 	}
 	for _, migration := range migrations() {
 		if migration.Version <= current {
@@ -79,6 +81,83 @@ func (s *sqliteStore) runMigrations() error {
 		}
 	}
 	return nil
+}
+
+func (s *sqliteStore) ensureCollectionColumn() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return ErrClosed
+	}
+	hasCollection, err := sqliteHasColumn(s.db, "kv", "collection")
+	if err != nil {
+		return err
+	}
+	if !hasCollection {
+		if _, err := s.db.Exec(`ALTER TABLE kv ADD COLUMN collection TEXT NOT NULL DEFAULT 'unknown'`); err != nil {
+			return err
+		}
+	}
+	rows, err := s.db.Query(`SELECT key FROM kv WHERE collection = 'unknown' OR collection = ''`)
+	if err != nil {
+		return err
+	}
+	var keys []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		keys = append(keys, key)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, key := range keys {
+		if _, err := tx.Exec(`UPDATE kv SET collection = ? WHERE key = ?`, collectionName(key), key); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	if _, err := tx.Exec(`CREATE INDEX IF NOT EXISTS idx_kv_collection ON kv(collection)`); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func sqliteHasColumn(db *sql.DB, table, column string) (bool, error) {
+	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull int
+		var defaultValue any
+		var pk int
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultValue, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func (s *sqliteStore) Clients() ClientStore {
@@ -161,9 +240,10 @@ func (s *sqliteStore) putRawJSON(key string, raw json.RawMessage) error {
 	}
 
 	_, err := s.db.Exec(
-		`INSERT INTO kv(key, value) VALUES(?, ?)
-		ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+		`INSERT INTO kv(key, collection, value) VALUES(?, ?, ?)
+		ON CONFLICT(key) DO UPDATE SET collection = excluded.collection, value = excluded.value`,
 		key,
+		collectionName(key),
 		raw,
 	)
 	return err

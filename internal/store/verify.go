@@ -110,6 +110,35 @@ func collectionCounts(rows map[string]json.RawMessage) map[string]int {
 }
 
 func sqliteCollectionCounts(db *sql.DB) (map[string]int, error) {
+	hasCollection, err := sqliteHasColumn(db, "kv", "collection")
+	if err != nil {
+		return nil, err
+	}
+	if hasCollection {
+		rows, err := db.Query(`SELECT collection, COUNT(*) FROM kv GROUP BY collection`)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		counts := make(map[string]int)
+		for rows.Next() {
+			var collection string
+			var count int
+			if err := rows.Scan(&collection, &count); err != nil {
+				return nil, err
+			}
+			if collection == "" {
+				collection = "unknown"
+			}
+			counts[collection] = count
+		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return counts, nil
+	}
+
 	rows, err := db.Query(`SELECT key FROM kv`)
 	if err != nil {
 		return nil, err

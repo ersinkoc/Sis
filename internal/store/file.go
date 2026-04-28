@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 type fileStore struct {
 	path        string
@@ -118,12 +118,24 @@ func (s *fileStore) runMigrations() error {
 }
 
 func migrations() []Migration {
-	return []Migration{{
-		Version: 1,
-		Apply: func(Store) error {
-			return nil
+	return []Migration{
+		{
+			Version: 1,
+			Apply: func(Store) error {
+				return nil
+			},
 		},
-	}}
+		{
+			Version: 2,
+			Apply: func(s Store) error {
+				sqlite, ok := s.(*sqliteStore)
+				if !ok {
+					return nil
+				}
+				return sqlite.ensureCollectionColumn()
+			},
+		},
+	}
 }
 
 func (s *fileStore) lockPrefix(prefix string) func() {

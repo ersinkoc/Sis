@@ -1,6 +1,8 @@
 package store
 
 import (
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -139,6 +141,111 @@ func TestSQLiteStoreCRUDAndPersistence(t *testing.T) {
 	}
 	if _, err := reopened.Clients().Get(client.Key); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted client err = %v", err)
+	}
+}
+
+func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
+	dir := t.TempDir()
+	db, err := sql.Open("sqlite", filepath.Join(dir, "sis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE kv (key TEXT PRIMARY KEY, value BLOB NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	rawClient, err := json.Marshal(&Client{Key: "192.0.2.31", Type: "ip", Group: "default"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "clients:192.0.2.31", rawClient); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "store_meta:schema_version", []byte(`1`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := OpenSQLite(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err = sql.Open("sqlite", filepath.Join(dir, "sis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	hasCollection, err := sqliteHasColumn(db, "kv", "collection")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCollection {
+		t.Fatal("sqlite migration did not add collection column")
+	}
+	var collection string
+	if err := db.QueryRow(`SELECT collection FROM kv WHERE key = ?`, "clients:192.0.2.31").Scan(&collection); err != nil {
+		t.Fatal(err)
+	}
+	if collection != "clients" {
+		t.Fatalf("collection = %q", collection)
+	}
+
+	result, err := VerifyBackend(BackendSQLite, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.SchemaVersion != schemaVersion || result.CollectionCounts["clients"] != 1 || result.CollectionCounts["store_meta"] != 1 {
+		t.Fatalf("verify after migration = %#v", result)
+	}
+}
+
+func TestSQLiteOpenRepairsMissingCollectionColumn(t *testing.T) {
+	dir := t.TempDir()
+	db, err := sql.Open("sqlite", filepath.Join(dir, "sis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE kv (key TEXT PRIMARY KEY, value BLOB NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "store_meta:schema_version", []byte(`2`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := OpenSQLite(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	db, err = sql.Open("sqlite", filepath.Join(dir, "sis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	hasCollection, err := sqliteHasColumn(db, "kv", "collection")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasCollection {
+		t.Fatal("sqlite open did not repair collection column")
+	}
+	var collection string
+	if err := db.QueryRow(`SELECT collection FROM kv WHERE key = ?`, "store_meta:schema_version").Scan(&collection); err != nil {
+		t.Fatal(err)
+	}
+	if collection != "store_meta" {
+		t.Fatalf("collection = %q", collection)
 	}
 }
 
