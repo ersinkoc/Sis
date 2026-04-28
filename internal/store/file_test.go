@@ -281,6 +281,9 @@ func TestVerifyBackend(t *testing.T) {
 	if result.Records == 0 || result.SchemaVersion != schemaVersion {
 		t.Fatalf("json verify = %#v", result)
 	}
+	if result.CollectionCounts["clients"] != 1 || result.CollectionCounts["store_meta"] != 1 {
+		t.Fatalf("json verify collections = %#v", result.CollectionCounts)
+	}
 
 	sqliteDir := t.TempDir()
 	sqliteStore, err := OpenSQLite(sqliteDir)
@@ -299,6 +302,13 @@ func TestVerifyBackend(t *testing.T) {
 	}
 	if result.Records == 0 || result.SchemaVersion != schemaVersion {
 		t.Fatalf("sqlite verify = %#v", result)
+	}
+	if result.CollectionCounts["clients"] != 1 || result.CollectionCounts["store_meta"] != 1 {
+		t.Fatalf("sqlite verify collections = %#v", result.CollectionCounts)
+	}
+	names := result.CollectionNames()
+	if len(names) != 2 || names[0] != "clients" || names[1] != "store_meta" {
+		t.Fatalf("sqlite verify collection names = %#v", names)
 	}
 
 	if _, err := VerifyBackend("postgres", t.TempDir()); err == nil || !strings.Contains(err.Error(), "not supported") {

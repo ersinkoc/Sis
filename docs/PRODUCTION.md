@@ -36,8 +36,8 @@ privacy log salt. Treat backups as secrets.
 `sis backup create` stores runtime state as a portable logical `sis.db.json` snapshot for
 both JSON and SQLite deployments. `sis backup restore` recreates `sis.db.json` for JSON
 configs and rebuilds `sis.db` for SQLite configs.
-`sis store verify -config /etc/sis/sis.yaml` confirms the configured store can be read;
-for SQLite it also runs `PRAGMA quick_check`.
+`sis store verify -config /etc/sis/sis.yaml` confirms the configured store can be read,
+prints collection-level record counts, and for SQLite also runs `PRAGMA quick_check`.
 The same check is available remotely to authenticated operators through
 `sis system store-verify`, `/api/v1/system/store/verify`, or the WebUI System panel.
 
@@ -193,8 +193,8 @@ sudo ./scripts/collect-linux-diagnostics.sh
 
 Journal logs are skipped by default because they may contain domain or client data.
 Set `SIS_DIAG_INCLUDE_JOURNAL=1` only after accepting that exposure.
-The bundle includes `sis store verify` output, which reports backend, path, record count,
-and schema version without copying database contents.
+The bundle includes `sis store verify` output, which reports backend, path, total and
+collection-level record counts, and schema version without copying database contents.
 
 ## Release Gate
 

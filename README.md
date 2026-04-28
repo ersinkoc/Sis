@@ -212,6 +212,9 @@ sis store compact -data-dir ./data -backend sqlite
 sis store verify -config examples/sis.yaml
 ```
 
+`sis store verify` prints total and collection-level record counts so operators can spot
+client, session, stats, or config-history growth before choosing maintenance or migration work.
+
 ## Development
 
 ```sh

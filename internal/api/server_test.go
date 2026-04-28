@@ -572,8 +572,9 @@ func TestSystemStoreVerify(t *testing.T) {
 	var out struct {
 		OK    bool `json:"ok"`
 		Store struct {
-			Backend string `json:"backend"`
-			Records int    `json:"records"`
+			Backend          string         `json:"backend"`
+			Records          int            `json:"records"`
+			CollectionCounts map[string]int `json:"collection_counts"`
 		} `json:"store"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
@@ -581,6 +582,9 @@ func TestSystemStoreVerify(t *testing.T) {
 	}
 	if !out.OK || out.Store.Backend != store.BackendJSON || out.Store.Records == 0 {
 		t.Fatalf("store verify response = %#v", out)
+	}
+	if out.Store.CollectionCounts["clients"] == 0 || out.Store.CollectionCounts["store_meta"] == 0 {
+		t.Fatalf("store verify collection counts = %#v", out.Store.CollectionCounts)
 	}
 }
 

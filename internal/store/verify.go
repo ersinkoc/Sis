@@ -6,15 +6,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
 // VerifyResult summarizes a durable store verification.
 type VerifyResult struct {
-	Backend       string `json:"backend"`
-	Path          string `json:"path"`
-	Records       int    `json:"records"`
-	SchemaVersion int    `json:"schema_version"`
+	Backend          string         `json:"backend"`
+	Path             string         `json:"path"`
+	Records          int            `json:"records"`
+	SchemaVersion    int            `json:"schema_version"`
+	CollectionCounts map[string]int `json:"collection_counts,omitempty"`
 }
 
 // VerifyBackend validates that the configured store backend can be read.
@@ -48,10 +50,11 @@ func verifyJSON(dataDir string) (*VerifyResult, error) {
 	var version int
 	_ = json.Unmarshal(rows["store_meta:schema_version"], &version)
 	return &VerifyResult{
-		Backend:       BackendJSON,
-		Path:          path,
-		Records:       len(rows),
-		SchemaVersion: version,
+		Backend:          BackendJSON,
+		Path:             path,
+		Records:          len(rows),
+		SchemaVersion:    version,
+		CollectionCounts: collectionCounts(rows),
 	}, nil
 }
 
@@ -85,10 +88,64 @@ func verifySQLite(dataDir string) (*VerifyResult, error) {
 	} else if err != sql.ErrNoRows {
 		return nil, err
 	}
+	counts, err := sqliteCollectionCounts(db)
+	if err != nil {
+		return nil, err
+	}
 	return &VerifyResult{
-		Backend:       BackendSQLite,
-		Path:          path,
-		Records:       records,
-		SchemaVersion: version,
+		Backend:          BackendSQLite,
+		Path:             path,
+		Records:          records,
+		SchemaVersion:    version,
+		CollectionCounts: counts,
 	}, nil
+}
+
+func collectionCounts(rows map[string]json.RawMessage) map[string]int {
+	counts := make(map[string]int)
+	for key := range rows {
+		counts[collectionName(key)]++
+	}
+	return counts
+}
+
+func sqliteCollectionCounts(db *sql.DB) (map[string]int, error) {
+	rows, err := db.Query(`SELECT key FROM kv`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		counts[collectionName(key)]++
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return counts, nil
+}
+
+func collectionName(key string) string {
+	if i := strings.IndexByte(key, ':'); i > 0 {
+		return key[:i]
+	}
+	return "unknown"
+}
+
+// CollectionNames returns sorted collection names present in a verification result.
+func (r *VerifyResult) CollectionNames() []string {
+	if r == nil || len(r.CollectionCounts) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(r.CollectionCounts))
+	for name := range r.CollectionCounts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

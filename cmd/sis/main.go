@@ -679,6 +679,9 @@ func runStoreVerify(args []string) error {
 		return err
 	}
 	fmt.Printf("verified %s store at %s (%d records, schema %d)\n", result.Backend, result.Path, result.Records, result.SchemaVersion)
+	for _, name := range result.CollectionNames() {
+		fmt.Printf("  %s: %d\n", name, result.CollectionCounts[name])
+	}
 	return nil
 }
 
