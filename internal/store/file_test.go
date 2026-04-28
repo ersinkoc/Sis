@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -378,6 +379,82 @@ func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
 	}
 }
 
+func TestSQLiteSchemaUpgradePathsBackfillNormalizedTables(t *testing.T) {
+	for version := 1; version <= schemaVersion; version++ {
+		t.Run("v"+strconv.Itoa(version), func(t *testing.T) {
+			dir := t.TempDir()
+			historyTS := seedLegacySQLiteStore(t, dir, version)
+
+			s, err := OpenSQLite(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer s.Close()
+			sqlite, ok := s.(*sqliteStore)
+			if !ok {
+				t.Fatalf("sqlite store type = %T", s)
+			}
+
+			result, err := VerifyBackend(BackendSQLite, dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantCollections := map[string]int{
+				"clients":    1,
+				"session":    1,
+				"customlist": 1,
+				"stats":      1,
+				"confhist":   1,
+				"store_meta": 1,
+			}
+			if result.SchemaVersion != schemaVersion {
+				t.Fatalf("schema version = %d, want %d", result.SchemaVersion, schemaVersion)
+			}
+			for collection, want := range wantCollections {
+				if got := result.CollectionCounts[collection]; got != want {
+					t.Fatalf("collection %s count = %d, want %d; result=%#v", collection, got, want, result)
+				}
+			}
+
+			var clientGroup string
+			if err := sqlite.db.QueryRow(`SELECT client_group FROM clients WHERE key = ?`, "192.0.2.80").Scan(&clientGroup); err != nil {
+				t.Fatal(err)
+			}
+			if clientGroup != "default" {
+				t.Fatalf("client group = %q", clientGroup)
+			}
+			var sessionUser string
+			if err := sqlite.db.QueryRow(`SELECT username FROM sessions WHERE token = ?`, "legacy").Scan(&sessionUser); err != nil {
+				t.Fatal(err)
+			}
+			if sessionUser != "admin" {
+				t.Fatalf("session username = %q", sessionUser)
+			}
+			var customRows int
+			if err := sqlite.db.QueryRow(`SELECT COUNT(*) FROM custom_lists WHERE list_id = ? AND domain = ?`, "custom", "legacy.example").Scan(&customRows); err != nil {
+				t.Fatal(err)
+			}
+			if customRows != 1 {
+				t.Fatalf("custom list rows = %d", customRows)
+			}
+			stats, err := s.Stats().Get("1m", "40")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if stats.Counters["queries"] != uint64(version) {
+				t.Fatalf("stats queries = %d, want %d", stats.Counters["queries"], version)
+			}
+			history, err := s.ConfigHistory().List(1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(history) != 1 || !history[0].TS.Equal(historyTS) || !strings.Contains(history[0].YAML, "legacy") {
+				t.Fatalf("history = %#v, want ts %s with legacy yaml", history, historyTS)
+			}
+		})
+	}
+}
+
 func TestSQLiteOpenRepairsMissingCollectionColumn(t *testing.T) {
 	dir := t.TempDir()
 	db, err := sql.Open("sqlite", filepath.Join(dir, "sis.db"))
@@ -455,6 +532,50 @@ func TestSQLiteOpenRepairsMissingCollectionColumn(t *testing.T) {
 	}
 	if !hasConfigHistory {
 		t.Fatal("sqlite open did not repair config history table")
+	}
+}
+
+func seedLegacySQLiteStore(t *testing.T, dir string, version int) time.Time {
+	t.Helper()
+	db, err := sql.Open("sqlite", filepath.Join(dir, "sis.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if version == 1 {
+		if _, err := db.Exec(`CREATE TABLE kv (key TEXT PRIMARY KEY, value BLOB NOT NULL)`); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		if _, err := db.Exec(`CREATE TABLE kv (key TEXT PRIMARY KEY, collection TEXT NOT NULL DEFAULT 'unknown', value BLOB NOT NULL)`); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	insertLegacyKV(t, db, version, "clients:192.0.2.80", &Client{Key: "192.0.2.80", Type: "ip", Group: "default"})
+	insertLegacyKV(t, db, version, "session:legacy", &Session{Token: "legacy", Username: "admin", ExpiresAt: time.Now().Add(time.Hour)})
+	insertLegacyKV(t, db, version, "customlist:custom:legacy.example", true)
+	insertLegacyKV(t, db, version, "stats:1m:40", &StatsRow{Counters: map[string]uint64{"queries": uint64(version)}})
+	historyTS := time.Date(2026, 4, 28, 13, version, 0, 0, time.UTC)
+	insertLegacyKV(t, db, version, "confhist:"+historyTS.Format(time.RFC3339Nano), &ConfigSnapshot{TS: historyTS, YAML: "legacy: true\n"})
+	insertLegacyKV(t, db, version, "store_meta:schema_version", version)
+	return historyTS
+}
+
+func insertLegacyKV(t *testing.T, db *sql.DB, schemaVersion int, key string, value any) {
+	t.Helper()
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if schemaVersion == 1 {
+		if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES(?, ?)`, key, raw); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	if _, err := db.Exec(`INSERT INTO kv(key, collection, value) VALUES(?, ?, ?)`, key, collectionName(key), raw); err != nil {
+		t.Fatal(err)
 	}
 }
 

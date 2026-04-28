@@ -36,6 +36,7 @@ that require careful upgrade notes.
   payload and used by SQLite stats CRUD operations.
 - Added a normalized SQLite `config_history` table that is kept in sync with the portable
   KV payload and used by SQLite config history listing.
+- Added SQLite schema upgrade-path regression coverage across schema versions 1 through 7.
 
 ## v0.1.1 - 2026-04-27
 
