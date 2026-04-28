@@ -10,6 +10,7 @@ trap cleanup EXIT
 
 pending_record="${tmp}/pending.md"
 complete_record="${tmp}/complete.md"
+missing_result_record="${tmp}/missing-result.md"
 
 cat > "${pending_record}" <<'EOF'
 # Production Validation Record
@@ -87,5 +88,19 @@ cat > "${complete_record}" <<'EOF'
 EOF
 
 SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_VALIDATION_RECORD="${complete_record}" ./scripts/release-candidate-check.sh "${tag}" >"${complete_out}"
+
+sed '/| Real client query observed |/d' "${complete_record}" > "${missing_result_record}"
+missing_result_out="${tmp}/missing-result.out"
+if SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_VALIDATION_RECORD="${missing_result_record}" ./scripts/release-candidate-check.sh "${tag}" >"${missing_result_out}" 2>&1; then
+  echo "release-candidate-check-smoke: missing result record unexpectedly passed" >&2
+  cat "${missing_result_out}" >&2
+  exit 1
+fi
+
+if ! grep -q 'production validation result is missing or not Pass: Real client query observed' "${missing_result_out}"; then
+  echo "release-candidate-check-smoke: missing result was not reported" >&2
+  cat "${missing_result_out}" >&2
+  exit 1
+fi
 
 echo "release-candidate-check-smoke: passed"

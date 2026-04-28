@@ -42,6 +42,7 @@ that require careful upgrade notes.
 - Added release-candidate validation gate smoke coverage to the main check script.
 - Added strict production-validation preflight checks for release-candidate evidence.
 - Added a production-validation record update smoke test that proves generated reports can satisfy the release-candidate gate.
+- Tightened release-candidate validation so every required production result row must be present and passing.
 
 ## v0.1.1 - 2026-04-27
 

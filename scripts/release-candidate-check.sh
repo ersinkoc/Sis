@@ -32,6 +32,9 @@ if grep -Eiq 'Pending live host validation|not recorded|Paste validation summary
 fi
 
 if awk -F'|' '
+  /^## Results$/ {in_results=1; next}
+  /^## / && in_results {in_results=0}
+  !in_results {next}
   /^\|/ && $2 ~ /Check/ {next}
   /^\|/ && $2 ~ /---/ {next}
   /^\|/ {
@@ -45,6 +48,38 @@ if awk -F'|' '
 ' "${record}"; then
   failures+=("production validation results table has non-Pass checks")
 fi
+
+required_results=(
+  "Service verification"
+  "SQLite migration dry-run"
+  "LAN UDP DNS"
+  "LAN TCP DNS"
+  "Blocked-domain policy"
+  "HTTP health/readiness"
+  "Authenticated API store verification"
+  "Real client query observed"
+  "Diagnostics bundle generated"
+)
+
+for check in "${required_results[@]}"; do
+  if ! awk -F'|' -v check="${check}" '
+    /^## Results$/ {in_results=1; next}
+    /^## / && in_results {in_results=0}
+    !in_results {next}
+    /^\|/ {
+      name=$2
+      result=$3
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", result)
+      if (name == check && tolower(result) == "pass") {
+        found=1
+      }
+    }
+    END {exit found ? 0 : 1}
+  ' "${record}"; then
+    failures+=("production validation result is missing or not Pass: ${check}")
+  fi
+done
 
 required_fields=(
   "Validation date"
