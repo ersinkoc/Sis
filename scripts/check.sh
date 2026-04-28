@@ -13,6 +13,7 @@ if [[ -n "${unformatted}" ]]; then
 fi
 git diff --exit-code
 ./scripts/godoc.sh
+./scripts/release-candidate-check-smoke.sh
 
 (
   cd webui

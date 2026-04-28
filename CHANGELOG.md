@@ -39,6 +39,7 @@ that require careful upgrade notes.
 - Added SQLite schema upgrade-path regression coverage across schema versions 1 through 7.
 - Added a release-candidate validation check that blocks RC tagging until the live
   production validation record is complete.
+- Added release-candidate validation gate smoke coverage to the main check script.
 
 ## v0.1.1 - 2026-04-27
 

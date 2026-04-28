@@ -252,7 +252,7 @@ builds release artifacts with that version, signs checksums when signing env is 
 and runs release smoke before a tag is pushed.
 `scripts/release-candidate-check.sh vX.Y.Z-rc.N` verifies that
 `docs/PRODUCTION_VALIDATION.md` has recorded live host validation evidence before cutting a
-release candidate tag.
+release candidate tag. `scripts/check.sh` also runs a fixture smoke test for that gate.
 `scripts/verify-linux-service.sh` verifies a live Linux installation; use `SIS_VERIFY_SKIP_*`
 variables for staged or partial checks.
 `scripts/backup-linux-service.sh` writes a timestamped verified backup for the installed
