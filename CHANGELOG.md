@@ -44,6 +44,7 @@ that require careful upgrade notes.
 - Added a production-validation record update smoke test that proves generated reports can satisfy the release-candidate gate.
 - Tightened release-candidate validation so every required production result row must be present and passing.
 - Tightened release-candidate validation metadata and summary requirements.
+- Added release-readiness prerelease enforcement for production validation evidence.
 
 ## v0.1.1 - 2026-04-27
 

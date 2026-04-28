@@ -18,18 +18,29 @@ if [[ "${SIS_RELEASE_ALLOW_DIRTY:-0}" != "1" && -n "$(git status --porcelain)" ]
   exit 1
 fi
 
-git fetch --tags --quiet
+if [[ "${SIS_RELEASE_SKIP_REMOTE_TAG_CHECK:-0}" != "1" ]]; then
+  git fetch --tags --quiet
+fi
 if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
   echo "release-readiness: local tag ${tag} already exists" >&2
   exit 1
 fi
-if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+if [[ "${SIS_RELEASE_SKIP_REMOTE_TAG_CHECK:-0}" != "1" ]] && git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
   echo "release-readiness: remote tag ${tag} already exists" >&2
   exit 1
 fi
 
+if [[ "${tag}" == *-* ]]; then
+  ./scripts/release-candidate-check.sh "${tag}"
+fi
+
 if [[ -z "${RELEASE_GPG_PRIVATE_KEY_B64:-}" && -z "${RELEASE_GPG_KEY_ID:-}" ]]; then
   echo "release-readiness: warning: no release signing key configured; checksums will be unsigned" >&2
+fi
+
+if [[ "${SIS_RELEASE_READINESS_PRECHECK_ONLY:-0}" == "1" ]]; then
+  echo "release-readiness: ${tag} precheck passed"
+  exit 0
 fi
 
 WEBUI_PM="${WEBUI_PM:-npm}" WEBUI_INSTALL="${WEBUI_INSTALL:-ci}" ./scripts/check.sh

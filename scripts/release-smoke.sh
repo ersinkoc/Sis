@@ -62,6 +62,7 @@ bash -n ./scripts/validate-lan-dns.sh
 bash -n ./scripts/run-production-validation.sh
 bash -n ./scripts/update-production-validation-record.sh
 bash -n ./scripts/update-production-validation-record-smoke.sh
+bash -n ./scripts/release-readiness-smoke.sh
 bash -n ./scripts/validate-real-client.sh
 
 for path in \

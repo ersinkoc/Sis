@@ -251,7 +251,8 @@ stops the service, installs the selected release, and runs live verification.
 backup restore, service hardening directives, and a staged Linux service install without touching the host system.
 `scripts/release-readiness.sh vX.Y.Z` checks branch/tag cleanliness, runs the full gate,
 builds release artifacts with that version, signs checksums when signing env is configured,
-and runs release smoke before a tag is pushed.
+and runs release smoke before a tag is pushed. For prerelease tags such as `vX.Y.Z-rc.N`,
+it also runs `scripts/release-candidate-check.sh` before starting the heavy release gate.
 `scripts/release-candidate-check.sh vX.Y.Z-rc.N` verifies that
 `docs/PRODUCTION_VALIDATION.md` has recorded live host validation evidence before cutting a
 release candidate tag. `scripts/check.sh` also runs a fixture smoke test for that gate.

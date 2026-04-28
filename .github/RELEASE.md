@@ -34,7 +34,8 @@ on a manually-created key, also set `RELEASE_GPG_PASSPHRASE`.
    ./scripts/release-candidate-check.sh v1.0.0-rc.1
    ```
 
-4. Run the local release readiness gate:
+4. Run the local release readiness gate. For prerelease tags, this also runs the
+   release-candidate evidence check before the heavy build/test gate:
 
    ```sh
    ./scripts/release-readiness.sh v1.0.0

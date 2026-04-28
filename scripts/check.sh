@@ -14,6 +14,7 @@ fi
 git diff --exit-code
 ./scripts/godoc.sh
 ./scripts/release-candidate-check-smoke.sh
+./scripts/release-readiness-smoke.sh
 ./scripts/production-validation-preflight-smoke.sh
 ./scripts/update-production-validation-record-smoke.sh
 

@@ -221,5 +221,6 @@ Before pushing any public release tag, run:
 ./scripts/release-readiness.sh vX.Y.Z
 ```
 
-That gate checks branch/tag state, runs the full test gate, builds release artifacts, signs
-checksums when signing keys are configured, and runs release smoke.
+That gate checks branch/tag state, runs the release-candidate evidence gate for prerelease
+tags, runs the full test gate, builds release artifacts, signs checksums when signing keys
+are configured, and runs release smoke.
