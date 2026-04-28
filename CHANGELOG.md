@@ -28,6 +28,8 @@ that require careful upgrade notes.
   SQL column, preparing safer collection-level inspection and future normalization.
 - Added a normalized SQLite `clients` table that is kept in sync with the portable KV
   payload and used by SQLite client CRUD operations.
+- Added a normalized SQLite `sessions` table that is kept in sync with the portable KV
+  payload and used by SQLite session CRUD and expiration cleanup.
 
 ## v0.1.1 - 2026-04-27
 

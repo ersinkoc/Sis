@@ -133,6 +133,50 @@ func TestSQLiteStoreCRUDAndPersistence(t *testing.T) {
 	if gotSession.Username != "admin" {
 		t.Fatalf("username = %q", gotSession.Username)
 	}
+	var tableSessionUser string
+	if err := sqlite.db.QueryRow(`SELECT username FROM sessions WHERE token = ?`, "tok").Scan(&tableSessionUser); err != nil {
+		t.Fatal(err)
+	}
+	if tableSessionUser != "admin" {
+		t.Fatalf("session table username = %q", tableSessionUser)
+	}
+	expired := &Session{Token: "expired", Username: "admin", ExpiresAt: time.Now().Add(-time.Hour)}
+	if err := reopened.Sessions().Upsert(expired); err != nil {
+		t.Fatal(err)
+	}
+	if err := reopened.Sessions().DeleteExpired(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reopened.Sessions().Get("expired"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("expired session err = %v", err)
+	}
+	var expiredKV int
+	if err := sqlite.db.QueryRow(`SELECT COUNT(*) FROM kv WHERE key = ?`, "session:expired").Scan(&expiredKV); err != nil {
+		t.Fatal(err)
+	}
+	if expiredKV != 0 {
+		t.Fatalf("expired session remained in kv: %d", expiredKV)
+	}
+	if err := reopened.Sessions().Delete("tok"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reopened.Sessions().Get("tok"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("deleted session err = %v", err)
+	}
+	var sessionRows int
+	if err := sqlite.db.QueryRow(`SELECT COUNT(*) FROM sessions WHERE token = ?`, "tok").Scan(&sessionRows); err != nil {
+		t.Fatal(err)
+	}
+	if sessionRows != 0 {
+		t.Fatalf("deleted session remained in table: %d", sessionRows)
+	}
+	var sessionKV int
+	if err := sqlite.db.QueryRow(`SELECT COUNT(*) FROM kv WHERE key = ?`, "session:tok").Scan(&sessionKV); err != nil {
+		t.Fatal(err)
+	}
+	if sessionKV != 0 {
+		t.Fatalf("deleted session remained in kv: %d", sessionKV)
+	}
 	rows, err := reopened.Stats().List("1m")
 	if err != nil {
 		t.Fatal(err)
@@ -175,7 +219,14 @@ func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	rawSession, err := json.Marshal(&Session{Token: "tok", Username: "admin", ExpiresAt: time.Now().Add(time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "clients:192.0.2.31", rawClient); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "session:tok", rawSession); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "store_meta:schema_version", []byte(`1`)); err != nil {
@@ -219,12 +270,19 @@ func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
 	if tableGroup != "default" {
 		t.Fatalf("client table group = %q", tableGroup)
 	}
+	var tableSessionUser string
+	if err := db.QueryRow(`SELECT username FROM sessions WHERE token = ?`, "tok").Scan(&tableSessionUser); err != nil {
+		t.Fatal(err)
+	}
+	if tableSessionUser != "admin" {
+		t.Fatalf("session table username = %q", tableSessionUser)
+	}
 
 	result, err := VerifyBackend(BackendSQLite, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.SchemaVersion != schemaVersion || result.CollectionCounts["clients"] != 1 || result.CollectionCounts["store_meta"] != 1 {
+	if result.SchemaVersion != schemaVersion || result.CollectionCounts["clients"] != 1 || result.CollectionCounts["session"] != 1 || result.CollectionCounts["store_meta"] != 1 {
 		t.Fatalf("verify after migration = %#v", result)
 	}
 }
@@ -278,6 +336,13 @@ func TestSQLiteOpenRepairsMissingCollectionColumn(t *testing.T) {
 	}
 	if !hasClients {
 		t.Fatal("sqlite open did not repair clients table")
+	}
+	hasSessions, err := sqliteHasTable(db, "sessions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasSessions {
+		t.Fatal("sqlite open did not repair sessions table")
 	}
 }
 

@@ -89,7 +89,10 @@ func (s *sqliteStore) ensureSQLiteSchema() error {
 	if err := s.ensureCollectionColumn(); err != nil {
 		return err
 	}
-	return s.ensureClientTable()
+	if err := s.ensureClientTable(); err != nil {
+		return err
+	}
+	return s.ensureSessionTable()
 }
 
 func (s *sqliteStore) ensureCollectionColumn() error {
@@ -221,6 +224,78 @@ func (s *sqliteStore) createClientTableLocked() error {
 	return nil
 }
 
+func (s *sqliteStore) ensureSessionTable() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return ErrClosed
+	}
+	if err := s.createSessionTableLocked(); err != nil {
+		return err
+	}
+	rows, err := s.db.Query(`SELECT key, value FROM kv WHERE collection = 'session' OR key >= ? AND key < ?`, "session:", "session:\xff")
+	if err != nil {
+		return err
+	}
+	type pendingSession struct {
+		key     string
+		session Session
+	}
+	var pending []pendingSession
+	for rows.Next() {
+		var key string
+		var raw []byte
+		if err := rows.Scan(&key, &raw); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		var session Session
+		if err := json.Unmarshal(raw, &session); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if session.Token == "" {
+			session.Token = strings.TrimPrefix(key, "session:")
+		}
+		pending = append(pending, pendingSession{key: key, session: session})
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, row := range pending {
+		if err := upsertSessionSQL(tx, &row.session); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *sqliteStore) createSessionTableLocked() error {
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS sessions (
+			token TEXT PRIMARY KEY,
+			username TEXT NOT NULL,
+			expires_at TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_username ON sessions(username)`,
+	} {
+		if _, err := s.db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func sqliteHasColumn(db *sql.DB, table, column string) (bool, error) {
 	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
 	if err != nil {
@@ -266,7 +341,7 @@ func (s *sqliteStore) CustomLists() CustomListStore {
 }
 
 func (s *sqliteStore) Sessions() SessionStore {
-	return &sessionStore{s: s}
+	return &sqliteSessionStore{s: s}
 }
 
 func (s *sqliteStore) Stats() StatsStore {
@@ -346,6 +421,16 @@ func (s *sqliteStore) putRawJSON(key string, raw json.RawMessage) error {
 		}
 		return s.putClientLocked(key, &client, raw)
 	}
+	if collectionName(key) == "session" {
+		var session Session
+		if err := json.Unmarshal(raw, &session); err != nil {
+			return err
+		}
+		if session.Token == "" {
+			session.Token = strings.TrimPrefix(key, "session:")
+		}
+		return s.putSessionLocked(key, &session, raw)
+	}
 
 	_, err := s.db.Exec(
 		`INSERT INTO kv(key, collection, value) VALUES(?, ?, ?)
@@ -391,6 +476,38 @@ func (s *sqliteStore) delete(key string) error {
 			return err
 		}
 		if clientAffected == 0 && kvAffected == 0 {
+			_ = tx.Rollback()
+			return ErrNotFound
+		}
+		return tx.Commit()
+	}
+	if strings.HasPrefix(key, "session:") {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return err
+		}
+		token := strings.TrimPrefix(key, "session:")
+		sessionRes, err := tx.Exec(`DELETE FROM sessions WHERE token = ?`, token)
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		kvRes, err := tx.Exec(`DELETE FROM kv WHERE key = ?`, key)
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		sessionAffected, err := sessionRes.RowsAffected()
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		kvAffected, err := kvRes.RowsAffected()
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if sessionAffected == 0 && kvAffected == 0 {
 			_ = tx.Rollback()
 			return ErrNotFound
 		}
@@ -566,6 +683,149 @@ func boolInt(value bool) int {
 		return 1
 	}
 	return 0
+}
+
+type sqliteSessionStore struct {
+	s *sqliteStore
+}
+
+func (ss *sqliteSessionStore) Get(token string) (*Session, error) {
+	ss.s.mu.RLock()
+	defer ss.s.mu.RUnlock()
+	if ss.s.closed {
+		return nil, ErrClosed
+	}
+	row := ss.s.db.QueryRow(`SELECT token, username, expires_at FROM sessions WHERE token = ?`, token)
+	session, err := scanSQLiteSession(row)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
+func (ss *sqliteSessionStore) Upsert(session *Session) error {
+	if session == nil || session.Token == "" {
+		return fmt.Errorf("session.token: required")
+	}
+	raw, err := json.Marshal(session)
+	if err != nil {
+		return err
+	}
+	ss.s.mu.RLock()
+	defer ss.s.mu.RUnlock()
+	if ss.s.closed {
+		return ErrClosed
+	}
+	return ss.s.putSessionLocked("session:"+session.Token, session, raw)
+}
+
+func (ss *sqliteSessionStore) Delete(token string) error {
+	return ss.s.delete("session:" + token)
+}
+
+func (ss *sqliteSessionStore) DeleteExpired() error {
+	now := time.Now()
+	ss.s.mu.RLock()
+	defer ss.s.mu.RUnlock()
+	if ss.s.closed {
+		return ErrClosed
+	}
+	rows, err := ss.s.db.Query(`SELECT token, expires_at FROM sessions WHERE expires_at != ''`)
+	if err != nil {
+		return err
+	}
+	var tokens []string
+	for rows.Next() {
+		var token string
+		var rawExpiresAt string
+		if err := rows.Scan(&token, &rawExpiresAt); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		expiresAt, err := parseSQLiteTime(rawExpiresAt)
+		if err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if !expiresAt.IsZero() && expiresAt.Before(now) {
+			tokens = append(tokens, token)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	tx, err := ss.s.db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, token := range tokens {
+		if _, err := tx.Exec(`DELETE FROM sessions WHERE token = ?`, token); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		if _, err := tx.Exec(`DELETE FROM kv WHERE key = ?`, "session:"+token); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *sqliteStore) putSessionLocked(key string, session *Session, raw json.RawMessage) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	if err := upsertSessionSQL(tx, session); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO kv(key, collection, value) VALUES(?, ?, ?)
+		ON CONFLICT(key) DO UPDATE SET collection = excluded.collection, value = excluded.value`,
+		key,
+		collectionName(key),
+		raw,
+	); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func upsertSessionSQL(tx *sql.Tx, session *Session) error {
+	_, err := tx.Exec(
+		`INSERT INTO sessions(token, username, expires_at)
+		VALUES(?, ?, ?)
+		ON CONFLICT(token) DO UPDATE SET
+			username = excluded.username,
+			expires_at = excluded.expires_at`,
+		session.Token,
+		session.Username,
+		sqliteTime(session.ExpiresAt),
+	)
+	return err
+}
+
+func scanSQLiteSession(row sqliteScanner) (*Session, error) {
+	var session Session
+	var expiresAt string
+	if err := row.Scan(&session.Token, &session.Username, &expiresAt); err != nil {
+		return nil, err
+	}
+	var err error
+	session.ExpiresAt, err = parseSQLiteTime(expiresAt)
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
 }
 
 func (s *sqliteStore) scan(prefix string) map[string]json.RawMessage {
