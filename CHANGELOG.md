@@ -32,6 +32,8 @@ that require careful upgrade notes.
   payload and used by SQLite session CRUD and expiration cleanup.
 - Added a normalized SQLite `custom_lists` table that is kept in sync with the portable KV
   payload and used by SQLite custom allow/block list CRUD operations.
+- Added a normalized SQLite `stats` table that is kept in sync with the portable KV
+  payload and used by SQLite stats CRUD operations.
 
 ## v0.1.1 - 2026-04-27
 

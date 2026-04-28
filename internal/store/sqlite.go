@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -95,7 +97,10 @@ func (s *sqliteStore) ensureSQLiteSchema() error {
 	if err := s.ensureSessionTable(); err != nil {
 		return err
 	}
-	return s.ensureCustomListTable()
+	if err := s.ensureCustomListTable(); err != nil {
+		return err
+	}
+	return s.ensureStatsTable()
 }
 
 func (s *sqliteStore) ensureCollectionColumn() error {
@@ -365,6 +370,81 @@ func (s *sqliteStore) createCustomListTableLocked() error {
 	return nil
 }
 
+func (s *sqliteStore) ensureStatsTable() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return ErrClosed
+	}
+	if err := s.createStatsTableLocked(); err != nil {
+		return err
+	}
+	rows, err := s.db.Query(`SELECT key, value FROM kv WHERE collection = 'stats' OR key >= ? AND key < ?`, "stats:", "stats:\xff")
+	if err != nil {
+		return err
+	}
+	type pendingStatsRow struct {
+		granularity string
+		bucket      string
+		row         StatsRow
+	}
+	var pending []pendingStatsRow
+	for rows.Next() {
+		var key string
+		var raw []byte
+		if err := rows.Scan(&key, &raw); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		granularity, bucket, ok := splitStatsKey(key)
+		if !ok {
+			continue
+		}
+		var row StatsRow
+		if err := json.Unmarshal(raw, &row); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		row.Bucket = bucket
+		pending = append(pending, pendingStatsRow{granularity: granularity, bucket: bucket, row: row})
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, row := range pending {
+		if err := upsertStatsSQL(tx, row.granularity, row.bucket, &row.row); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *sqliteStore) createStatsTableLocked() error {
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS stats (
+			granularity TEXT NOT NULL,
+			bucket TEXT NOT NULL,
+			counters BLOB NOT NULL,
+			PRIMARY KEY(granularity, bucket)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_stats_granularity ON stats(granularity)`,
+	} {
+		if _, err := s.db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func sqliteHasColumn(db *sql.DB, table, column string) (bool, error) {
 	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
 	if err != nil {
@@ -414,7 +494,7 @@ func (s *sqliteStore) Sessions() SessionStore {
 }
 
 func (s *sqliteStore) Stats() StatsStore {
-	return &statsStore{s: s}
+	return &sqliteStatsStore{s: s}
 }
 
 func (s *sqliteStore) ConfigHistory() ConfigHistoryStore {
@@ -506,6 +586,18 @@ func (s *sqliteStore) putRawJSON(key string, raw json.RawMessage) error {
 			return fmt.Errorf("customlist: invalid key %q", key)
 		}
 		return s.putCustomListLocked(key, listID, domain, raw)
+	}
+	if collectionName(key) == "stats" {
+		granularity, bucket, ok := splitStatsKey(key)
+		if !ok {
+			return fmt.Errorf("stats: invalid key %q", key)
+		}
+		var row StatsRow
+		if err := json.Unmarshal(raw, &row); err != nil {
+			return err
+		}
+		row.Bucket = bucket
+		return s.putStatsLocked(key, granularity, bucket, &row, raw)
 	}
 
 	_, err := s.db.Exec(
@@ -1031,6 +1123,143 @@ func splitCustomListKey(key string) (string, string, bool) {
 		return "", "", false
 	}
 	return listID, domain, true
+}
+
+type sqliteStatsStore struct {
+	s *sqliteStore
+}
+
+func (st *sqliteStatsStore) Put(granularity, bucket string, row *StatsRow) error {
+	if granularity == "" || bucket == "" || row == nil {
+		return fmt.Errorf("stats: granularity, bucket, and row are required")
+	}
+	stored := *row
+	stored.Bucket = bucket
+	raw, err := json.Marshal(&stored)
+	if err != nil {
+		return err
+	}
+	st.s.mu.RLock()
+	defer st.s.mu.RUnlock()
+	if st.s.closed {
+		return ErrClosed
+	}
+	return st.s.putStatsLocked("stats:"+granularity+":"+bucket, granularity, bucket, &stored, raw)
+}
+
+func (st *sqliteStatsStore) Get(granularity, bucket string) (*StatsRow, error) {
+	st.s.mu.RLock()
+	defer st.s.mu.RUnlock()
+	if st.s.closed {
+		return nil, ErrClosed
+	}
+	row := st.s.db.QueryRow(`SELECT bucket, counters FROM stats WHERE granularity = ? AND bucket = ?`, granularity, bucket)
+	statsRow, err := scanSQLiteStatsRow(row)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return statsRow, nil
+}
+
+func (st *sqliteStatsStore) List(granularity string) ([]*StatsRow, error) {
+	st.s.mu.RLock()
+	defer st.s.mu.RUnlock()
+	if st.s.closed {
+		return nil, ErrClosed
+	}
+	rows, err := st.s.db.Query(`SELECT bucket, counters FROM stats WHERE granularity = ?`, granularity)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []*StatsRow{}
+	for rows.Next() {
+		row, err := scanSQLiteStatsRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sortStatsRows(out)
+	return out, nil
+}
+
+func (s *sqliteStore) putStatsLocked(key, granularity, bucket string, row *StatsRow, raw json.RawMessage) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	if err := upsertStatsSQL(tx, granularity, bucket, row); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO kv(key, collection, value) VALUES(?, ?, ?)
+		ON CONFLICT(key) DO UPDATE SET collection = excluded.collection, value = excluded.value`,
+		key,
+		collectionName(key),
+		raw,
+	); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func upsertStatsSQL(tx *sql.Tx, granularity, bucket string, row *StatsRow) error {
+	counters, err := json.Marshal(row.Counters)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(
+		`INSERT INTO stats(granularity, bucket, counters) VALUES(?, ?, ?)
+		ON CONFLICT(granularity, bucket) DO UPDATE SET counters = excluded.counters`,
+		granularity,
+		bucket,
+		counters,
+	)
+	return err
+}
+
+func scanSQLiteStatsRow(row sqliteScanner) (*StatsRow, error) {
+	var out StatsRow
+	var counters []byte
+	if err := row.Scan(&out.Bucket, &counters); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(counters, &out.Counters); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func splitStatsKey(key string) (string, string, bool) {
+	rest, ok := strings.CutPrefix(key, "stats:")
+	if !ok {
+		return "", "", false
+	}
+	granularity, bucket, ok := strings.Cut(rest, ":")
+	if !ok || granularity == "" || bucket == "" {
+		return "", "", false
+	}
+	return granularity, bucket, true
+}
+
+func sortStatsRows(rows []*StatsRow) {
+	sort.Slice(rows, func(i, j int) bool {
+		left, leftErr := strconv.ParseInt(rows[i].Bucket, 10, 64)
+		right, rightErr := strconv.ParseInt(rows[j].Bucket, 10, 64)
+		if leftErr == nil && rightErr == nil {
+			return left < right
+		}
+		return rows[i].Bucket < rows[j].Bucket
+	})
 }
 
 func (s *sqliteStore) scan(prefix string) map[string]json.RawMessage {

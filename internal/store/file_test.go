@@ -214,6 +214,17 @@ func TestSQLiteStoreCRUDAndPersistence(t *testing.T) {
 	if len(rows) != 1 || rows[0].Counters["queries"] != 20 {
 		t.Fatalf("rows = %#v", rows)
 	}
+	var tableStatsCounters []byte
+	if err := sqlite.db.QueryRow(`SELECT counters FROM stats WHERE granularity = ? AND bucket = ?`, "1m", "20").Scan(&tableStatsCounters); err != nil {
+		t.Fatal(err)
+	}
+	var tableStats map[string]uint64
+	if err := json.Unmarshal(tableStatsCounters, &tableStats); err != nil {
+		t.Fatal(err)
+	}
+	if tableStats["queries"] != 20 {
+		t.Fatalf("stats table counters = %#v", tableStats)
+	}
 	history, err := reopened.ConfigHistory().List(1)
 	if err != nil {
 		t.Fatal(err)
@@ -260,6 +271,13 @@ func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "customlist:custom:legacy.example", []byte(`true`)); err != nil {
+		t.Fatal(err)
+	}
+	rawStats, err := json.Marshal(&StatsRow{Counters: map[string]uint64{"queries": 9}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "stats:1m:30", rawStats); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "store_meta:schema_version", []byte(`1`)); err != nil {
@@ -317,12 +335,23 @@ func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
 	if tableCustomList != 1 {
 		t.Fatalf("custom list table rows = %d", tableCustomList)
 	}
+	var statsCounters []byte
+	if err := db.QueryRow(`SELECT counters FROM stats WHERE granularity = ? AND bucket = ?`, "1m", "30").Scan(&statsCounters); err != nil {
+		t.Fatal(err)
+	}
+	var statsRow map[string]uint64
+	if err := json.Unmarshal(statsCounters, &statsRow); err != nil {
+		t.Fatal(err)
+	}
+	if statsRow["queries"] != 9 {
+		t.Fatalf("stats table counters = %#v", statsRow)
+	}
 
 	result, err := VerifyBackend(BackendSQLite, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.SchemaVersion != schemaVersion || result.CollectionCounts["clients"] != 1 || result.CollectionCounts["session"] != 1 || result.CollectionCounts["customlist"] != 1 || result.CollectionCounts["store_meta"] != 1 {
+	if result.SchemaVersion != schemaVersion || result.CollectionCounts["clients"] != 1 || result.CollectionCounts["session"] != 1 || result.CollectionCounts["customlist"] != 1 || result.CollectionCounts["stats"] != 1 || result.CollectionCounts["store_meta"] != 1 {
 		t.Fatalf("verify after migration = %#v", result)
 	}
 }
@@ -390,6 +419,13 @@ func TestSQLiteOpenRepairsMissingCollectionColumn(t *testing.T) {
 	}
 	if !hasCustomLists {
 		t.Fatal("sqlite open did not repair custom lists table")
+	}
+	hasStats, err := sqliteHasTable(db, "stats")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasStats {
+		t.Fatal("sqlite open did not repair stats table")
 	}
 }
 
