@@ -232,6 +232,13 @@ func TestSQLiteStoreCRUDAndPersistence(t *testing.T) {
 	if len(history) != 1 || history[0].YAML == "" {
 		t.Fatalf("history = %#v", history)
 	}
+	var tableHistoryYAML string
+	if err := sqlite.db.QueryRow(`SELECT yaml FROM config_history WHERE ts = ?`, sqliteTime(history[0].TS)).Scan(&tableHistoryYAML); err != nil {
+		t.Fatal(err)
+	}
+	if tableHistoryYAML != "server: {}" {
+		t.Fatalf("config history table yaml = %q", tableHistoryYAML)
+	}
 	if err := reopened.Clients().Delete(client.Key); err != nil {
 		t.Fatal(err)
 	}
@@ -278,6 +285,14 @@ func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "stats:1m:30", rawStats); err != nil {
+		t.Fatal(err)
+	}
+	historyTS := time.Date(2026, 4, 28, 12, 30, 0, 0, time.UTC)
+	rawHistory, err := json.Marshal(&ConfigSnapshot{TS: historyTS, YAML: "server:\n  listen: :53\n"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "confhist:"+historyTS.Format(time.RFC3339Nano), rawHistory); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO kv(key, value) VALUES (?, ?)`, "store_meta:schema_version", []byte(`1`)); err != nil {
@@ -346,12 +361,19 @@ func TestSQLiteMigrationAddsCollectionColumn(t *testing.T) {
 	if statsRow["queries"] != 9 {
 		t.Fatalf("stats table counters = %#v", statsRow)
 	}
+	var historyYAML string
+	if err := db.QueryRow(`SELECT yaml FROM config_history WHERE ts = ?`, sqliteTime(historyTS)).Scan(&historyYAML); err != nil {
+		t.Fatal(err)
+	}
+	if historyYAML == "" || !strings.Contains(historyYAML, "listen") {
+		t.Fatalf("config history table yaml = %q", historyYAML)
+	}
 
 	result, err := VerifyBackend(BackendSQLite, dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.SchemaVersion != schemaVersion || result.CollectionCounts["clients"] != 1 || result.CollectionCounts["session"] != 1 || result.CollectionCounts["customlist"] != 1 || result.CollectionCounts["stats"] != 1 || result.CollectionCounts["store_meta"] != 1 {
+	if result.SchemaVersion != schemaVersion || result.CollectionCounts["clients"] != 1 || result.CollectionCounts["session"] != 1 || result.CollectionCounts["customlist"] != 1 || result.CollectionCounts["stats"] != 1 || result.CollectionCounts["confhist"] != 1 || result.CollectionCounts["store_meta"] != 1 {
 		t.Fatalf("verify after migration = %#v", result)
 	}
 }
@@ -426,6 +448,13 @@ func TestSQLiteOpenRepairsMissingCollectionColumn(t *testing.T) {
 	}
 	if !hasStats {
 		t.Fatal("sqlite open did not repair stats table")
+	}
+	hasConfigHistory, err := sqliteHasTable(db, "config_history")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasConfigHistory {
+		t.Fatal("sqlite open did not repair config history table")
 	}
 }
 

@@ -34,6 +34,8 @@ that require careful upgrade notes.
   payload and used by SQLite custom allow/block list CRUD operations.
 - Added a normalized SQLite `stats` table that is kept in sync with the portable KV
   payload and used by SQLite stats CRUD operations.
+- Added a normalized SQLite `config_history` table that is kept in sync with the portable
+  KV payload and used by SQLite config history listing.
 
 ## v0.1.1 - 2026-04-27
 

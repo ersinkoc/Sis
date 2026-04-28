@@ -107,5 +107,5 @@ Paste validation summary here.
 
 - Port 53 binding, firewall rules, and router/DHCP behavior are environment-dependent.
 - Client devices may cache previous DNS settings until DHCP renewal or reconnect.
-- SQLite is durable and backup-aware, but config history snapshots are still stored only as
-  JSON KV values.
+- SQLite operational collections are normalized and backup-aware, but live disk, firewall,
+  router, and client behavior still need target-host validation.

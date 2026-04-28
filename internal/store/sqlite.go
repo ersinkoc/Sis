@@ -100,7 +100,10 @@ func (s *sqliteStore) ensureSQLiteSchema() error {
 	if err := s.ensureCustomListTable(); err != nil {
 		return err
 	}
-	return s.ensureStatsTable()
+	if err := s.ensureStatsTable(); err != nil {
+		return err
+	}
+	return s.ensureConfigHistoryTable()
 }
 
 func (s *sqliteStore) ensureCollectionColumn() error {
@@ -445,6 +448,82 @@ func (s *sqliteStore) createStatsTableLocked() error {
 	return nil
 }
 
+func (s *sqliteStore) ensureConfigHistoryTable() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return ErrClosed
+	}
+	if err := s.createConfigHistoryTableLocked(); err != nil {
+		return err
+	}
+	rows, err := s.db.Query(`SELECT key, value FROM kv WHERE collection = 'confhist' OR key >= ? AND key < ?`, "confhist:", "confhist:\xff")
+	if err != nil {
+		return err
+	}
+	type pendingSnapshot struct {
+		snapshot ConfigSnapshot
+	}
+	var pending []pendingSnapshot
+	for rows.Next() {
+		var key string
+		var raw []byte
+		if err := rows.Scan(&key, &raw); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		var snapshot ConfigSnapshot
+		if err := json.Unmarshal(raw, &snapshot); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		if snapshot.TS.IsZero() {
+			ts, ok, err := parseConfigHistoryKey(key)
+			if err != nil {
+				_ = rows.Close()
+				return err
+			}
+			if ok {
+				snapshot.TS = ts
+			}
+		}
+		pending = append(pending, pendingSnapshot{snapshot: snapshot})
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, row := range pending {
+		if err := upsertConfigHistorySQL(tx, &row.snapshot); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *sqliteStore) createConfigHistoryTableLocked() error {
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS config_history (
+			ts TEXT PRIMARY KEY,
+			yaml TEXT NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_config_history_ts ON config_history(ts)`,
+	} {
+		if _, err := s.db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func sqliteHasColumn(db *sql.DB, table, column string) (bool, error) {
 	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
 	if err != nil {
@@ -498,7 +577,7 @@ func (s *sqliteStore) Stats() StatsStore {
 }
 
 func (s *sqliteStore) ConfigHistory() ConfigHistoryStore {
-	return &configHistoryStore{s: s}
+	return &sqliteConfigHistoryStore{s: s}
 }
 
 func (s *sqliteStore) Close() error {
@@ -598,6 +677,22 @@ func (s *sqliteStore) putRawJSON(key string, raw json.RawMessage) error {
 		}
 		row.Bucket = bucket
 		return s.putStatsLocked(key, granularity, bucket, &row, raw)
+	}
+	if collectionName(key) == "confhist" {
+		var snapshot ConfigSnapshot
+		if err := json.Unmarshal(raw, &snapshot); err != nil {
+			return err
+		}
+		if snapshot.TS.IsZero() {
+			ts, ok, err := parseConfigHistoryKey(key)
+			if err != nil {
+				return err
+			}
+			if ok {
+				snapshot.TS = ts
+			}
+		}
+		return s.putConfigHistoryLocked(key, &snapshot, raw)
 	}
 
 	_, err := s.db.Exec(
@@ -1260,6 +1355,121 @@ func sortStatsRows(rows []*StatsRow) {
 		}
 		return rows[i].Bucket < rows[j].Bucket
 	})
+}
+
+type sqliteConfigHistoryStore struct {
+	s *sqliteStore
+}
+
+func (ch *sqliteConfigHistoryStore) Append(snapshot *ConfigSnapshot) error {
+	if snapshot == nil {
+		return fmt.Errorf("confhist: snapshot is required")
+	}
+	stored := *snapshot
+	if stored.TS.IsZero() {
+		stored.TS = time.Now().UTC()
+	}
+	key := "confhist:" + stored.TS.Format(time.RFC3339Nano)
+	raw, err := json.Marshal(&stored)
+	if err != nil {
+		return err
+	}
+	ch.s.mu.RLock()
+	defer ch.s.mu.RUnlock()
+	if ch.s.closed {
+		return ErrClosed
+	}
+	return ch.s.putConfigHistoryLocked(key, &stored, raw)
+}
+
+func (ch *sqliteConfigHistoryStore) List(limit int) ([]*ConfigSnapshot, error) {
+	ch.s.mu.RLock()
+	defer ch.s.mu.RUnlock()
+	if ch.s.closed {
+		return nil, ErrClosed
+	}
+	query := `SELECT ts, yaml FROM config_history ORDER BY ts DESC`
+	var rows *sql.Rows
+	var err error
+	if limit > 0 {
+		rows, err = ch.s.db.Query(query+` LIMIT ?`, limit)
+	} else {
+		rows, err = ch.s.db.Query(query)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*ConfigSnapshot
+	for rows.Next() {
+		snapshot, err := scanSQLiteConfigSnapshot(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, snapshot)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) putConfigHistoryLocked(key string, snapshot *ConfigSnapshot, raw json.RawMessage) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	if err := upsertConfigHistorySQL(tx, snapshot); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	if _, err := tx.Exec(
+		`INSERT INTO kv(key, collection, value) VALUES(?, ?, ?)
+		ON CONFLICT(key) DO UPDATE SET collection = excluded.collection, value = excluded.value`,
+		key,
+		collectionName(key),
+		raw,
+	); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+func upsertConfigHistorySQL(tx *sql.Tx, snapshot *ConfigSnapshot) error {
+	_, err := tx.Exec(
+		`INSERT INTO config_history(ts, yaml) VALUES(?, ?)
+		ON CONFLICT(ts) DO UPDATE SET yaml = excluded.yaml`,
+		sqliteTime(snapshot.TS),
+		snapshot.YAML,
+	)
+	return err
+}
+
+func scanSQLiteConfigSnapshot(row sqliteScanner) (*ConfigSnapshot, error) {
+	var snapshot ConfigSnapshot
+	var ts string
+	if err := row.Scan(&ts, &snapshot.YAML); err != nil {
+		return nil, err
+	}
+	var err error
+	snapshot.TS, err = parseSQLiteTime(ts)
+	if err != nil {
+		return nil, err
+	}
+	return &snapshot, nil
+}
+
+func parseConfigHistoryKey(key string) (time.Time, bool, error) {
+	raw, ok := strings.CutPrefix(key, "confhist:")
+	if !ok || raw == "" {
+		return time.Time{}, false, nil
+	}
+	ts, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	return ts, true, nil
 }
 
 func (s *sqliteStore) scan(prefix string) map[string]json.RawMessage {

@@ -216,8 +216,8 @@ sis store verify -config examples/sis.yaml
 client, session, stats, or config-history growth before choosing maintenance or migration work.
 SQLite stores those collections in an indexed metadata column while preserving the portable
 logical JSON payload used by backup and restore.
-Client, session, custom allow/block list, and stats records are also mirrored into normalized
-SQLite tables and served from those tables when the SQLite backend is active.
+Client, session, custom allow/block list, stats, and config history records are also mirrored
+into normalized SQLite tables and served from those tables when the SQLite backend is active.
 
 ## Development
 
