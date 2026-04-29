@@ -112,6 +112,101 @@ func TestSpec19DNSAcceptanceFailoverAndCacheHit(t *testing.T) {
 	}
 }
 
+func TestSpec19DNSAcceptanceScheduleActiveInactive(t *testing.T) {
+	var upstreamHits atomic.Int64
+	doh := fakeDoH(t, http.StatusOK, net.ParseIP("203.0.113.30"), &upstreamHits)
+	defer doh.Close()
+
+	cfg := acceptanceConfig(t, []config.Upstream{{
+		ID: "primary", URL: doh.URL, Bootstrap: []string{"127.0.0.1"}, Timeout: config.Duration{Duration: time.Second},
+	}})
+	cfg.Groups = []config.Group{
+		{Name: "default"},
+		{
+			Name: "kids",
+			Schedules: []config.Schedule{{
+				Name: "bedtime", Days: []string{"all"}, From: "00:00", To: "00:00", Block: []string{"social"},
+			}},
+		},
+		{
+			Name: "after-school",
+			Schedules: []config.Schedule{{
+				Name: "inactive", Days: []string{tomorrowToken()}, From: "00:00", To: "00:00", Block: []string{"social"},
+			}},
+		},
+	}
+	counters := stats.New()
+	queryLog, err := sislog.OpenQuery(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer queryLog.Close()
+	engine, err := policy.NewEngine(cfg, policy.StaticClientResolver{"127.0.0.1": "kids"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	social := policy.NewDomains()
+	if !social.Add("tiktok.com.") {
+		t.Fatal("failed to add tiktok.com")
+	}
+	engine.ReplaceList("social", social)
+
+	server := startAcceptanceServer(t, cfg, counters, queryLog, engine, upstream.NewPool(cfg.Upstreams))
+	blocked := exchangeAcceptanceDNS(t, "udp", server.udpAddr(), "tiktok.com.", mdns.TypeA)
+	assertAAnswer(t, blocked, "0.0.0.0")
+	entries := queryLog.Recent(sislog.Filter{QName: "tiktok.com", Limit: 5})
+	if len(entries) == 0 || !entries[len(entries)-1].Blocked ||
+		entries[len(entries)-1].BlockReason != "schedule:bedtime" || entries[len(entries)-1].BlockList != "social" {
+		t.Fatalf("active schedule query log = %#v", entries)
+	}
+
+	engine, err = policy.NewEngine(cfg, policy.StaticClientResolver{"127.0.0.1": "after-school"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine.ReplaceList("social", social)
+	secondServer := startAcceptanceServer(t, cfg, counters, queryLog, engine, upstream.NewPool(cfg.Upstreams))
+	allowed := exchangeAcceptanceDNS(t, "udp", secondServer.udpAddr(), "tiktok.com.", mdns.TypeA)
+	assertAAnswer(t, allowed, "203.0.113.30")
+	entries = queryLog.Recent(sislog.Filter{QName: "tiktok.com", Limit: 5})
+	if len(entries) == 0 || entries[len(entries)-1].Blocked {
+		t.Fatalf("inactive schedule query log = %#v", entries)
+	}
+}
+
+func TestSpec19DNSAcceptancePrivacyModeHashesClientIdentity(t *testing.T) {
+	var upstreamHits atomic.Int64
+	doh := fakeDoH(t, http.StatusOK, net.ParseIP("203.0.113.40"), &upstreamHits)
+	defer doh.Close()
+
+	cfg := acceptanceConfig(t, []config.Upstream{{
+		ID: "primary", URL: doh.URL, Bootstrap: []string{"127.0.0.1"}, Timeout: config.Duration{Duration: time.Second},
+	}})
+	cfg.Privacy.LogMode = "hashed"
+	cfg.Privacy.LogSalt = "acceptance-salt"
+	counters := stats.New()
+	queryLog, err := sislog.OpenQuery(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer queryLog.Close()
+
+	server := startAcceptanceServer(t, cfg, counters, queryLog, nil, upstream.NewPool(cfg.Upstreams))
+	resp := exchangeAcceptanceDNS(t, "udp", server.udpAddr(), "privacy.example.", mdns.TypeA)
+	assertAAnswer(t, resp, "203.0.113.40")
+	entries := queryLog.Recent(sislog.Filter{QName: "privacy.example", Limit: 5})
+	if len(entries) == 0 {
+		t.Fatal("expected privacy query log entry")
+	}
+	entry := entries[len(entries)-1]
+	if entry.ClientKey == "" || entry.ClientKey == "127.0.0.1" {
+		t.Fatalf("client key was not hashed: %#v", entry)
+	}
+	if entry.ClientIP == "" || entry.ClientIP == "127.0.0.1" {
+		t.Fatalf("client IP was not hashed: %#v", entry)
+	}
+}
+
 type acceptanceServer struct {
 	server *Server
 }
@@ -246,4 +341,23 @@ func assertAAnswer(t *testing.T, msg *mdns.Msg, want string) {
 		}
 	}
 	t.Fatalf("A answer %s not found in %#v", want, msg.Answer)
+}
+
+func tomorrowToken() string {
+	switch time.Now().AddDate(0, 0, 1).Weekday() {
+	case time.Sunday:
+		return "sun"
+	case time.Monday:
+		return "mon"
+	case time.Tuesday:
+		return "tue"
+	case time.Wednesday:
+		return "wed"
+	case time.Thursday:
+		return "thu"
+	case time.Friday:
+		return "fri"
+	default:
+		return "sat"
+	}
 }
