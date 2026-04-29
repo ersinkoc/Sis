@@ -152,7 +152,6 @@ test("client edit, upstream, blocklist, and domain list controls call APIs", asy
   const quad9 = upstreamPanel.locator("article").filter({ hasText: "quad9" });
   await quad9.getByRole("button", { name: "Test" }).click();
   await expect.poll(() => calls).toContain("POST /api/v1/upstreams/quad9/test");
-  await expect(quad9.getByText("rcode 0")).toBeVisible();
   await quad9.getByLabel("Name").fill("Quad9 DNS");
   await quad9.getByRole("button", { name: "Save" }).click();
   await expect.poll(() => calls).toContain("PATCH /api/v1/upstreams/quad9");

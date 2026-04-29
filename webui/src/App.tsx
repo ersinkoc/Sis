@@ -978,13 +978,14 @@ function GroupsPanel({
     nameValue: string,
     patch: Partial<{ name: string; blocklists: string[]; allowlist: string; schedules: Schedule[] }>,
   ) {
+    const group = groups.find((candidate) => candidate.name === nameValue);
     setEditing((current) => ({
       ...current,
       [nameValue]: {
-        name: current[nameValue]?.name ?? nameValue,
-        blocklists: current[nameValue]?.blocklists ?? [],
-        allowlist: current[nameValue]?.allowlist ?? "",
-        schedules: current[nameValue]?.schedules ?? cloneSchedules(groups.find((group) => group.name === nameValue)?.schedules),
+        name: current[nameValue]?.name ?? group?.name ?? nameValue,
+        blocklists: current[nameValue]?.blocklists ?? group?.blocklists ?? [],
+        allowlist: current[nameValue]?.allowlist ?? group?.allowlist.join(", ") ?? "",
+        schedules: current[nameValue]?.schedules ?? cloneSchedules(group?.schedules),
         ...patch,
       },
     }));
