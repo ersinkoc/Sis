@@ -19,6 +19,8 @@ with `server.store_backend`; supported values are `json` and `sqlite`. New large
 deployments should prefer `sqlite`, while existing small-site JSON deployments can continue
 using `json`. The active backend is exposed by `sis system info` and the WebUI System
 panel.
+For the full schema, defaults, validation rules, and environment overrides, see
+[CONFIG_REFERENCE.md](CONFIG_REFERENCE.md).
 
 ## Files To Protect
 

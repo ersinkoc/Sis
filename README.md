@@ -78,6 +78,8 @@ Set `server.http.tls: true` with `cert_file` and `key_file` to serve the API ove
 When `privacy.log_mode: hashed` is enabled with an empty `log_salt`, Sis generates and persists a salt on startup or config update.
 Common deployment settings can be overridden with `SIS_*` environment variables, such as `SIS_DNS_LISTEN`, `SIS_HTTP_LISTEN`, `SIS_DATA_DIR`, `SIS_DNS_RATE_LIMIT_QPS`, `SIS_HTTP_RATE_LIMIT_PER_MINUTE`, `SIS_AUTH_SESSION_TTL`, and `SIS_AUTH_SECURE_COOKIE`.
 The durable store backend is configured with `server.store_backend`; supported values are `json` and `sqlite`.
+See [docs/CONFIG_REFERENCE.md](docs/CONFIG_REFERENCE.md) for the full config schema,
+defaults, validation rules, and environment overrides.
 
 Install as a Linux service:
 
