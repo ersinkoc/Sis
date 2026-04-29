@@ -34,6 +34,26 @@ test("group saves preserve and edit schedules", async ({ page }) => {
       });
       return;
     }
+    if (path === "/api/v1/stats/top-domains") {
+      await route.fulfill({ json: { domains: [] } });
+      return;
+    }
+    if (path === "/api/v1/stats/top-clients") {
+      await route.fulfill({ json: { clients: [] } });
+      return;
+    }
+    if (path === "/api/v1/stats/timeseries") {
+      await route.fulfill({ json: { bucket: "1m", rows: [] } });
+      return;
+    }
+    if (path === "/api/v1/logs/query") {
+      await route.fulfill({ json: { entries: [] } });
+      return;
+    }
+    if (path === "/api/v1/system/config/history") {
+      await route.fulfill({ json: { snapshots: [] } });
+      return;
+    }
     if (path === "/api/v1/clients") {
       await route.fulfill({ json: [] });
       return;
@@ -84,7 +104,7 @@ test("group saves preserve and edit schedules", async ({ page }) => {
   });
 
   await page.goto("/");
-  const groupsPanel = page.locator("section").filter({ has: page.getByRole("heading", { name: "Groups" }) });
+  const groupsPanel = page.locator("section").filter({ has: page.getByRole("heading", { name: "Groups", exact: true }) });
   await expect(groupsPanel.getByText("school-night")).toBeVisible();
 
   await groupsPanel.getByLabel("Allowlist").fill("safe.example");

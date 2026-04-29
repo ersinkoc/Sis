@@ -133,7 +133,7 @@ test("client edit, upstream, blocklist, and domain list controls call APIs", asy
   });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Clients" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Clients", exact: true })).toBeVisible();
 
   const clientsPanel = panel(page, "Clients");
   const clientRow = clientsPanel.locator("tbody tr").filter({ hasText: "192.0.2.10" });
@@ -187,7 +187,7 @@ test("client edit, upstream, blocklist, and domain list controls call APIs", asy
 });
 
 function panel(page: Page, name: string) {
-  return page.locator("section").filter({ has: page.getByRole("heading", { name }) });
+  return page.locator("section").filter({ has: page.getByRole("heading", { name, exact: true }) });
 }
 
 async function mockDashboardAPI(
