@@ -270,8 +270,147 @@ func TestSpec19DNSAcceptanceClientRenameAndGroupMove(t *testing.T) {
 	}
 }
 
+func TestSpec19DNSAcceptanceHotReloadWithoutRestart(t *testing.T) {
+	var firstHits atomic.Int64
+	first := fakeDoH(t, http.StatusOK, net.ParseIP("203.0.113.60"), &firstHits)
+	defer first.Close()
+	var secondHits atomic.Int64
+	second := fakeDoH(t, http.StatusOK, net.ParseIP("203.0.113.61"), &secondHits)
+	defer second.Close()
+
+	cfg := acceptanceConfig(t, []config.Upstream{{
+		ID: "primary", URL: first.URL, Bootstrap: []string{"127.0.0.1"}, Timeout: config.Duration{Duration: time.Second},
+	}})
+	cfg.Groups = []config.Group{{Name: "default"}}
+	counters := stats.New()
+	queryLog, err := sislog.OpenQuery(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer queryLog.Close()
+	engine, err := policy.NewEngine(cfg, policy.StaticClientResolver{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool := upstream.NewPool(cfg.Upstreams)
+	server := startAcceptanceServer(t, cfg, counters, queryLog, engine, pool)
+	addr := server.udpAddr()
+
+	before := exchangeAcceptanceDNS(t, "udp", addr, "before-reload.example.", mdns.TypeA)
+	assertAAnswer(t, before, "203.0.113.60")
+
+	next := *cfg
+	next.Upstreams = []config.Upstream{{
+		ID: "primary", URL: second.URL, Bootstrap: []string{"127.0.0.1"}, Timeout: config.Duration{Duration: time.Second},
+	}}
+	next.Blocklists = append([]config.Blocklist(nil), cfg.Blocklists...)
+	next.Groups = []config.Group{{Name: "default", Blocklists: []string{"ads"}}}
+	ads := policy.NewDomains()
+	if !ads.Add("blocked-after-reload.example.") {
+		t.Fatal("failed to add blocked-after-reload.example")
+	}
+	engine.ReplaceList("ads", ads)
+	if err := engine.ReloadConfig(&next); err != nil {
+		t.Fatal(err)
+	}
+	pool.Replace(next.Upstreams)
+	server.cache.Reconfigure(CacheOptions{
+		MaxEntries: next.Cache.MaxEntries,
+		MinTTL:     next.Cache.MinTTL.Duration, MaxTTL: next.Cache.MaxTTL.Duration,
+		NegativeTTL: next.Cache.NegativeTTL.Duration,
+	})
+	server.pipeline.Reconfigure(&next)
+	server.holder.Replace(&next)
+
+	after := exchangeAcceptanceDNS(t, "udp", addr, "after-reload.example.", mdns.TypeA)
+	assertAAnswer(t, after, "203.0.113.61")
+	blocked := exchangeAcceptanceDNS(t, "udp", addr, "blocked-after-reload.example.", mdns.TypeA)
+	assertAAnswer(t, blocked, "0.0.0.0")
+	if firstHits.Load() != 1 || secondHits.Load() != 1 || server.udpAddr() != addr {
+		t.Fatalf("reload should keep listener and switch upstreams: first=%d second=%d before=%s after=%s", firstHits.Load(), secondHits.Load(), addr, server.udpAddr())
+	}
+}
+
+func TestSpec19DNSAcceptanceRestartPersistence(t *testing.T) {
+	var upstreamHits atomic.Int64
+	doh := fakeDoH(t, http.StatusOK, net.ParseIP("203.0.113.70"), &upstreamHits)
+	defer doh.Close()
+
+	cfg := acceptanceConfig(t, []config.Upstream{{
+		ID: "primary", URL: doh.URL, Bootstrap: []string{"127.0.0.1"}, Timeout: config.Duration{Duration: time.Second},
+	}})
+	cfg.Groups = []config.Group{
+		{Name: "default"},
+		{Name: "iot", Blocklists: []string{"ads"}},
+	}
+	st, err := store.Open(cfg.Server.DataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queryLog, err := sislog.OpenQuery(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer queryLog.Close()
+	engine, err := policy.NewEngine(cfg, policy.StoreClientResolver{Clients: st.Clients()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ads := policy.NewDomains()
+	if !ads.Add("persistent-block.example.") {
+		t.Fatal("failed to add persistent-block.example")
+	}
+	engine.ReplaceList("ads", ads)
+
+	firstServer := startAcceptanceServerWithClientID(
+		t, cfg, stats.New(), queryLog, engine, upstream.NewPool(cfg.Upstreams), NewClientID(nil, st.Clients()),
+	)
+	allowed := exchangeAcceptanceDNS(t, "udp", firstServer.udpAddr(), "persistent-clean.example.", mdns.TypeA)
+	assertAAnswer(t, allowed, "203.0.113.70")
+	client, err := st.Clients().Get("127.0.0.1")
+	if err != nil {
+		t.Fatalf("client should be auto-discovered: %v", err)
+	}
+	client.Name = "Persistent TV"
+	client.Group = "iot"
+	if err := st.Clients().Upsert(client); err != nil {
+		t.Fatal(err)
+	}
+	firstServer.shutdown(t)
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := store.Open(cfg.Server.DataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	reloadedEngine, err := policy.NewEngine(cfg, policy.StoreClientResolver{Clients: reopened.Clients()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloadedEngine.ReplaceList("ads", ads)
+	secondServer := startAcceptanceServerWithClientID(
+		t, cfg, stats.New(), queryLog, reloadedEngine, upstream.NewPool(cfg.Upstreams), NewClientID(nil, reopened.Clients()),
+	)
+	blocked := exchangeAcceptanceDNS(t, "udp", secondServer.udpAddr(), "persistent-block.example.", mdns.TypeA)
+	assertAAnswer(t, blocked, "0.0.0.0")
+	entries := queryLog.Recent(sislog.Filter{QName: "persistent-block.example", Limit: 5})
+	if len(entries) == 0 {
+		t.Fatal("expected restart persistence query log entry")
+	}
+	entry := entries[len(entries)-1]
+	if !entry.Blocked || entry.ClientName != "Persistent TV" || entry.ClientGroup != "iot" {
+		t.Fatalf("persisted client query log = %#v", entry)
+	}
+}
+
 type acceptanceServer struct {
-	server *Server
+	server   *Server
+	holder   *config.Holder
+	cache    *Cache
+	pipeline *Pipeline
 }
 
 func startAcceptanceServer(t *testing.T, cfg *config.Config, counters *stats.Counters, queryLog *sislog.Query, engine *policy.Engine, pool *upstream.Pool) *acceptanceServer {
@@ -282,24 +421,22 @@ func startAcceptanceServer(t *testing.T, cfg *config.Config, counters *stats.Cou
 func startAcceptanceServerWithClientID(t *testing.T, cfg *config.Config, counters *stats.Counters, queryLog *sislog.Query, engine *policy.Engine, pool *upstream.Pool, clientID *ClientID) *acceptanceServer {
 	t.Helper()
 	holder := config.NewHolder(cfg)
+	cache := NewCache(CacheOptions{})
 	pipeline := NewPipelineWithDeps(PipelineOptions{
-		Config: holder, Cache: NewCache(CacheOptions{}), Policy: engine,
+		Config: holder, Cache: cache, Policy: engine,
 		Upstream: pool, Log: queryLog, Stats: counters, ClientID: clientID,
 	})
 	server := NewServer(holder, pipeline)
+	acceptance := &acceptanceServer{server: server, holder: holder, cache: cache, pipeline: pipeline}
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	if err := server.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutdownCancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
-			t.Fatalf("shutdown dns server: %v", err)
-		}
+		acceptance.shutdown(t)
 	})
-	return &acceptanceServer{server: server}
+	return acceptance
 }
 
 func (s *acceptanceServer) udpAddr() string {
@@ -314,6 +451,19 @@ func (s *acceptanceServer) tcpAddr() string {
 		return ""
 	}
 	return s.server.tcpLns[0].Addr().String()
+}
+
+func (s *acceptanceServer) shutdown(t *testing.T) {
+	t.Helper()
+	if s == nil || s.server == nil {
+		return
+	}
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	if err := s.server.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("shutdown dns server: %v", err)
+	}
+	s.server = nil
 }
 
 func acceptanceConfig(t *testing.T, upstreams []config.Upstream) *config.Config {
