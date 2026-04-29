@@ -58,7 +58,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 - [x] Add integration tests for setup/login/session restart persistence, blocklist sync, and group schedule mutation through query/test.
 - [x] Add frontend test coverage for group schedule preservation/editing.
 - [ ] Add Playwright coverage for login, client edit, group edit, upstream CRUD, blocklist inspect, allow/block list edits.
-- [ ] Add race test job or scheduled workflow for core packages.
+- [x] Add scheduled/manual CI quality job for `go test -race` and short fuzz campaigns.
 - [x] Add fuzz tests for blocklist parser, domain normalization, and DNS message edge cases.
 
 ## Phase 5: Performance & Optimization (Week 11-12)

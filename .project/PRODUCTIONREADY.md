@@ -191,7 +191,7 @@ Source tests present:
 
 Critical paths without enough visible coverage:
 
-- SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation, browser execution, race testing, long-running fuzz campaigns, and performance evidence.
+- SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation, browser execution, completed scheduled race/fuzz evidence, and performance evidence.
 - WebUI group schedule preservation now has a mocked Playwright spec, but browser execution is blocked on this host.
 - Real production install validation on target host.
 - CSRF/security behavior.
@@ -295,14 +295,14 @@ Critical paths without enough visible coverage:
 
 ### Production Blockers
 
-1. Race verification could not be performed because cgo needs a C compiler and `gcc` is not installed.
+1. Race verification could not be performed locally because cgo needs a C compiler and `gcc` is not installed; CI now has a scheduled/manual race job.
 2. Playwright schedule regression coverage exists, but browser execution is blocked on this host's unsupported Chromium package.
 3. Original v1 scope still promises TUI/Unix-socket JSON-RPC, which is absent.
 4. SPEC §19 local acceptance evidence is mapped, but production validation still needs real target host/router/LAN/client evidence.
 
 ### High Priority
 
-1. Add `gcc`/cgo support to local/CI environments and run `go test -race ./...`.
+1. Confirm the scheduled/manual CI quality job passes race and fuzz campaigns.
 2. Run browser e2e on a supported Playwright host and extend WebUI acceptance paths.
 3. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
 4. Add alert definitions for key operational failures.

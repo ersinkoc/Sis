@@ -398,7 +398,7 @@ Coverage reality:
 - No `tests/integration/` directory exists.
 - SPEC §19-style DNS acceptance coverage now exists in `internal/dns/acceptance_test.go`, using fake DoH upstreams and real UDP/TCP DNS clients for default forwarding/blocking, allowlist override, active/inactive schedules, upstream failover, cache-hit logging, hashed privacy logging, per-client rename/group move, hot reload, and restart persistence. API integration coverage includes file-backed blocklist sync, setup/session restart persistence, and group schedule mutation through query/test HTTP endpoints. `.project/ACCEPTANCE_MATRIX.md` maps all SPEC §19 scenarios to evidence and remaining gaps.
 - No benchmark harness package exists; only package-level benchmarks for DNS cache and domain matching.
-- Seeded Go fuzz targets exist for blocklist parsing, policy domain matching, API domain normalization, and DNS message edge cases.
+- Seeded Go fuzz targets exist for blocklist parsing, policy domain matching, API domain normalization, and DNS message edge cases; CI has a scheduled/manual quality job for race and short fuzz campaigns.
 - No frontend unit/component tests found.
 
 Packages with weak/no direct test coverage:
@@ -617,7 +617,7 @@ CI/CD:
 | `internal/api` errors | Plaintext error bodies inconsistent with JSON API | Standardize JSON error envelope | 4-8h |
 | `internal/dns/server.go:149-156` | UDP hot path allocates/copies per packet | Introduce buffer pool or benchmark current cost and document | 4-8h |
 | `internal/policy/engine.go:87-90` | Per-query map copy | Replace with immutable snapshot pointer or benchmark and document | 4-8h |
-| Tests | Browser/race/fuzz-campaign/performance evidence remains partial | Run browser e2e where Playwright Chromium is supported; add race, long-running fuzz, and perf gates | 8-16h |
+| Tests | Browser/performance/live-host evidence remains partial | Run browser e2e where Playwright Chromium is supported; expand perf and live-host gates | 6-12h |
 | Observability | No Prometheus/pprof endpoint, request ID not in access logs | Add request ID to logs and optional metrics/profiling endpoints | 8-16h |
 | API rate limits | Only login is limited | Add configurable limiter for other API endpoints | 4-8h |
 
