@@ -234,7 +234,7 @@ Critical paths without enough visible coverage:
 - [x] `/healthz` exists.
 - [x] `/readyz` checks core runtime dependencies and DNS listener lifecycle state.
 - [ ] Prometheus endpoint exists.
-- [x] In-memory counters and API stats exist, including `rate_limited_total`.
+- [x] In-memory counters and API stats exist, including `rate_limited_total` and `malformed_total`.
 - [x] Store verification exists.
 - [ ] Alert-worthy conditions are formalized.
 
@@ -306,7 +306,7 @@ Critical paths without enough visible coverage:
 2. Add integration tests for SPEC §19 acceptance paths.
 3. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
 4. Add reverse-proxy/TLS forwarding guidance for HSTS and secure cookie deployments.
-5. Add malformed DNS packet counters and alert definitions for key operational failures.
+5. Add alert definitions for key operational failures.
 
 ### Recommendations
 

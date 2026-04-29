@@ -23,7 +23,14 @@ test("group saves preserve and edit schedules", async ({ page }) => {
     }
     if (path === "/api/v1/stats/summary") {
       await route.fulfill({
-        json: { query_total: 0, cache_hit: 0, cache_miss: 0, blocked_total: 0, rate_limited_total: 0 },
+        json: {
+          query_total: 0,
+          cache_hit: 0,
+          cache_miss: 0,
+          blocked_total: 0,
+          rate_limited_total: 0,
+          malformed_total: 0,
+        },
       });
       return;
     }

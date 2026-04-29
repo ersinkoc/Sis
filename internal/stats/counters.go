@@ -14,6 +14,7 @@ type Counters struct {
 	CacheMiss        atomic.Uint64
 	BlockedTotal     atomic.Uint64
 	RateLimitedTotal atomic.Uint64
+	MalformedTotal   atomic.Uint64
 
 	upstreams      sync.Map
 	latency        *Histogram
@@ -39,6 +40,7 @@ type Snapshot struct {
 	CacheMiss        uint64                      `json:"cache_miss"`
 	BlockedTotal     uint64                      `json:"blocked_total"`
 	RateLimitedTotal uint64                      `json:"rate_limited_total"`
+	MalformedTotal   uint64                      `json:"malformed_total"`
 	Latency          HistogramSnapshot           `json:"latency"`
 	Upstreams        map[string]UpstreamSnapshot `json:"upstreams"`
 }
@@ -99,6 +101,14 @@ func (c *Counters) IncRateLimited() {
 		return
 	}
 	c.RateLimitedTotal.Add(1)
+}
+
+// IncMalformed increments total malformed DNS packet count.
+func (c *Counters) IncMalformed() {
+	if c == nil {
+		return
+	}
+	c.MalformedTotal.Add(1)
 }
 
 // ObserveLatency records end-to-end DNS query latency.
@@ -188,6 +198,7 @@ func (c *Counters) Snapshot() Snapshot {
 		QueryTotal: c.QueryTotal.Load(), CacheHit: c.CacheHit.Load(),
 		CacheMiss: c.CacheMiss.Load(), BlockedTotal: c.BlockedTotal.Load(),
 		RateLimitedTotal: c.RateLimitedTotal.Load(),
+		MalformedTotal:   c.MalformedTotal.Load(),
 		Latency:          c.latency.Snapshot(), Upstreams: make(map[string]UpstreamSnapshot),
 	}
 	c.upstreams.Range(func(key, value any) bool {

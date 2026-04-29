@@ -8,6 +8,7 @@ export type StatsSummary = {
   cache_miss: number;
   blocked_total: number;
   rate_limited_total: number;
+  malformed_total: number;
 };
 
 export type Client = {

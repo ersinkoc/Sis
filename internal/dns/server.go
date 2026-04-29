@@ -183,6 +183,7 @@ func (s *Server) serveUDP(ctx context.Context, conn *net.UDPConn) {
 func (s *Server) handleUDP(ctx context.Context, conn *net.UDPConn, addr *net.UDPAddr, packet []byte) {
 	var msg mdns.Msg
 	if err := msg.Unpack(packet); err != nil {
+		s.incMalformed()
 		return
 	}
 	resp := s.pipeline.Handle(ctx, &Request{Msg: &msg, SrcIP: addr.IP, Proto: "udp", StartedAt: time.Now()})
@@ -254,6 +255,7 @@ func (s *Server) handleTCPConn(ctx context.Context, conn *net.TCPConn) {
 		}
 		var msg mdns.Msg
 		if err := msg.Unpack(packet); err != nil {
+			s.incMalformed()
 			return
 		}
 		resp := s.pipeline.Handle(ctx, &Request{Msg: &msg, SrcIP: remoteIP(conn.RemoteAddr()), Proto: "tcp", StartedAt: time.Now()})
@@ -294,6 +296,12 @@ func (s *Server) releaseTCPSlot() {
 	select {
 	case <-s.tcpSlots:
 	default:
+	}
+}
+
+func (s *Server) incMalformed() {
+	if s != nil && s.pipeline != nil && s.pipeline.stats != nil {
+		s.pipeline.stats.IncMalformed()
 	}
 }
 

@@ -1989,11 +1989,12 @@ function StatsCards({ stats }: { stats: StatsSummary }) {
     { label: "Cache hits", value: stats.cache_hit },
     { label: "Cache misses", value: stats.cache_miss },
     { label: "Rate limited", value: stats.rate_limited_total },
+    { label: "Malformed", value: stats.malformed_total },
   ];
   return (
     <section>
       <h2 className="text-lg font-medium tracking-normal">Live Summary</h2>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         {items.map((item) => (
           <article
             key={item.label}

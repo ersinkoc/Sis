@@ -17,6 +17,8 @@
 > `server.http.rate_limit_per_minute` / `SIS_HTTP_RATE_LIMIT_PER_MINUTE`.
 > Visibility update: DNS/API rate-limit rejections increment `rate_limited_total`, which is
 > exposed in live stats, persisted rollups, and the WebUI summary.
+> DNS error visibility update: malformed DNS packets increment `malformed_total`, which is
+> exposed in live stats, persisted rollups, and the WebUI summary.
 
 ## 1. Executive Summary
 

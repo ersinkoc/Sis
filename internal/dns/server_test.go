@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ersinkoc/sis/internal/config"
+	"github.com/ersinkoc/sis/internal/stats"
 	mdns "github.com/miekg/dns"
 )
 
@@ -73,6 +74,15 @@ func TestServerReadyTracksListenerLifecycle(t *testing.T) {
 	}
 	if s.Ready() {
 		t.Fatal("server should not be ready after shutdown")
+	}
+}
+
+func TestServerCountsMalformedUDPPackets(t *testing.T) {
+	counters := stats.New()
+	s := NewServer(config.NewHolder(&config.Config{}), NewPipelineWithDeps(PipelineOptions{Stats: counters}))
+	s.handleUDP(context.Background(), nil, &net.UDPAddr{IP: net.ParseIP("192.0.2.10")}, []byte{0x01})
+	if got := counters.Snapshot().MalformedTotal; got != 1 {
+		t.Fatalf("malformed total = %d", got)
 	}
 }
 

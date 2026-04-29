@@ -17,6 +17,7 @@ func TestCountersConcurrentSnapshot(t *testing.T) {
 				c.IncQuery()
 				c.IncCacheHit()
 				c.IncRateLimited()
+				c.IncMalformed()
 				c.ObserveLatency(time.Millisecond)
 				u := c.Upstream("cloudflare")
 				u.IncRequest()
@@ -26,7 +27,7 @@ func TestCountersConcurrentSnapshot(t *testing.T) {
 	}
 	wg.Wait()
 	snap := c.Snapshot()
-	if snap.QueryTotal != 64000 || snap.CacheHit != 64000 || snap.RateLimitedTotal != 64000 {
+	if snap.QueryTotal != 64000 || snap.CacheHit != 64000 || snap.RateLimitedTotal != 64000 || snap.MalformedTotal != 64000 {
 		t.Fatalf("unexpected snapshot: %#v", snap)
 	}
 	if snap.Upstreams["cloudflare"].Requests != 64000 {
@@ -79,13 +80,14 @@ func TestCountersZeroValueIsUsable(t *testing.T) {
 	c.IncCacheMiss()
 	c.IncBlocked()
 	c.IncRateLimited()
+	c.IncMalformed()
 	c.ObserveLatency(time.Millisecond)
 	c.AddDomain("example.test.", true)
 	c.AddClient("client-a")
 	c.Upstream("resolver").IncRequest()
 
 	snap := c.Snapshot()
-	if snap.QueryTotal != 1 || snap.CacheMiss != 1 || snap.BlockedTotal != 1 || snap.RateLimitedTotal != 1 {
+	if snap.QueryTotal != 1 || snap.CacheMiss != 1 || snap.BlockedTotal != 1 || snap.RateLimitedTotal != 1 || snap.MalformedTotal != 1 {
 		t.Fatalf("unexpected snapshot totals: %#v", snap)
 	}
 	if got := c.TopDomains(1, true); len(got) != 1 || got[0].Key != "example.test." || got[0].Count != 1 {
@@ -106,6 +108,7 @@ func TestNilCountersAreNoop(t *testing.T) {
 	c.IncCacheMiss()
 	c.IncBlocked()
 	c.IncRateLimited()
+	c.IncMalformed()
 	c.ObserveLatency(time.Millisecond)
 	c.AddDomain("example.test.", true)
 	c.AddClient("client-a")
