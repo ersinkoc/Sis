@@ -396,7 +396,7 @@ Coverage reality:
 
 - Unit tests exist for most core packages.
 - No `tests/integration/` directory exists.
-- No full automated SPEC §19 acceptance suite was found.
+- Initial SPEC §19-style DNS acceptance coverage now exists in `internal/dns/acceptance_test.go`, using fake DoH upstreams and real UDP/TCP DNS clients for default forwarding/blocking, allowlist override, upstream failover, and cache-hit logging. It is not yet the full 10-scenario suite.
 - No benchmark harness package exists; only package-level benchmarks for DNS cache and domain matching.
 - No fuzz tests found.
 - No frontend unit/component tests found.
@@ -617,7 +617,7 @@ CI/CD:
 | `internal/api` errors | Plaintext error bodies inconsistent with JSON API | Standardize JSON error envelope | 4-8h |
 | `internal/dns/server.go:149-156` | UDP hot path allocates/copies per packet | Introduce buffer pool or benchmark current cost and document | 4-8h |
 | `internal/policy/engine.go:87-90` | Per-query map copy | Replace with immutable snapshot pointer or benchmark and document | 4-8h |
-| Tests | No integration acceptance suite | Automate SPEC §19 with fake DoH and real DNS client | 16-32h |
+| Tests | SPEC §19 acceptance suite is partial | Extend fake-DoH/real-client coverage to remaining scenarios: per-client rename, schedules, hot reload, privacy mode, restart persistence | 12-24h |
 | Observability | No Prometheus/pprof endpoint, request ID not in access logs | Add request ID to logs and optional metrics/profiling endpoints | 8-16h |
 | API rate limits | Only login is limited | Add configurable limiter for other API endpoints | 4-8h |
 
@@ -639,8 +639,8 @@ CI/CD:
 | Total Go LOC | 17,440 |
 | Total Frontend Files | 8 |
 | Total Frontend LOC | 3,184 |
-| Test Files | 33 Go + 1 Playwright |
-| Test Coverage | Not measured; Go unavailable |
+| Test Files | 34 Go + 1 Playwright |
+| Test Coverage | Not measured in this audit |
 | External Go Dependencies | 3 direct, 13 indirect |
 | External Frontend Dependencies | 6 runtime, 9 dev, 172 lockfile packages |
 | Open TODOs/FIXMEs | 0 |
