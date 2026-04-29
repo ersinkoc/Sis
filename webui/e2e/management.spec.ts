@@ -187,7 +187,9 @@ test("client edit, upstream, blocklist, and domain list controls call APIs", asy
 });
 
 function panel(page: Page, name: string) {
-  return page.locator("section").filter({ has: page.getByRole("heading", { name, exact: true }) });
+  return page
+    .getByRole("heading", { name, exact: true })
+    .locator("xpath=ancestor::section[1]");
 }
 
 async function mockDashboardAPI(

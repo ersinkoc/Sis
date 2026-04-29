@@ -104,8 +104,10 @@ test("group saves preserve and edit schedules", async ({ page }) => {
   });
 
   await page.goto("/");
-  const groupsPanel = page.locator("section").filter({ has: page.getByRole("heading", { name: "Groups", exact: true }) });
-  await expect(groupsPanel.getByText("school-night")).toBeVisible();
+  const groupsPanel = page
+    .getByRole("heading", { name: "Groups", exact: true })
+    .locator("xpath=ancestor::section[1]");
+  await expect(groupsPanel.getByLabel("Schedule").first()).toHaveValue("school-night");
 
   await groupsPanel.getByLabel("Allowlist").fill("safe.example");
   await groupsPanel.getByRole("button", { name: "Save" }).click();
