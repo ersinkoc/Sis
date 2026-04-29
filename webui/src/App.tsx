@@ -1374,13 +1374,15 @@ function BlocklistsPanel({
     idValue: string,
     patch: Partial<Pick<Blocklist, "name" | "url" | "enabled" | "refresh_interval">>,
   ) {
+    const blocklist = blocklists.find((candidate) => candidate.id === idValue);
     setEditing((current) => ({
       ...current,
       [idValue]: {
-        name: current[idValue]?.name ?? "",
-        url: current[idValue]?.url ?? "",
-        enabled: current[idValue]?.enabled ?? true,
-        refresh_interval: current[idValue]?.refresh_interval ?? "24h",
+        name: current[idValue]?.name ?? blocklist?.name ?? idValue,
+        url: current[idValue]?.url ?? blocklist?.url ?? "",
+        enabled: current[idValue]?.enabled ?? blocklist?.enabled ?? true,
+        refresh_interval:
+          current[idValue]?.refresh_interval ?? blocklist?.refresh_interval ?? "24h",
         ...patch,
       },
     }));
@@ -1725,12 +1727,13 @@ function UpstreamPanel({
     idValue: string,
     patch: Partial<{ name: string; url: string; bootstrap: string }>,
   ) {
+    const upstream = upstreams.find((candidate) => candidate.id === idValue);
     setEditing((current) => ({
       ...current,
       [idValue]: {
-        name: current[idValue]?.name ?? "",
-        url: current[idValue]?.url ?? "",
-        bootstrap: current[idValue]?.bootstrap ?? "",
+        name: current[idValue]?.name ?? upstream?.name ?? idValue,
+        url: current[idValue]?.url ?? upstream?.url ?? "",
+        bootstrap: current[idValue]?.bootstrap ?? upstream?.bootstrap.join(", ") ?? "",
         ...patch,
       },
     }));

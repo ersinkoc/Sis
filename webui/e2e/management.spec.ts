@@ -98,6 +98,14 @@ test("client edit, upstream, blocklist, and domain list controls call APIs", asy
         await route.fulfill({ status: 201, json: blocklists.at(-1) });
         return true;
       }
+      if (method === "PATCH" && path === "/api/v1/blocklists/malware") {
+        const patch = route.request().postDataJSON() as (typeof blocklists)[number];
+        blocklists = blocklists.map((blocklist) =>
+          blocklist.id === "malware" ? { ...blocklist, ...patch } : blocklist,
+        );
+        await route.fulfill({ json: blocklists.find((blocklist) => blocklist.id === "malware") });
+        return true;
+      }
       if (method === "POST" && path === "/api/v1/blocklists/malware/sync") {
         await route.fulfill({ json: { id: "malware", accepted: 2, from_cache: false, not_modified: false } });
         return true;
@@ -165,10 +173,13 @@ test("client edit, upstream, blocklist, and domain list controls call APIs", asy
   await blocklistsPanel.getByRole("button", { name: "Add" }).click();
   await expect.poll(() => calls).toContain("POST /api/v1/blocklists");
   const malware = blocklistsPanel.locator("article").filter({ hasText: "malware" });
-  await malware.getByRole("button", { name: "Sync" }).click();
-  await expect.poll(() => calls).toContain("POST /api/v1/blocklists/malware/sync");
-  await malware.getByRole("button", { name: "Inspect" }).click();
-  await expect(blocklistsPanel.getByText("malware.example")).toBeVisible();
+      await malware.getByRole("button", { name: "Sync" }).click();
+      await expect.poll(() => calls).toContain("POST /api/v1/blocklists/malware/sync");
+      await malware.getByLabel("Name").fill("Malware Domains");
+      await malware.getByRole("button", { name: "Save" }).click();
+      await expect.poll(() => calls).toContain("PATCH /api/v1/blocklists/malware");
+      await malware.getByRole("button", { name: "Inspect" }).click();
+      await expect(blocklistsPanel.getByText("malware.example")).toBeVisible();
 
   const allowlistPanel = panel(page, "Allowlist");
   await allowlistPanel.getByPlaceholder("example.com").fill("allowed.example");
