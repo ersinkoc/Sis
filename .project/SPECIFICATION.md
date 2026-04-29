@@ -4,7 +4,7 @@
 
 - **Repository:** `github.com/ersinkoc/sis`
 - **License:** MIT
-- **Language:** Go (stdlib-first)
+- **Language:** Go 1.24
 - **Tagline:** *Sorgular siste, cevaplar berrak.* / *DNS in the fog. Answers in the clear.*
 
 ---
@@ -20,7 +20,7 @@ Sis sits between client devices and upstream DNS resolvers on a home or small-of
 - Per-client identification (MAC primary, IP fallback)
 - Per-group policy enforcement (blocklists, allowlists, schedules)
 - Query logging with per-client attribution
-- Three management surfaces: CLI, TUI (bubble tea), WebUI (React 19)
+- Two management surfaces in the current v1 scope: HTTP-backed CLI and WebUI (React 19)
 
 ### 1.2 What Sis Is Not
 
@@ -40,7 +40,7 @@ Sis sits between client devices and upstream DNS resolvers on a home or small-of
 
 ### 1.4 v2 Reserved (Out of Scope for v1)
 
-DHCP server integration, DoT/DoH/DoQ ingress, DNSSEC validation, ACME, MCP server, Raft clustering, OIDC, Pi-hole/AdGuard config import, CGNAT support, IPv6 RA integration, mobile push notifications.
+DHCP server integration, DoT/DoH/DoQ ingress, DNSSEC validation, ACME, MCP server, Raft clustering, OIDC, Pi-hole/AdGuard config import, CGNAT support, IPv6 RA integration, mobile push notifications, and a local TUI/Unix-socket control plane.
 
 ---
 
@@ -78,7 +78,7 @@ Every incoming query flows through a fixed pipeline:
                  │            ┌───────┴───────┐        │
                  │            ▼               ▼        │
                  │        Storage          Logger      │
-                 │     (sis.db.json)        (JSON)     │
+                 │    (JSON/SQLite)        (JSON)     │
                  │            ▲                        │
                  │            │                        │
                  │   ┌────────┴────────┐               │
@@ -86,8 +86,6 @@ Every incoming query flows through a fixed pipeline:
    :8080 ◄──HTTP─┼── WebUI       Admin REST API        │
                  │   │                 ▲               │
                  │   │                 │               │
-   stdin ◄──TUI──┼── TUI ──────────────┤               │
-                 │                     │               │
    shell ◄──CLI──┼── CLI ──────────────┘               │
                  └─────────────────────────────────────┘
 ```
@@ -456,7 +454,9 @@ server:
     tls: false
     cert_file: ""
     key_file: ""
+    rate_limit_per_minute: 600
   data_dir: "/var/lib/sis"
+  store_backend: "sqlite" # json | sqlite
 
 cache:
   max_entries: 100000
@@ -494,9 +494,10 @@ clients: []                  # auto-populated; user edits names/groups
 auth:
   users:
     - username: "admin"
-      password_hash: "$2a$12$..."
+      password_hash: "pbkdf2-sha256$..."
   session_ttl: "24h"
   cookie_name: "sis_session"
+  secure_cookie: false
 ```
 
 ### 9.2 Hot Reload
@@ -521,14 +522,19 @@ Precedence (highest first):
 | Data                | Location                     |
 |---------------------|------------------------------|
 | Config (current)    | YAML file (canonical)        |
-| Config history      | `sis.db.json` (last N revisions) |
-| Clients             | `sis.db.json`                |
-| Custom block/allow  | `sis.db.json`                |
-| Sessions (WebUI)    | `sis.db.json`                |
+| Config history      | active store (last N revisions) |
+| Clients             | active store                 |
+| Custom block/allow  | active store                 |
+| Sessions (WebUI)    | active store                 |
 | Cached blocklists   | `<data_dir>/blocklists/`     |
 | Query logs          | `<data_dir>/logs/`           |
 | Audit logs          | `<data_dir>/logs/`           |
-| Stats aggregates    | `sis.db.json` (1m/1h/1d buckets) |
+| Stats aggregates    | active store (1m/1h/1d buckets) |
+
+The active store is selected by `server.store_backend`. Supported v1 backends are `json`
+(`<data_dir>/sis.db.json`) and `sqlite` (`<data_dir>/sis.db`). SQLite keeps portable KV
+payloads for backup/export and normalized operational tables for clients, sessions, custom
+lists, stats, and config history.
 
 ### 10.2 Stats Aggregation
 
@@ -551,51 +557,41 @@ Buckets: 1-minute (kept 24h), 1-hour (kept 30d), 1-day (kept 1y).
 sis serve [--config FILE]
 sis config validate [--config FILE]
 sis config show [--config FILE]
-sis client list
-sis client rename <key> <name>
-sis client move <key> <group>
-sis client forget <key>
-sis group list
-sis group add <name>
-sis blocklist sync [<id>]
-sis blocklist test <domain>
-sis allowlist add <domain>
-sis allowlist remove <domain>
-sis cache flush
-sis cache stats
-sis query test <domain> [--type A] [--client <ip|mac>]
-sis logs tail [--follow] [--client <key>] [--blocked]
-sis stats [--since 1h]
-sis upstream test
-sis upstream health
+sis client -cookie COOKIE list
+sis client -cookie COOKIE rename <key> <name>
+sis client -cookie COOKIE move <key> <group>
+sis client -cookie COOKIE forget <key>
+sis group -cookie COOKIE list
+sis blocklist -cookie COOKIE sync [<id>]
+sis blocklist -cookie COOKIE test <domain>
+sis blocklist -cookie COOKIE add <domain>
+sis cache -cookie COOKIE flush
+sis query -api URL -cookie COOKIE test <domain> [TYPE]
+sis logs -cookie COOKIE tail
+sis stats -cookie COOKIE top-domains
+sis upstream -cookie COOKIE test <id>
+sis upstream -cookie COOKIE health
+sis system -cookie COOKIE info
+sis system -cookie COOKIE store-verify
+sis backup create|verify|restore ...
+sis store migrate-json-to-sqlite|export-sqlite-json|compact|verify ...
 sis user add <username>
 sis user passwd <username>
 sis version
 ```
 
-All commands respect `--config` (path) and `--json` (machine-readable output).
+Offline commands respect `--config` where relevant. Live commands intentionally use the
+authenticated HTTP API and require either a session cookie or a login flow.
 
-### 11.2 TUI
+### 11.2 WebUI
 
-A single bubble-tea program (`sis tui`) with these views, switched by hotkey:
+The WebUI is a single-page operational console embedded into the Go binary. Summary:
 
-- **[1] Dashboard** — live QPS, cache hit %, blocked %, top 5 clients, top 5 blocked domains. Sparklines.
-- **[2] Live Log** — streaming query log, filterable by `/text` (qname or client).
-- **[3] Clients** — list with name, group, last_seen, query count; rename inline (`r`), move group (`g`).
-- **[4] Upstreams** — health, latency p50/p95, error rate.
-- **[5] Blocklists** — last sync, entry count, sync now (`s`).
-
-Hotkeys: `1-5` switch view, `q` quit, `?` help, `/` filter, `r` refresh.
-
-### 11.3 WebUI
-
-See `WEBUI.md` for full screen-by-screen specification. Summary:
-
-- Stack: React 19, Tailwind v4.1, shadcn/ui, lucide-react.
+- Stack: React 19, Tailwind v4, TypeScript, Vite.
 - Dark / light mode toggle, persisted in localStorage.
 - Responsive: mobile (320px+) → tablet → desktop.
 - Embedded in the Go binary via `embed`.
-- Auth: cookie session after username/password (bcrypt).
+- Auth: cookie session after username/password (PBKDF2-SHA256 compatibility contract).
 - API: REST + JSON, served at `/api/v1/*`.
 
 ---
@@ -671,6 +667,8 @@ Base path: `/api/v1`. All requests after `/auth/login` require a valid session c
 - `GET  /system/info` — version, uptime, build
 - `POST /system/cache/flush`
 - `POST /system/config/reload`
+- `GET  /system/config/history`
+- `GET  /system/store/verify`
 - `GET  /healthz`
 - `GET  /readyz`
 
@@ -681,31 +679,35 @@ Base path: `/api/v1`. All requests after `/auth/login` require a valid session c
 ### 13.1 Authentication
 
 - Local user/password only in v1.
-- Passwords hashed with bcrypt (cost 12).
+- Passwords are hashed with the documented pre-v1 PBKDF2-SHA256 compatibility contract.
+  A future password-hash migration must preserve existing deployments deliberately.
 - Sessions: random 32-byte tokens, stored server-side, HttpOnly + SameSite=Lax cookie.
 - Session TTL configurable, default 24h, sliding expiration.
-- Brute-force: per-IP login rate limit (5/min), exponential backoff on repeated failures.
+- Brute-force: per-IP login rate limit and configurable authenticated API rate limit.
+- Unsafe cookie-authenticated API methods require same-origin `Origin` or `Referer`.
 
 ### 13.2 Network Exposure
 
 - DNS :53 — exposed to LAN by design.
-- HTTP :8080 — bound to all interfaces by default but **not authenticated until first user is created** (first-run wizard requires creating an admin user before any other endpoint becomes reachable).
+- HTTP :8080 — example production config keeps management on localhost; broader exposure
+  requires trusted network policy, TLS, or reverse proxy protection.
 - HTTPS support via cert/key files in config (no ACME in v1).
+- Reverse-proxy TLS deployments set `auth.secure_cookie: true`.
 
 ### 13.3 Rate Limiting
 
 - DNS: per-client-IP token bucket, default 200 qps, burst 400. Excess queries dropped (UDP) or REFUSED (TCP).
-- HTTP: per-IP 100 req/min for `/auth/*`, 600 req/min for other endpoints.
+- HTTP: per-IP login limiting plus configurable authenticated API limiting.
 
 ### 13.4 Input Validation
 
 - DNS messages parsed with `miekg/dns`; malformed messages dropped with a counter.
 - All API request bodies validated against schema; unknown fields rejected.
-- Domain names normalized (lowercase, IDN to A-label) before any comparison.
+- Domain names are normalized to lowercase before comparison. Full IDN/A-label hardening remains a tracked v1 hardening gap.
 
 ### 13.5 Secrets
 
-- Bcrypt hashes never returned via API.
+- Password hashes never returned via API.
 - Log salt auto-generated on first run, stored in config file with `0600` permissions.
 - Session tokens never logged.
 
@@ -716,7 +718,7 @@ Base path: `/api/v1`. All requests after `/auth/login` require a valid session c
 ### 14.1 Health Endpoints
 
 - `GET /healthz` — liveness, returns 200 OK if process is up.
-- `GET /readyz` — readiness, 200 OK if DNS listener is bound, blocklists loaded, at least one upstream healthy.
+- `GET /readyz` — readiness, 200 OK if config, store, upstream pool, DNS pipeline, and DNS listener lifecycle checks pass.
 
 ### 14.2 Internal Metrics (Exposed via API)
 
@@ -727,6 +729,8 @@ Counters maintained in-memory and exposed via `/api/v1/stats/*`:
 - `dns.blocks.total{group,list}`
 - `dns.upstream.requests.total{upstream,result}`
 - `dns.upstream.latency.histogram{upstream}`
+- `dns.rate_limited.total`
+- `dns.malformed.total`
 - `process.goroutines`, `process.memory.heap`
 
 Prometheus exporter is reserved for v2.
@@ -770,18 +774,16 @@ Targets verified via included benchmark harness (`sis bench`).
 
 ### 16.1 Runtime Dependencies
 
-- **Go 1.23+**
+- **Go 1.24+**
 - **`github.com/miekg/dns`** — DNS message parsing/serialization. Battle-tested, the de facto Go DNS library. Sis uses it for wire format only; all routing/policy logic is hand-written.
-- **`github.com/charmbracelet/bubbletea`** — TUI framework.
-- **`github.com/charmbracelet/lipgloss`** — TUI styling.
-- **`golang.org/x/crypto/bcrypt`** — password hashing.
-- **`internal/store` file backend** — embedded JSON persistence behind narrow interfaces.
+- **`gopkg.in/yaml.v3`** — YAML parsing for the operator config.
+- **`modernc.org/sqlite`** — pure-Go SQLite backend.
+- **`internal/store` JSON/SQLite backends** — embedded persistence behind narrow interfaces.
 
 ### 16.2 No Other Runtime Dependencies
 
 - No web framework (use `net/http` directly).
 - No CLI library (use `flag` + dispatch).
-- No YAML library (encoding/json + a small hand-written YAML subset parser, scoped to what sis.yaml needs). *Decision pending: if the parser scope creeps, fall back to `gopkg.in/yaml.v3`.*
 - No HTTP/2 client library (stdlib `net/http` handles it).
 
 ### 16.3 Build-Time / Frontend
@@ -789,11 +791,9 @@ Targets verified via included benchmark harness (`sis bench`).
 WebUI frontend dependencies are isolated to `webui/`:
 
 - React 19, React DOM 19
-- Tailwind CSS 4.1
-- shadcn/ui components
-- lucide-react icons
-- Vite 5 (build)
-- TypeScript 5 strict
+- Tailwind CSS 4
+- Vite
+- TypeScript strict
 
 The compiled WebUI is embedded into the Go binary via `//go:embed`.
 
@@ -827,7 +827,8 @@ sis/
 │   │   └── bootstrap.go
 │   ├── store/
 │   │   ├── store.go         # persistence interfaces
-│   │   └── file.go          # JSON file backend
+│   │   ├── file.go          # JSON file backend
+│   │   └── sqlite.go        # SQLite backend
 │   ├── log/
 │   │   ├── query.go
 │   │   ├── audit.go
@@ -847,25 +848,16 @@ sis/
 │   │   └── middleware.go
 │   ├── webui/
 │   │   └── embed.go         # //go:embed dist/*
-│   ├── tui/
-│   │   ├── app.go
-│   │   ├── views/
-│   │   └── model.go
-│   └── cli/
-│       ├── root.go
-│       └── cmd_*.go
+│   └── tools/
+│       └── sbom/
 ├── webui/                   # React 19 frontend
 │   ├── src/
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.ts
 ├── docs/
-│   ├── SPECIFICATION.md
-│   ├── IMPLEMENTATION.md
-│   ├── TASKS.md
-│   ├── BRANDING.md
-│   ├── WEBUI.md
-│   └── README.md
+│   ├── PRODUCTION.md
+│   └── PRODUCTION_VALIDATION.md
 ├── examples/
 │   └── sis.yaml
 ├── scripts/
@@ -882,9 +874,9 @@ sis/
 
 A v1 release is considered ready when:
 
-1. All acceptance scenarios in §19 pass on Linux amd64 and arm64.
-2. Performance targets (§15) are met on the reference Raspberry Pi 4 hardware.
-3. Documentation (SPEC, IMPL, README) is complete.
+1. All required acceptance scenarios in §19 pass on Linux amd64 and arm64 or are explicitly tracked as deferred.
+2. Performance targets (§15) are benchmarked on representative hardware before broad release.
+3. Documentation (SPEC, IMPL, README, production runbooks) is complete.
 4. Test coverage ≥ 70% on `internal/dns`, `internal/policy`, `internal/upstream`.
 5. WebUI ships dark/light mode, all v1 screens functional, accessible at WCAG AA contrast.
 6. Single binary builds: `go build -o sis ./cmd/sis` produces a working artifact.
@@ -900,7 +892,9 @@ A v1 release is considered ready when:
 7. **Cache hit:** Two queries for `example.com` from different clients. Second query returns from cache, log shows `cache_hit: true`, latency < 1 ms.
 8. **Hot reload:** Admin edits a group's schedule via WebUI. Pipeline picks up the change without dropping in-flight queries; audit log records the change with before/after diff.
 9. **Privacy mode:** `log_mode: hashed` is set. Query log shows HMAC-SHA256 client keys; per-client stats still aggregate correctly because the hash is stable.
-10. **Restart persistence:** Sis is stopped and restarted. Clients, groups, custom lists, and stats are recovered from `sis.db.json`. In-memory cache is cold (expected).
+10. **Restart persistence:** Sis is stopped and restarted. Clients, groups, custom lists, and stats are recovered from the configured store backend. In-memory cache is cold (expected).
+11. **Store verification:** JSON and SQLite deployments report readable store state through CLI/API/WebUI verification, including SQLite `PRAGMA quick_check`.
+12. **Production validation:** A real target host records strict production validation evidence for service verification, SQLite migration dry-run, LAN DNS, blocked-domain behavior, authenticated API store verification, real-client observation, and diagnostics.
 
 ---
 

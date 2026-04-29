@@ -16,7 +16,7 @@ github.com/ersinkoc/sis
 ├── cmd/sis              entry point, CLI dispatch
 ├── internal/
 │   ├── config           load/validate/reload, schema
-│   ├── store            interface-backed persistence, current JSON file backend
+│   ├── store            interface-backed persistence, JSON and SQLite backends
 │   ├── dns              listeners, pipeline, cache, client identity
 │   ├── policy           groups, schedules, blocklists, allowlists, eval
 │   ├── upstream         DoH client, pool, health
@@ -24,15 +24,14 @@ github.com/ersinkoc/sis
 │   ├── stats            counters and aggregator
 │   ├── api              HTTP REST + SSE
 │   ├── webui            //go:embed of compiled React bundle
-│   ├── tui              bubble-tea program
-│   └── cli              CLI command tree
+│   └── tools            release/support tooling
 └── pkg/
     └── version          build-time vars (version, commit, date)
 ```
 
 **Rules:**
 
-- Nothing under `internal/` may import `cmd/`, `webui/`, `tui/`, or `cli/`.
+- Nothing under `internal/` may import `cmd/` or external WebUI source code.
 - `internal/dns` may import `policy`, `upstream`, `log`, `stats`, `config`.
 - `internal/api` is the only package that depends on all others (it's the integration layer).
 - No package imports a sibling that depends on it (no cycles enforced by Go anyway, but kept linear by convention).
@@ -48,7 +47,7 @@ github.com/ersinkoc/sis
 main.go
   parse flags
   load config (file → env → flags overlay)
-  open store (file-backed JSON backend)
+  open configured store backend (`json` or `sqlite`)
   build dependency graph
   start subsystems in order
   wait for SIGINT/SIGTERM/SIGHUP
@@ -207,8 +206,15 @@ type ClientStore interface {
 
 ### 4.2 Backend
 
-The current implementation uses a file-backed JSON store at `<data_dir>/sis.db.json`.
-One logical "table" per concern is implemented as a key-prefix:
+The implementation exposes narrow store interfaces and supports two local backends:
+
+- `json`: file-backed JSON at `<data_dir>/sis.db.json`, written with temp-file, fsync,
+  atomic rename, and parent-directory fsync.
+- `sqlite`: pure-Go SQLite at `<data_dir>/sis.db`, with portable KV payloads plus
+  normalized operational tables for clients, sessions, custom lists, stats, and config
+  history.
+
+The logical payloads use one keyspace per concern:
 
 ```
 clients:<key>           → Client JSON
@@ -231,17 +237,21 @@ type Migration struct {
 }
 ```
 
-`store_meta:schema_version` is bumped after each apply. v1 ships with a single `0001_init` migration that ensures the keyspace shape; subsequent versions are appended without ever rewriting prior migrations.
+`store_meta:schema_version` is bumped after each apply. SQLite migrations preserve the
+portable logical payload while adding indexed collection metadata and normalized tables.
 
 ### 4.4 Concurrency
 
-- Reads and writes are protected by the file store lock.
-- Writes serialize the in-memory map to a temporary file, fsync it, atomically rename it over
-  `sis.db.json`, and fsync the parent directory.
+- JSON reads and writes are protected by the file store lock.
+- JSON writes serialize the in-memory map to a temporary file, fsync it, atomically rename it
+  over `sis.db.json`, and fsync the parent directory.
+- SQLite operations use database transactions where multi-row consistency matters.
 - Long-running scans use snapshot copies so callers do not mutate shared store state.
 
-The store package remains interface-driven so a future SQLite backend can be introduced without
-changing DNS, API, policy, stats, or WebUI callers.
+The store package remains interface-driven so DNS, API, policy, stats, and WebUI callers do
+not depend on backend details. Backup/restore uses a portable logical JSON snapshot for both
+backends, and store verification reports backend, path, schema version, record counts, and
+SQLite `PRAGMA quick_check` when applicable.
 
 ---
 
@@ -1002,15 +1012,14 @@ handler := chain(
 
 ```go
 type AuthService struct {
-    store     store.SessionStore
-    users     UserStore
-    pwHasher  bcrypt.Hasher
+    store store.SessionStore
+    users UserStore
 }
 
 func (a *AuthService) Login(user, pass string) (*Session, error) {
     u, err := a.users.Get(user)
     if err != nil { return nil, ErrInvalidCredentials }
-    if bcrypt.CompareHashAndPassword(u.Hash, []byte(pass)) != nil {
+    if !verifyPBKDF2SHA256(u.Hash, pass) {
         return nil, ErrInvalidCredentials
     }
     s := &Session{
@@ -1028,10 +1037,12 @@ Session cookie:
 
 ```
 Set-Cookie: sis_session=<token>; HttpOnly; SameSite=Lax; Path=/; Max-Age=86400
-            Secure         # only when TLS is enabled
+            Secure         # when TLS is enabled or auth.secure_cookie is set
 ```
 
 Middleware reads cookie, looks up session, attaches `User` to request context. Sliding expiration: each authenticated request bumps `ExpiresAt`.
+Password hashes use the documented pre-v1 PBKDF2-SHA256 compatibility contract; any future
+algorithm change requires an explicit migration path.
 
 ### 10.4 First-Run Wizard
 
@@ -1119,56 +1130,16 @@ Assets are pre-compressed with gzip and brotli at build time; the handler serves
 
 ---
 
-## 12. TUI (`internal/tui`)
+## 12. TUI
 
-### 12.1 Architecture
-
-A single bubble-tea program with a top-level model:
-
-```go
-type Model struct {
-    state   ViewState           // dashboard | live | clients | upstreams | blocklists
-    sub     Subsystems          // typed handles (read-only)
-    // Each view has its own model:
-    dash    DashboardModel
-    live    LiveModel
-    clients ClientsModel
-    up      UpstreamsModel
-    bl      BlocklistsModel
-}
-```
-
-Hotkeys handled in `Update`; routed to the active sub-model. A 1-second `tea.Tick` refreshes the dashboard view; the live-log view subscribes to the in-memory log fanout (same channel the SSE handler uses).
-
-### 12.2 Inputs
-
-The TUI does **not** call the HTTP API — it imports `internal/stats`, `internal/log`, `internal/policy` directly. This keeps it usable when the HTTP server is disabled. `sis tui` runs as a subprocess of the main `sis serve` only when invoked from the same machine; for remote use, the WebUI is the answer.
-
-> **Decision recorded:** TUI runs in-process, sharing memory with the server. `sis tui` requires `sis serve` to be running in the same process tree (we exec into a TUI subcommand that connects via Unix socket: `<data_dir>/sis.sock`, JSON-RPC). This avoids the "TUI also needs auth" problem and keeps remote access funneled through the WebUI.
-
-### 12.3 IPC
-
-Unix-socket JSON-RPC:
-
-```
-Methods:
-  stats.summary(range)
-  stats.timeseries(metric, range, bucket)
-  stats.topClients(range, n)
-  stats.topDomains(range, n, blocked)
-  log.subscribe()              // streams via JSON-lines
-  clients.list()
-  clients.update(key, patch)
-  blocklists.list()
-  blocklists.sync(id)
-  upstreams.list()
-```
-
-Socket permissions: `0660`, owned by the user running `sis`. No auth (filesystem permissions are the gate).
+The local TUI and Unix-socket JSON-RPC control plane are not in the current v1 release
+scope. The supported management surfaces are the embedded WebUI and the HTTP-backed CLI.
+If a TUI is reintroduced later, it should be treated as a v2 feature and specified against
+the same authenticated API semantics instead of a second privileged control plane.
 
 ---
 
-## 13. CLI (`internal/cli`)
+## 13. CLI (`cmd/sis`)
 
 ### 13.1 Dispatch
 
@@ -1190,12 +1161,18 @@ No third-party CLI library. Help text generated from `Short` + flag help.
 
 ### 13.2 Local-Only vs Remote
 
-CLI commands fall into two categories:
+CLI commands fall into three categories:
 
 - **Local config commands** (`config validate`, `config show`): read the config file directly. No running server needed.
-- **Live commands** (`client list`, `cache flush`, `query test`, `logs tail`, `stats`): connect to the running server's Unix socket (same socket as TUI).
+- **Local maintenance commands** (`backup`, `store migrate-json-to-sqlite`,
+  `store export-sqlite-json`, `store compact`, `store verify`): operate on configured
+  files and the data directory while following runbook guidance.
+- **Live commands** (`client`, `group`, `cache`, `query`, `logs`, `stats`, `upstream`,
+  `system`): call the authenticated HTTP API with an operator-provided session cookie.
 
-If `sis serve` is not running and a live command is invoked, the CLI prints a helpful error: `sis: server not running (no socket at <path>); start sis serve first or use --offline if available`.
+If `sis serve` is not running and a live command is invoked, the CLI reports the failed
+HTTP request and points operators toward `sis auth login` or local maintenance commands
+where applicable.
 
 ### 13.3 Output Formats
 
@@ -1267,9 +1244,9 @@ make release     # cross-compile for linux/amd64, linux/arm64, darwin/amd64, dar
 
 ### 15.3 Distribution
 
-- GitHub Releases with checksums.
-- Static binaries only; no installer in v1.
-- A minimal `systemd` unit and example config shipped under `examples/`.
+- GitHub Releases with checksums and optional signed `SHA256SUMS`.
+- Static binaries plus Linux install/upgrade/backup/verification helper scripts.
+- A hardened `systemd` unit and example config/env shipped under `examples/`.
 
 ---
 
@@ -1277,9 +1254,10 @@ make release     # cross-compile for linux/amd64, linux/arm64, darwin/amd64, dar
 
 For development and field debugging:
 
-- `pprof` available on `127.0.0.1:6060` when started with `--debug-pprof`. Off by default.
-- `runtime/trace` capture on `SIGUSR2`.
-- Verbose query tracing: `--trace-qname=example.com` causes pipeline to emit a structured trace event per stage (cache check, policy eval, upstream pick) for matching queries. Used for diagnosing surprising blocks.
+- `SIGUSR2` writes goroutine and heap profiles under `<data_dir>/dbg/`.
+- `scripts/collect-linux-diagnostics.sh` collects a support bundle without config,
+  database, backup contents, or journal logs unless explicitly enabled.
+- Store verification is available locally and through the authenticated API/WebUI.
 
 ---
 
@@ -1293,7 +1271,7 @@ For development and field debugging:
 | No DNSSEC validation                      | Upstream resolvers already validate           | Air-gap or compliance use cases |
 | No DoT/DoH ingress                        | Home LAN clients almost all speak Plain      | When Sis goes past LAN |
 | Hand-rolled HTTP middleware               | Avoids router framework dependency           | If routes explode in count |
-| Single local store file                   | Deployment simplicity                        | SQLite or sharding if multi-tenant |
+| Local JSON or SQLite store                | Simple deployment without external DB        | External DB only if multi-node scope appears |
 | YAML config (mutable by API)              | Friction-free editing for power users        | If schema grows complex enough to warrant a different format |
 
 ---
