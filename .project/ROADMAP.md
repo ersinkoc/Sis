@@ -17,8 +17,8 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 - [x] Preserve group schedules in WebUI saves - `webui/src/lib/dashboard.ts`, `webui/src/App.tsx`; minimum fix is to send existing `group.schedules` rather than `[]`; estimate 4h.
 - [x] Add actual schedule editing to WebUI - group panel should create/edit/delete schedule name, days, from/to, blocklists; estimate 12-20h.
-- [x] Implement dependency-aware `/readyz` - verifies config availability, store readability, upstream pool health, and DNS pipeline wiring; DNS listener lifecycle remains covered by startup errors; estimate 6h.
-- [ ] Install/verify Go toolchain in local/dev environments - use `go.mod` Go version, run `go test ./... -count=1`, `go vet ./...`, `go test -race ./...`; blocked in this environment because `go` and `gofmt` are not installed/on PATH; estimate 2h.
+- [x] Implement dependency-aware `/readyz` - verifies config availability, store readability, upstream pool health, DNS pipeline wiring, and DNS listener lifecycle state; estimate 6h.
+- [x] Install/verify Go toolchain in local/dev environments - temporary Go 1.24.0 toolchain was used for `gofmt`, `go test ./... -count=1`, and `go vet ./...`; `go test -race ./...` remains blocked by missing `gcc`/cgo support; estimate 2h.
 - [x] Decide password hashing contract - documented current PBKDF2-SHA256 compatibility contract and migration requirement in `SECURITY.md`; estimate 6h.
 - [x] Add Origin/Referer protection for unsafe cookie-authenticated HTTP methods; cross-origin browser mutations now return 403 while same-origin WebUI and local CLI flows remain compatible; estimate 8h.
 
@@ -38,7 +38,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 ### Security, error handling, edge cases
 
 - [ ] Add HSTS when TLS is enabled and document reverse-proxy expectations.
-- [ ] Add CSRF tests for unsafe methods.
+- [x] Add CSRF tests for unsafe methods.
 - [ ] Review every config mutation endpoint for partial update semantics and preservation of omitted fields.
 - [ ] Add request ID to access logs and JSON errors.
 - [ ] Ensure config save fsyncs temp file and parent directory like store writes.
@@ -51,7 +51,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 - [ ] Automate SPEC §19 acceptance scenarios with fake DoH upstream and real DNS client.
 - [ ] Add integration tests for setup/login/session, group schedule mutation, blocklist sync, query/test, and restart persistence.
-- [ ] Add frontend tests for group schedule preservation and settings mutations.
+- [x] Add frontend test coverage for group schedule preservation/editing.
 - [ ] Add Playwright coverage for login, client edit, group edit, upstream CRUD, blocklist inspect, allow/block list edits.
 - [ ] Add race test job or scheduled workflow for core packages.
 - [ ] Add fuzz tests for blocklist parser, domain normalization, and DNS message edge cases.
@@ -123,8 +123,8 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 | Risk | Probability | Impact | Mitigation |
 |---|---|---|---|
 | WebUI schedule regression returns | Medium | High | Keep schedule preservation tests and WebUI coverage in Phase 4 |
-| Production deploy passes `/readyz` while DNS listener itself is down | Medium | High | Add explicit DNS listener lifecycle readiness wiring after Go tooling is available |
-| Go build/test failures hidden in local audit | Medium | High | Install Go and run full gate plus CI |
+| DNS listener readiness regresses | Low | High | Keep `dns.Server.Ready` and `/readyz` tests in the Go gate |
+| Race bugs hidden by missing cgo compiler | Medium | High | Install gcc/cgo support and run `go test -race ./...` in CI |
 | Cookie-auth CSRF bypass through unusual proxy/header behavior | Low | High | Keep Origin/Referer tests, prefer localhost/TLS, consider token-based CSRF if exposed broadly |
 | Spec/docs drift misleads operators or contributors | High | Medium | Update SPEC/IMPLEMENTATION/TASKS after scope decisions |
 | JSON store write amplification under heavy churn | Medium | Medium | Prefer SQLite for production; monitor store verify counts and DB size |

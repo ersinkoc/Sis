@@ -1126,6 +1126,7 @@ func runServe(args []string) error {
 		Config: holder, Logger: slog.Default(), QueryLog: queryLog,
 		Audit: auditLog, Policy: engine, Stats: counters, Store: st,
 		Syncer: syncer, Upstream: pool, Cache: cache, Pipeline: pipeline, ConfigPath: *path,
+		DNSReady: dnsServer.Ready,
 	})
 	reloader.Register(func(_, next *config.Config) error {
 		if err := seedConfigClients(st, next); err != nil {

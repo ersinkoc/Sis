@@ -42,6 +42,7 @@ type Server struct {
 	upstream     *upstream.Pool
 	cache        *sisdns.Cache
 	pipeline     *sisdns.Pipeline
+	dnsReady     func() bool
 	configPath   string
 	loginLimiter *rateLimiter
 }
@@ -64,6 +65,7 @@ type Options struct {
 	Upstream   *upstream.Pool
 	Cache      *sisdns.Cache
 	Pipeline   *sisdns.Pipeline
+	DNSReady   func() bool
 	ConfigPath string
 }
 
@@ -77,7 +79,7 @@ func NewWithDeps(opts Options) *Server {
 		cfg: opts.Config, log: logger, queryLog: opts.QueryLog,
 		audit: opts.Audit, policy: opts.Policy, stats: opts.Stats, store: opts.Store,
 		syncer: opts.Syncer, upstream: opts.Upstream, cache: opts.Cache,
-		pipeline:   opts.Pipeline,
+		pipeline: opts.Pipeline, dnsReady: opts.DNSReady,
 		configPath: opts.ConfigPath, loginLimiter: newRateLimiter(5, time.Minute),
 	}
 	mux := http.NewServeMux()
@@ -236,6 +238,15 @@ func (s *Server) readyz(w http.ResponseWriter, _ *http.Request) {
 		checks["pipeline"] = "unavailable"
 	} else {
 		checks["pipeline"] = "ok"
+	}
+
+	if s.dnsReady == nil {
+		checks["dns"] = "not reported"
+	} else if !s.dnsReady() {
+		ready = false
+		checks["dns"] = "listeners not ready"
+	} else {
+		checks["dns"] = "ok"
 	}
 
 	status := http.StatusOK

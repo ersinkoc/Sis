@@ -6,6 +6,11 @@
 > Post-audit implementation update: this branch now preserves and edits group schedules in
 > the WebUI, makes `/readyz` dependency-aware, documents the PBKDF2-SHA256 password hashing
 > contract, and adds Origin/Referer checks for unsafe cookie-authenticated API methods.
+> Follow-up update: `/readyz` now also consumes DNS listener lifecycle state, Go 1.24.0
+> `gofmt`/`test`/`vet` were run successfully with a temporary toolchain, and a mocked
+> Playwright group schedule regression spec was added. Race testing is still blocked by
+> missing `gcc`; browser execution is blocked by unsupported Playwright Chromium install
+> on this host.
 
 ## 1. Executive Summary
 

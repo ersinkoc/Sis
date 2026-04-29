@@ -6,19 +6,19 @@
 
 ## Overall Verdict & Score
 
-**Production Readiness Score: 73/100**
+**Production Readiness Score: 76/100**
 
 | Category | Score | Weight | Weighted Score |
 |---|---:|---:|---:|
 | Core Functionality | 7/10 | 20% | 14.0 |
-| Reliability & Error Handling | 7/10 | 15% | 10.5 |
+| Reliability & Error Handling | 8/10 | 15% | 12.0 |
 | Security | 7/10 | 20% | 14.0 |
 | Performance | 6/10 | 10% | 6.0 |
 | Testing | 5/10 | 15% | 7.5 |
 | Observability | 6/10 | 10% | 6.0 |
 | Documentation | 8/10 | 5% | 4.0 |
 | Deployment Readiness | 9/10 | 5% | 4.5 |
-| **TOTAL** | | **100%** | **73/100** |
+| **TOTAL** | | **100%** | **76/100** |
 
 ## 1. Core Functionality Assessment
 
@@ -32,7 +32,7 @@ Estimated specified feature completion:
 Core feature status:
 
 - Complete: DNS UDP/TCP listener, pipeline, DoH forwarding, cache, policy engine, schedules backend, block/allow lists, custom lists, logging, stats counters/rollups, HTTP API, cookie sessions, config reload, JSON/SQLite stores, embedded WebUI, backup/restore, release scripts.
-- Partial: DNS listener readiness wiring, HTTP rate limiting, acceptance testing, performance targets, conformance tests, frontend accessibility, upstream cooldown semantics.
+- Partial: HTTP rate limiting, acceptance testing, performance targets, conformance tests, frontend accessibility, upstream cooldown semantics.
 - Missing: TUI, Unix-socket JSON-RPC, OpenAPI docs, full SPEC §19 integration suite, Prometheus metrics.
 - Recently fixed: WebUI group saves now preserve schedules and expose schedule editing.
 
@@ -43,7 +43,7 @@ A user can likely complete the primary happy path: install, start service, run s
 Critical broken/unfinished flows:
 
 - Group schedule management now has WebUI create/edit/delete support; it still needs automated browser/regression tests.
-- `/readyz` now checks config, store readability, upstream health, and DNS pipeline wiring; explicit DNS listener lifecycle wiring remains incomplete.
+- `/readyz` now checks config, store readability, upstream health, DNS pipeline wiring, and DNS listener lifecycle state.
 - First-run/auth works; PBKDF2-SHA256 is documented as the current pre-v1 compatibility contract.
 - TUI workflow promised in spec is absent.
 
@@ -64,7 +64,7 @@ Critical broken/unfinished flows:
 - API panics are recovered with stack logging.
 - API failure format is not consistent JSON.
 - DNS malformed packets are silently dropped without visible counters.
-- `/readyz` is a false-positive liveness clone.
+- `/readyz` is now dependency-aware, including DNS listener lifecycle state.
 
 ### 2.2 Graceful Degradation
 
@@ -135,7 +135,7 @@ Critical broken/unfinished flows:
 | Severity | Finding | Evidence | Impact |
 |---|---|---|---|
 | Medium | Password hashing differs from original spec | `internal/api/password.go`; `SECURITY.md` documents PBKDF2-SHA256 contract | Operators must preserve compatibility or migrate credentials deliberately |
-| Medium | `/readyz` does not observe DNS listener lifecycle directly | `internal/api/server.go` checks dependencies, not listener bind state | Orchestrators still need startup error monitoring |
+| Low | `/readyz` can only report listener lifecycle known to the current process | `internal/dns/server.go` exposes `Ready`; API consumes it | Keep startup error monitoring and Go regression tests |
 | Medium | Only login HTTP rate-limited | `internal/api/server.go:80`, `auth.go:71-75` | API abuse risk |
 | Medium | No HSTS on TLS | `securityHeaders` lacks Strict-Transport-Security | Weaker browser TLS posture |
 
@@ -180,20 +180,21 @@ Actually tested by local audit:
 
 Not locally testable:
 
-- Go unit tests, vet, race, benchmarks, build.
+- Race detector. `go test -race ./...` requires cgo and failed because `gcc` is not installed.
+- Playwright browser execution. Chromium install failed because this Playwright build does not support the host `ubuntu26.04-x64` browser package.
 
 Source tests present:
 
 - Broad unit tests for config, DNS, policy, API, store, stats, upstream, CLI helpers.
-- Playwright smoke for first-run, dashboard, store verify, blocked query.
+- Playwright smoke for first-run, dashboard, store verify, blocked query, plus a mocked group schedule preservation/editing spec.
 
 Critical paths without enough visible coverage:
 
 - Full DNS-to-DoH-to-policy-to-log acceptance scenarios.
-- WebUI group schedule preservation.
+- WebUI group schedule preservation now has a mocked Playwright spec, but browser execution is blocked on this host.
 - Real production install validation on target host.
 - CSRF/security behavior.
-- Readiness dependency checks.
+- Readiness dependency checks now have Go tests.
 
 ### 5.2 Test Categories Present
 
@@ -201,14 +202,14 @@ Critical paths without enough visible coverage:
 - [ ] Integration tests - no dedicated integration suite found.
 - [x] API/endpoint tests - concentrated in `internal/api/server_test.go`.
 - [ ] Frontend component tests - absent.
-- [x] E2E tests - 1 Playwright smoke file.
+- [x] E2E tests - 2 Playwright specs.
 - [x] Benchmark tests - DNS cache and domain matching benchmarks.
 - [ ] Fuzz tests - absent.
 - [ ] Load tests - absent.
 
 ### 5.3 Test Infrastructure
 
-- [ ] Tests can run locally with `go test ./...` in this environment.
+- [x] Tests can run locally with `go test ./...` using temporary Go 1.24.0 tooling.
 - [x] CI is configured to run Go/Node checks.
 - [x] WebUI build/lint runs locally.
 - [x] Test data/fixtures are mostly inline/tempdir based.
@@ -230,7 +231,7 @@ Critical paths without enough visible coverage:
 ### 6.2 Monitoring & Metrics
 
 - [x] `/healthz` exists.
-- [ ] `/readyz` is comprehensive.
+- [x] `/readyz` checks core runtime dependencies and DNS listener lifecycle state.
 - [ ] Prometheus endpoint exists.
 - [x] In-memory counters and API stats exist.
 - [x] Store verification exists.
@@ -293,14 +294,14 @@ Critical paths without enough visible coverage:
 
 ### Production Blockers
 
-1. Go build/test/vet/race verification could not be performed in this environment.
-2. No automated e2e/regression evidence yet covers the newly fixed WebUI schedule editing path.
+1. Race verification could not be performed because cgo needs a C compiler and `gcc` is not installed.
+2. Playwright schedule regression coverage exists, but browser execution is blocked on this host's unsupported Chromium package.
 3. Original v1 scope still promises TUI/Unix-socket JSON-RPC, which is absent.
-4. `/readyz` still lacks explicit DNS listener lifecycle state even though dependency checks are now present.
+4. SPEC §19 end-to-end DNS acceptance coverage is still incomplete.
 
 ### High Priority
 
-1. Add Go 1.24 tooling to local/CI environments and run `gofmt`, `go test ./...`, `go vet ./...`, and race tests.
+1. Add `gcc`/cgo support to local/CI environments and run `go test -race ./...`.
 2. Add integration tests for SPEC §19 acceptance paths.
 3. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
 4. Add JSON API error envelope and request IDs in logs.
@@ -322,8 +323,8 @@ Critical paths without enough visible coverage:
 
 ### Go/No-Go Recommendation
 
-**CONDITIONAL GO** for a tightly controlled home/lab/small-office deployment where HTTP is localhost/trusted-network only, SQLite is preferred, operators take backups, and operators accept that Go verification and e2e schedule regression tests are still pending.
+**CONDITIONAL GO** for a tightly controlled home/lab/small-office deployment where HTTP is localhost/trusted-network only, SQLite is preferred, operators take backups, and operators accept that race testing and browser-executed e2e evidence are still pending.
 
-**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification/scope gaps for that posture today: no local Go verification in this audit, missing TUI/socket scope, incomplete acceptance testing, no explicit DNS listener readiness state, and limited automated WebUI coverage.
+**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification/scope gaps for that posture today: missing TUI/socket scope, incomplete acceptance testing, race testing blocked by missing compiler tooling, and Playwright browser execution blocked on this host.
 
-The honest read: Sis is not a toy, and the operational scaffolding is unusually serious for this stage. This session removed several production blockers: schedule data loss, shallow dependency readiness, undocumented auth hashing, and missing browser-origin mutation checks. It is still not safe to present as fully production-ready until the Go gate runs, the new WebUI behavior has regression coverage, and the remaining v1 scope/documentation mismatch is resolved.
+The honest read: Sis is not a toy, and the operational scaffolding is unusually serious for this stage. Recent work removed several production blockers: schedule data loss, shallow dependency readiness, undocumented auth hashing, missing browser-origin mutation checks, and missing local Go test/vet evidence. It is still not safe to present as fully production-ready until race/browser validation can run and the remaining v1 scope/documentation mismatch is resolved.

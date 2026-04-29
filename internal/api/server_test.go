@@ -53,6 +53,7 @@ func TestReadyzChecksRuntimeDependencies(t *testing.T) {
 		Store:    st,
 		Upstream: pool,
 		Pipeline: pipeline,
+		DNSReady: func() bool { return true },
 	})
 	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	rec := httptest.NewRecorder()
@@ -67,7 +68,45 @@ func TestReadyzChecksRuntimeDependencies(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatal(err)
 	}
-	if !out.Ready || out.Checks["store"] != "ok" || out.Checks["upstreams"] != "ok" || out.Checks["pipeline"] != "ok" {
+	if !out.Ready || out.Checks["store"] != "ok" || out.Checks["upstreams"] != "ok" || out.Checks["pipeline"] != "ok" || out.Checks["dns"] != "ok" {
+		t.Fatalf("readyz response = %#v", out)
+	}
+}
+
+func TestReadyzReturnsUnavailableWhenDNSListenersNotReady(t *testing.T) {
+	holder := validAPIConfig(t)
+	st, err := store.Open(holder.Get().Server.DataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	pool := upstream.NewPool(holder.Get().Upstreams)
+	pipeline := sisdns.NewPipelineWithDeps(sisdns.PipelineOptions{
+		Config:   holder,
+		Upstream: pool,
+	})
+	s := NewWithDeps(Options{
+		Config:   holder,
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:    st,
+		Upstream: pool,
+		Pipeline: pipeline,
+		DNSReady: func() bool { return false },
+	})
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Ready  bool              `json:"ready"`
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Ready || out.Checks["dns"] != "listeners not ready" {
 		t.Fatalf("readyz response = %#v", out)
 	}
 }

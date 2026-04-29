@@ -50,6 +50,32 @@ func TestServerShutdownIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestServerReadyTracksListenerLifecycle(t *testing.T) {
+	cfg := config.NewHolder(&config.Config{
+		Server: config.Server{
+			DNS: config.DNSServer{Listen: []string{"127.0.0.1:0"}},
+		},
+	})
+	s := NewServer(cfg, NewPipeline(nil))
+	if s.Ready() {
+		t.Fatal("server should not be ready before start")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := s.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !s.Ready() {
+		t.Fatal("server should be ready after listeners start")
+	}
+	if err := s.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if s.Ready() {
+		t.Fatal("server should not be ready after shutdown")
+	}
+}
+
 func TestServerStartRequiresConfigAndPipeline(t *testing.T) {
 	if err := NewServer(nil, NewPipeline(nil)).Start(context.Background()); err == nil {
 		t.Fatal("expected missing config error")
