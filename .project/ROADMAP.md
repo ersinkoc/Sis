@@ -82,7 +82,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 - [x] Add API documentation, preferably OpenAPI generated from route definitions or maintained alongside handlers.
 - [x] Add config reference derived from `internal/config/types.go`.
 - [x] Add troubleshooting guide for DNS bind failures, upstream DoH failures, first-run setup, and SQLite migration.
-- [ ] Document local prerequisites explicitly: Go version, Node 24, npm, Playwright browser install.
+- [x] Document local prerequisites explicitly: Go version, Node 24, npm, Playwright browser install.
 
 ## Phase 7: Release Preparation (Week 15-16)
 

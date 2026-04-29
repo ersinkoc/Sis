@@ -82,6 +82,8 @@ See [docs/CONFIG_REFERENCE.md](docs/CONFIG_REFERENCE.md) for the full config sch
 defaults, validation rules, and environment overrides.
 See [docs/API_REFERENCE.md](docs/API_REFERENCE.md) for the maintained management API route
 reference.
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for local toolchain, Playwright, and check
+gate setup.
 
 Install as a Linux service:
 
