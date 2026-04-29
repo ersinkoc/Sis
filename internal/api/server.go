@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -197,8 +198,54 @@ func (s *Server) healthz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) readyz(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"ready":true}` + "\n"))
+	checks := map[string]string{}
+	ready := true
+
+	var cfg *config.Config
+	if s.cfg != nil {
+		cfg = s.cfg.Get()
+	}
+	if cfg == nil {
+		ready = false
+		checks["config"] = "unavailable"
+	} else {
+		checks["config"] = "ok"
+		if _, err := store.VerifyBackend(cfg.Server.StoreBackend, cfg.Server.DataDir); err != nil {
+			ready = false
+			checks["store"] = err.Error()
+		} else {
+			checks["store"] = "ok"
+		}
+	}
+
+	if s.upstream == nil {
+		ready = false
+		checks["upstreams"] = "unavailable"
+	} else if len(s.upstream.AllIDs()) == 0 {
+		ready = false
+		checks["upstreams"] = "none configured"
+	} else if len(s.upstream.HealthyIDs()) == 0 {
+		ready = false
+		checks["upstreams"] = "no healthy upstreams"
+	} else {
+		checks["upstreams"] = "ok"
+	}
+
+	if s.pipeline == nil {
+		ready = false
+		checks["pipeline"] = "unavailable"
+	} else {
+		checks["pipeline"] = "ok"
+	}
+
+	status := http.StatusOK
+	if !ready {
+		status = http.StatusServiceUnavailable
+	}
+	writeJSONStatus(w, status, map[string]any{
+		"ready":  ready,
+		"checks": checks,
+	})
 }
 
 func (s *Server) statsSummary(w http.ResponseWriter, _ *http.Request) {
@@ -248,7 +295,25 @@ func (s *Server) queryLogStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) middleware(next http.Handler) http.Handler {
-	return recoverMiddleware(s.log)(securityHeaders(requestID(accessLog(s.log, s.authRequired(next)))))
+	return recoverMiddleware(s.log)(securityHeaders(requestID(accessLog(s.log, s.csrfGuard(s.authRequired(next))))))
+}
+
+func (s *Server) csrfGuard(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !requiresOriginCheck(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if _, err := r.Cookie(s.cookieName()); err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !requestFromSameOrigin(r) {
+			http.Error(w, "cross-site request rejected", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) authRequired(next http.Handler) http.Handler {
@@ -283,6 +348,36 @@ func (s *Server) authExempt(r *http.Request) bool {
 	default:
 		return false
 	}
+}
+
+func requiresOriginCheck(r *http.Request) bool {
+	if r == nil || !strings.HasPrefix(r.URL.Path, "/api/v1/") {
+		return false
+	}
+	switch r.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return false
+	default:
+		return true
+	}
+}
+
+func requestFromSameOrigin(r *http.Request) bool {
+	if origin := r.Header.Get("Origin"); origin != "" {
+		return headerMatchesHost(origin, r.Host)
+	}
+	if referer := r.Header.Get("Referer"); referer != "" {
+		return headerMatchesHost(referer, r.Host)
+	}
+	return true
+}
+
+func headerMatchesHost(raw, host string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || host == "" {
+		return false
+	}
+	return strings.EqualFold(u.Host, host)
 }
 
 func recoverMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {

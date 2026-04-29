@@ -35,6 +35,66 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestReadyzChecksRuntimeDependencies(t *testing.T) {
+	holder := validAPIConfig(t)
+	st, err := store.Open(holder.Get().Server.DataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	pool := upstream.NewPool(holder.Get().Upstreams)
+	pipeline := sisdns.NewPipelineWithDeps(sisdns.PipelineOptions{
+		Config:   holder,
+		Upstream: pool,
+	})
+	s := NewWithDeps(Options{
+		Config:   holder,
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:    st,
+		Upstream: pool,
+		Pipeline: pipeline,
+	})
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Ready  bool              `json:"ready"`
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if !out.Ready || out.Checks["store"] != "ok" || out.Checks["upstreams"] != "ok" || out.Checks["pipeline"] != "ok" {
+		t.Fatalf("readyz response = %#v", out)
+	}
+}
+
+func TestReadyzReturnsUnavailableWhenDependenciesMissing(t *testing.T) {
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Ready  bool              `json:"ready"`
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Ready || out.Checks["upstreams"] != "unavailable" || out.Checks["pipeline"] != "unavailable" {
+		t.Fatalf("readyz response = %#v", out)
+	}
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	s := New(testHolder(), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -45,6 +105,48 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 	if rec.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("cache-control = %q", rec.Header().Get("Cache-Control"))
+	}
+}
+
+func TestCSRFMiddlewareRejectsCrossOriginCookieMutation(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "http://sis.local/api/v1/allowlist", bytes.NewBufferString(`{"domain":"allowed.example.com"}`))
+	req.Header.Set("Origin", "http://evil.example")
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCSRFMiddlewareAllowsSameOriginCookieMutation(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "http://sis.local/api/v1/allowlist", bytes.NewBufferString(`{"domain":"allowed.example.com"}`))
+	req.Header.Set("Origin", "http://sis.local")
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 

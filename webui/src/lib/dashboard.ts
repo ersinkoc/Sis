@@ -24,7 +24,15 @@ export type Group = {
   name: string;
   blocklists: string[];
   allowlist: string[];
-  schedules?: unknown[];
+  schedules?: Schedule[];
+};
+
+export type Schedule = {
+  name: string;
+  days: string[];
+  from: string;
+  to: string;
+  block: string[];
 };
 
 export type Blocklist = {
@@ -479,11 +487,11 @@ export async function createGroup(name: string): Promise<Group> {
 
 export async function updateGroup(
   name: string,
-  input: Pick<Group, "name" | "blocklists" | "allowlist">,
+  input: Pick<Group, "name" | "blocklists" | "allowlist" | "schedules">,
 ): Promise<Group> {
   return apiRequest<Group>(`/api/v1/groups/${encodeURIComponent(name)}`, {
     method: "PATCH",
-    body: JSON.stringify({ ...input, schedules: [] }),
+    body: JSON.stringify(input),
   });
 }
 

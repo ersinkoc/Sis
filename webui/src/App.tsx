@@ -26,6 +26,7 @@ import {
   removeDomainListEntry,
   runQueryTest,
   Settings,
+  Schedule,
   StatsSummary,
   StatsRow,
   StoreVerifyResult,
@@ -959,7 +960,7 @@ function GroupsPanel({
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<
-    Record<string, { name: string; blocklists: string[]; allowlist: string }>
+    Record<string, { name: string; blocklists: string[]; allowlist: string; schedules: Schedule[] }>
   >({});
 
   function draftFor(group: Group) {
@@ -968,13 +969,14 @@ function GroupsPanel({
         name: group.name,
         blocklists: group.blocklists,
         allowlist: group.allowlist.join(", "),
+        schedules: cloneSchedules(group.schedules),
       }
     );
   }
 
   function updateDraft(
     nameValue: string,
-    patch: Partial<{ name: string; blocklists: string[]; allowlist: string }>,
+    patch: Partial<{ name: string; blocklists: string[]; allowlist: string; schedules: Schedule[] }>,
   ) {
     setEditing((current) => ({
       ...current,
@@ -982,9 +984,35 @@ function GroupsPanel({
         name: current[nameValue]?.name ?? nameValue,
         blocklists: current[nameValue]?.blocklists ?? [],
         allowlist: current[nameValue]?.allowlist ?? "",
+        schedules: current[nameValue]?.schedules ?? cloneSchedules(groups.find((group) => group.name === nameValue)?.schedules),
         ...patch,
       },
     }));
+  }
+
+  function updateSchedule(group: Group, index: number, patch: Partial<Schedule>) {
+    const draft = draftFor(group);
+    const schedules = draft.schedules.map((schedule, currentIndex) =>
+      currentIndex === index ? { ...schedule, ...patch } : schedule,
+    );
+    updateDraft(group.name, { schedules });
+  }
+
+  function addSchedule(group: Group) {
+    const draft = draftFor(group);
+    updateDraft(group.name, {
+      schedules: [
+        ...draft.schedules,
+        { name: "new-schedule", days: ["all"], from: "22:00", to: "07:00", block: [] },
+      ],
+    });
+  }
+
+  function removeSchedule(group: Group, index: number) {
+    const draft = draftFor(group);
+    updateDraft(group.name, {
+      schedules: draft.schedules.filter((_, currentIndex) => currentIndex !== index),
+    });
   }
 
   async function add(event: FormEvent<HTMLFormElement>) {
@@ -1033,6 +1061,12 @@ function GroupsPanel({
         name: nextName,
         blocklists: draft.blocklists,
         allowlist: splitCSV(draft.allowlist),
+        schedules: draft.schedules.map((schedule) => ({
+          ...schedule,
+          name: schedule.name.trim(),
+          days: normalizeList(schedule.days),
+          block: normalizeList(schedule.block),
+        })),
       });
       setEditing((current) => {
         const next = { ...current };
@@ -1075,10 +1109,12 @@ function GroupsPanel({
           const protectedGroup = group.name === "default" || clientCount > 0;
           const draft = draftFor(group);
           const allowlist = splitCSV(draft.allowlist);
+          const schedules = draft.schedules;
           const changed =
             draft.name !== group.name ||
             draft.blocklists.join("\n") !== group.blocklists.join("\n") ||
-            allowlist.join("\n") !== group.allowlist.join("\n");
+            allowlist.join("\n") !== group.allowlist.join("\n") ||
+            JSON.stringify(schedules) !== JSON.stringify(group.schedules ?? []);
           return (
             <li
               key={group.name}
@@ -1089,7 +1125,7 @@ function GroupsPanel({
                   <span className="block font-mono text-sm">{group.name}</span>
                   <span className="block text-xs text-[#637083] dark:text-[#a6b1bd]">
                     {clientCount} clients · {draft.blocklists.length} blocklists ·{" "}
-                    {allowlist.length} allow rules
+                    {allowlist.length} allow rules · {schedules.length} schedules
                   </span>
                 </span>
                 <div className="flex gap-2">
@@ -1180,13 +1216,124 @@ function GroupsPanel({
                     ) : null}
                   </div>
                 </div>
-              </div>
-            </li>
-          );
-        })}
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-[#637083] dark:text-[#a6b1bd]">Schedules</span>
+                    <button
+                      className="rounded border border-[#c8d1dc] px-2 py-1 text-sm hover:bg-[#ecf1f5] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a4654] dark:hover:bg-[#1d252d]"
+                      disabled={busy !== ""}
+                      type="button"
+                      onClick={() => addSchedule(group)}
+                    >
+                      Add schedule
+                    </button>
+                  </div>
+                  {schedules.map((schedule, index) => (
+                    <div
+                      key={`${group.name}-${index}`}
+                      className="grid gap-3 rounded border border-[#edf1f5] p-3 dark:border-[#202932]"
+                    >
+                      <div className="grid gap-3 lg:grid-cols-[1fr_120px_120px_1fr_auto]">
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-[#637083] dark:text-[#a6b1bd]">Schedule</span>
+                          <input
+                            className="h-9 rounded border border-[#c8d1dc] bg-transparent px-2 font-mono outline-none focus:border-[#287d7d] dark:border-[#3a4654]"
+                            value={schedule.name}
+                            onChange={(event) =>
+                              updateSchedule(group, index, { name: event.currentTarget.value })
+                            }
+                          />
+                        </label>
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-[#637083] dark:text-[#a6b1bd]">From</span>
+                          <input
+                            className="h-9 rounded border border-[#c8d1dc] bg-transparent px-2 font-mono outline-none focus:border-[#287d7d] dark:border-[#3a4654]"
+                            type="time"
+                            value={schedule.from}
+                            onChange={(event) =>
+                              updateSchedule(group, index, { from: event.currentTarget.value })
+                            }
+                          />
+                        </label>
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-[#637083] dark:text-[#a6b1bd]">To</span>
+                          <input
+                            className="h-9 rounded border border-[#c8d1dc] bg-transparent px-2 font-mono outline-none focus:border-[#287d7d] dark:border-[#3a4654]"
+                            type="time"
+                            value={schedule.to}
+                            onChange={(event) =>
+                              updateSchedule(group, index, { to: event.currentTarget.value })
+                            }
+                          />
+                        </label>
+                        <label className="grid gap-1 text-sm">
+                          <span className="text-[#637083] dark:text-[#a6b1bd]">Days</span>
+                          <input
+                            className="h-9 rounded border border-[#c8d1dc] bg-transparent px-2 font-mono outline-none focus:border-[#287d7d] dark:border-[#3a4654]"
+                            value={schedule.days.join(", ")}
+                            onChange={(event) =>
+                              updateSchedule(group, index, { days: splitCSV(event.currentTarget.value) })
+                            }
+                          />
+                        </label>
+                        <button
+                          className="self-end rounded border border-[#c8d1dc] px-2 py-1 text-sm hover:bg-[#ecf1f5] disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#3a4654] dark:hover:bg-[#1d252d]"
+                          disabled={busy !== ""}
+                          type="button"
+                          onClick={() => removeSchedule(group, index)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                      <div className="flex min-h-9 flex-wrap gap-2">
+                        {blocklists.map((blocklist) => {
+                          const checked = schedule.block.includes(blocklist.id);
+                          const nextBlock = checked
+                            ? schedule.block.filter((idValue) => idValue !== blocklist.id)
+                            : [...schedule.block, blocklist.id];
+                          return (
+                            <label
+                              key={blocklist.id}
+                              className="flex h-9 items-center gap-2 rounded border border-[#c8d1dc] px-2 text-xs dark:border-[#3a4654]"
+                            >
+                              <input
+                                className="h-3.5 w-3.5 accent-[#287d7d]"
+                                checked={checked}
+                                type="checkbox"
+                                onChange={() => updateSchedule(group, index, { block: nextBlock })}
+                              />
+                              <span className="font-mono">{blocklist.id}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {schedules.length === 0 ? (
+                    <p className="text-sm text-[#637083] dark:text-[#a6b1bd]">No schedules</p>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
       </ul>
     </section>
   );
+}
+
+function cloneSchedules(schedules: Schedule[] | undefined): Schedule[] {
+  return (schedules ?? []).map((schedule) => ({
+    name: schedule.name,
+    days: [...schedule.days],
+    from: schedule.from,
+    to: schedule.to,
+    block: [...schedule.block],
+  }));
+}
+
+function normalizeList(values: string[]) {
+  return values.map((value) => value.trim()).filter(Boolean);
 }
 
 function BlocklistsPanel({

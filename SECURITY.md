@@ -55,3 +55,16 @@ gpg --verify dist/SHA256SUMS.asc dist/SHA256SUMS
   client metadata, and privacy salts.
 - Run the packaged systemd unit where possible; it includes capability bounding and sandboxing.
 - Run `scripts/verify-linux-service.sh` after installation and upgrades.
+
+## Authentication Hashing Contract
+
+Sis currently stores local management passwords as `pbkdf2-sha256` hashes using a random
+128-bit salt and 210,000 iterations. Existing hashes use this encoded form:
+
+```text
+pbkdf2-sha256$<iterations>$<base64-salt>$<base64-derived-key>
+```
+
+Treat this as the current compatibility contract for pre-`v1.0.0` deployments. If the
+project later migrates to bcrypt or argon2, the verifier must continue accepting existing
+PBKDF2 hashes long enough for operators to rotate or transparently upgrade credentials.
