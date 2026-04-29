@@ -2,12 +2,21 @@ package api
 
 import "testing"
 
+func TestNormalizeDomainInputRejectsWhitespaceBeforeTrailingDot(t *testing.T) {
+	normalized, ok := normalizeDomainInput("0 .")
+	if ok || normalized != "" {
+		t.Fatalf("normalizeDomainInput returned %q, %v; want empty, false", normalized, ok)
+	}
+}
+
 func FuzzNormalizeDomainInput(f *testing.F) {
 	for _, seed := range []string{
 		"example.com",
 		" Example.COM. ",
 		"*.example.net",
 		"bad domain",
+		"0 .",
+		"0..",
 		"",
 	} {
 		f.Add(seed)

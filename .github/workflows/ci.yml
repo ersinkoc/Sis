@@ -32,6 +32,8 @@ jobs:
           cache: npm
           cache-dependency-path: webui/package-lock.json
       - run: WEBUI_PM=npm WEBUI_INSTALL=ci ./scripts/check.sh
+        env:
+          SIS_RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
       - name: Vulnerability scan
         run: |
           packages="$(go list ./... | grep -v '/webui/node_modules/')"

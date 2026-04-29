@@ -7,7 +7,14 @@ import (
 )
 
 func normalizeDomainInput(domain string) (string, bool) {
-	domain = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(domain)), ".")
+	domain = strings.ToLower(strings.TrimSpace(domain))
+	domain = strings.TrimSuffix(domain, ".")
+	if strings.TrimSpace(domain) != domain {
+		return "", false
+	}
+	if strings.HasSuffix(domain, ".") {
+		return "", false
+	}
 	if domain == "" {
 		return "", false
 	}
