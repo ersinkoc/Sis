@@ -734,6 +734,70 @@ func TestSetupAndLogin(t *testing.T) {
 	}
 }
 
+func TestSetupPersistsConfigAndSessionAcrossRestart(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+	configPath := filepath.Join(dir, "sis.yaml")
+	cfg := *validAPIConfig(t).Get()
+	cfg.Server.DataDir = dataDir
+	cfg.Auth.FirstRun = true
+	cfg.Auth.Users = nil
+	cfg.Auth.CookieName = "sis_session"
+	holder := config.NewHolder(&cfg)
+	st, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewWithDeps(Options{
+		Config:     holder,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:      st,
+		ConfigPath: configPath,
+	})
+	setupReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/setup", bytes.NewBufferString(`{"username":" admin ","password":"secret123"}`))
+	setupRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(setupRec, setupReq)
+	if setupRec.Code != http.StatusOK {
+		t.Fatalf("setup status = %d body=%s", setupRec.Code, setupRec.Body.String())
+	}
+	cookies := setupRec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Value == "" {
+		t.Fatalf("setup cookie = %#v", cookies)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := (&config.Loader{Path: configPath}).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Auth.FirstRun || len(loaded.Auth.Users) != 1 || loaded.Auth.Users[0].Username != "admin" ||
+		loaded.Auth.Users[0].PasswordHash == "" || loaded.Auth.Users[0].PasswordHash == "secret123" {
+		t.Fatalf("loaded auth config = %#v", loaded.Auth)
+	}
+	reopened, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	restarted := NewWithDeps(Options{
+		Config: config.NewHolder(loaded),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  reopened,
+	})
+	meReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	meReq.AddCookie(cookies[0])
+	meRec := httptest.NewRecorder()
+	restarted.Handler().ServeHTTP(meRec, meReq)
+	if meRec.Code != http.StatusOK {
+		t.Fatalf("me status = %d body=%s", meRec.Code, meRec.Body.String())
+	}
+	if !bytes.Contains(meRec.Body.Bytes(), []byte(`"username":"admin"`)) {
+		t.Fatalf("me body = %s", meRec.Body.String())
+	}
+}
+
 func TestSystemInfoIncludesStoreBackend(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
