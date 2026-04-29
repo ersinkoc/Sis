@@ -80,6 +80,8 @@ Common deployment settings can be overridden with `SIS_*` environment variables,
 The durable store backend is configured with `server.store_backend`; supported values are `json` and `sqlite`.
 See [docs/CONFIG_REFERENCE.md](docs/CONFIG_REFERENCE.md) for the full config schema,
 defaults, validation rules, and environment overrides.
+See [docs/API_REFERENCE.md](docs/API_REFERENCE.md) for the maintained management API route
+reference.
 
 Install as a Linux service:
 

@@ -21,6 +21,7 @@ using `json`. The active backend is exposed by `sis system info` and the WebUI S
 panel.
 For the full schema, defaults, validation rules, and environment overrides, see
 [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md).
+For the authenticated management API surface, see [API_REFERENCE.md](API_REFERENCE.md).
 
 ## Files To Protect
 

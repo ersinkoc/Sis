@@ -79,7 +79,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 - [x] Update `.project/SPECIFICATION.md` to match current decisions: SQLite, HTTP CLI, PBKDF2-SHA256, WebUI scope, TUI status.
 - [x] Update `.project/IMPLEMENTATION.md` store, auth, CLI, diagnostics, release, and WebUI/TUI sections for current architecture.
-- [ ] Add API documentation, preferably OpenAPI generated from route definitions or maintained alongside handlers.
+- [x] Add API documentation, preferably OpenAPI generated from route definitions or maintained alongside handlers.
 - [x] Add config reference derived from `internal/config/types.go`.
 - [x] Add troubleshooting guide for DNS bind failures, upstream DoH failures, first-run setup, and SQLite migration.
 - [ ] Document local prerequisites explicitly: Go version, Node 24, npm, Playwright browser install.
