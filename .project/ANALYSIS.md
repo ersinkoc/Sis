@@ -11,6 +11,8 @@
 > Playwright group schedule regression spec was added. Race testing is still blocked by
 > missing `gcc`; browser execution is blocked by unsupported Playwright Chromium install
 > on this host.
+> Hardening update: API text errors are now returned as JSON envelopes with request IDs,
+> access logs include request IDs, and HSTS is emitted when TLS is active or configured.
 
 ## 1. Executive Summary
 

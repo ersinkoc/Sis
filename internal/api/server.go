@@ -306,7 +306,7 @@ func (s *Server) queryLogStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) middleware(next http.Handler) http.Handler {
-	return recoverMiddleware(s.log)(securityHeaders(requestID(accessLog(s.log, s.csrfGuard(s.authRequired(next))))))
+	return recoverMiddleware(s.log)(s.securityHeaders(requestID(accessLog(s.log, apiErrorEnvelope(s.csrfGuard(s.authRequired(next)))))))
 }
 
 func (s *Server) csrfGuard(next http.Handler) http.Handler {
@@ -405,17 +405,27 @@ func recoverMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-func securityHeaders(next http.Handler) http.Handler {
+func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:")
+		if s.hstsEnabled(r) {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
 		if strings.HasPrefix(r.URL.Path, "/api/v1/") || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) hstsEnabled(r *http.Request) bool {
+	if r != nil && r.TLS != nil {
+		return true
+	}
+	return s != nil && s.cfg != nil && s.cfg.Get() != nil && s.cfg.Get().Server.HTTP.TLS
 }
 
 func writeJSON(w http.ResponseWriter, value any) {

@@ -147,6 +147,47 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 }
 
+func TestSecurityHeadersIncludeHSTSWhenTLSConfigured(t *testing.T) {
+	holder := testHolder()
+	cfg := *holder.Get()
+	cfg.Server.HTTP.TLS = true
+	holder.Replace(&cfg)
+	s := New(holder, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Header().Get("Strict-Transport-Security") == "" {
+		t.Fatal("missing strict transport security")
+	}
+}
+
+func TestAPIErrorEnvelopeIncludesRequestID(t *testing.T) {
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/stats/summary", nil)
+	req.Header.Set("X-Request-ID", "request-123")
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "application/json") {
+		t.Fatalf("content-type = %q", got)
+	}
+	var out struct {
+		Error     string `json:"error"`
+		RequestID string `json:"request_id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Error != "unauthorized" || out.RequestID != "request-123" {
+		t.Fatalf("error envelope = %#v", out)
+	}
+}
+
 func TestCSRFMiddlewareRejectsCrossOriginCookieMutation(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {

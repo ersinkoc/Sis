@@ -6,19 +6,19 @@
 
 ## Overall Verdict & Score
 
-**Production Readiness Score: 76/100**
+**Production Readiness Score: 78/100**
 
 | Category | Score | Weight | Weighted Score |
 |---|---:|---:|---:|
 | Core Functionality | 7/10 | 20% | 14.0 |
 | Reliability & Error Handling | 8/10 | 15% | 12.0 |
-| Security | 7/10 | 20% | 14.0 |
+| Security | 8/10 | 20% | 16.0 |
 | Performance | 6/10 | 10% | 6.0 |
 | Testing | 5/10 | 15% | 7.5 |
 | Observability | 6/10 | 10% | 6.0 |
 | Documentation | 8/10 | 5% | 4.0 |
 | Deployment Readiness | 9/10 | 5% | 4.5 |
-| **TOTAL** | | **100%** | **76/100** |
+| **TOTAL** | | **100%** | **78/100** |
 
 ## 1. Core Functionality Assessment
 
@@ -62,7 +62,7 @@ Critical broken/unfinished flows:
 
 - Many errors are checked and propagated.
 - API panics are recovered with stack logging.
-- API failure format is not consistent JSON.
+- API text errors are wrapped into JSON envelopes with `error` and `request_id` for `/api/v1/*`.
 - DNS malformed packets are silently dropped without visible counters.
 - `/readyz` is now dependency-aware, including DNS listener lifecycle state.
 
@@ -116,7 +116,7 @@ Critical broken/unfinished flows:
 - [x] TLS support via cert/key config.
 - [x] Secure cookie when TLS is active.
 - [x] Security headers exist.
-- [ ] HSTS header exists.
+- [x] HSTS header exists when TLS is active or configured.
 - [x] CORS is not wildcard; no CORS headers are set.
 - [x] Origin/Referer CSRF mitigation exists for unsafe cookie-authenticated API methods.
 - [ ] HTTP listener defaults to `0.0.0.0:8080` in config defaults, though example uses localhost.
@@ -137,7 +137,7 @@ Critical broken/unfinished flows:
 | Medium | Password hashing differs from original spec | `internal/api/password.go`; `SECURITY.md` documents PBKDF2-SHA256 contract | Operators must preserve compatibility or migrate credentials deliberately |
 | Low | `/readyz` can only report listener lifecycle known to the current process | `internal/dns/server.go` exposes `Ready`; API consumes it | Keep startup error monitoring and Go regression tests |
 | Medium | Only login HTTP rate-limited | `internal/api/server.go:80`, `auth.go:71-75` | API abuse risk |
-| Medium | No HSTS on TLS | `securityHeaders` lacks Strict-Transport-Security | Weaker browser TLS posture |
+| Low | HSTS relies on TLS detection/config | `securityHeaders` sets HSTS when request TLS or configured TLS is active | Reverse-proxy deployments still need correct TLS forwarding/operator docs |
 
 NPM audit: `found 0 vulnerabilities`.
 
@@ -304,8 +304,8 @@ Critical paths without enough visible coverage:
 1. Add `gcc`/cgo support to local/CI environments and run `go test -race ./...`.
 2. Add integration tests for SPEC §19 acceptance paths.
 3. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
-4. Add JSON API error envelope and request IDs in logs.
-5. Add broad API rate limiting.
+4. Add broad API rate limiting.
+5. Add reverse-proxy/TLS forwarding guidance for HSTS and secure cookie deployments.
 
 ### Recommendations
 

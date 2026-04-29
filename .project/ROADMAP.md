@@ -29,7 +29,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 - [ ] Reconcile TUI scope - either remove T065-T068 from v1 docs or implement Unix-socket JSON-RPC and Bubble Tea TUI; estimate 32-48h if implemented.
 - [ ] Align CLI transport decision - document HTTP-based CLI as intentional replacement for Unix socket, or add local socket mode; estimate 4-20h.
 - [ ] Complete WebUI navigation model - add real app shell/navigation or update spec to match single-page panel layout; estimate 12-20h.
-- [ ] Add JSON error envelope for all API failures - consistent `{error, request_id}` responses; estimate 6h.
+- [x] Add JSON error envelope for API failures - middleware converts text API errors into `{error, request_id}` responses while preserving streaming; estimate 6h.
 - [ ] Expand HTTP rate limiting beyond login - configurable per-IP buckets for all `/api/v1/*`; estimate 6h.
 - [ ] Add malformed DNS/error counters - count malformed queries and rate-limit drops explicitly; estimate 4h.
 
@@ -37,10 +37,10 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 ### Security, error handling, edge cases
 
-- [ ] Add HSTS when TLS is enabled and document reverse-proxy expectations.
+- [x] Add HSTS when TLS is enabled and document reverse-proxy expectations.
 - [x] Add CSRF tests for unsafe methods.
 - [ ] Review every config mutation endpoint for partial update semantics and preservation of omitted fields.
-- [ ] Add request ID to access logs and JSON errors.
+- [x] Add request ID to access logs and JSON errors.
 - [ ] Ensure config save fsyncs temp file and parent directory like store writes.
 - [ ] Add optional secure cookie override for reverse proxy deployments.
 - [ ] Run `govulncheck ./...` in CI once Go tooling is available.
