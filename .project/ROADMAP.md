@@ -31,7 +31,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 - [ ] Complete WebUI navigation model - add real app shell/navigation or update spec to match single-page panel layout; estimate 12-20h.
 - [x] Add JSON error envelope for API failures - middleware converts text API errors into `{error, request_id}` responses while preserving streaming; estimate 6h.
 - [x] Expand HTTP rate limiting beyond login - `server.http.rate_limit_per_minute` adds a configurable per-IP limiter for authenticated `/api/v1/*`; estimate 6h.
-- [ ] Add malformed DNS/error counters - count malformed queries and rate-limit drops explicitly; estimate 4h.
+- [ ] Add malformed DNS/error counters - rate-limit rejections are now counted in `rate_limited_total`; malformed DNS packet counters remain; estimate 4h.
 
 ## Phase 3: Hardening (Week 7-8)
 

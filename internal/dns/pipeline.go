@@ -95,6 +95,7 @@ func (p *Pipeline) Handle(ctx context.Context, r *Request) *Response {
 		r.StartedAt = time.Now()
 	}
 	if limiter := p.rateLimiter(); limiter != nil && !limiter.Allow(r.SrcIP) {
+		p.stats.IncRateLimited()
 		if r.Proto == "tcp" {
 			return &Response{Msg: synthRefused(r.Msg), Source: "rate-limit"}
 		}

@@ -70,22 +70,30 @@ func TestPipelineFinishSetsRecursionAvailable(t *testing.T) {
 }
 
 func TestPipelineRateLimitTCPRefused(t *testing.T) {
-	p := NewPipelineWithDeps(PipelineOptions{Limiter: NewRateLimiter(1, 1)})
+	counters := stats.New()
+	p := NewPipelineWithDeps(PipelineOptions{Limiter: NewRateLimiter(1, 1), Stats: counters})
 	ip := net.ParseIP("192.0.2.20")
 	_ = p.Handle(context.Background(), &Request{Msg: query("example.com.", mdns.TypeA), SrcIP: ip, Proto: "tcp"})
 	resp := p.Handle(context.Background(), &Request{Msg: query("example.org.", mdns.TypeA), SrcIP: ip, Proto: "tcp"})
 	if resp.Msg == nil || resp.Msg.Rcode != mdns.RcodeRefused {
 		t.Fatalf("expected refused response, got %#v", resp.Msg)
 	}
+	if got := counters.Snapshot().RateLimitedTotal; got != 1 {
+		t.Fatalf("rate limited total = %d", got)
+	}
 }
 
 func TestPipelineRateLimitUDPDrop(t *testing.T) {
-	p := NewPipelineWithDeps(PipelineOptions{Limiter: NewRateLimiter(1, 1)})
+	counters := stats.New()
+	p := NewPipelineWithDeps(PipelineOptions{Limiter: NewRateLimiter(1, 1), Stats: counters})
 	ip := net.ParseIP("192.0.2.21")
 	_ = p.Handle(context.Background(), &Request{Msg: query("example.com.", mdns.TypeA), SrcIP: ip, Proto: "udp"})
 	resp := p.Handle(context.Background(), &Request{Msg: query("example.org.", mdns.TypeA), SrcIP: ip, Proto: "udp"})
 	if resp.Msg != nil || resp.Source != "rate-limit" {
 		t.Fatalf("expected dropped UDP response, got %#v", resp)
+	}
+	if got := counters.Snapshot().RateLimitedTotal; got != 1 {
+		t.Fatalf("rate limited total = %d", got)
 	}
 }
 

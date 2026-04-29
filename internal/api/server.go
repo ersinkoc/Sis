@@ -314,6 +314,9 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 func (s *Server) apiRateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/v1/") && !s.apiLimiter.allowWith(r, s.apiRateLimitPerMinute(), time.Minute) {
+			if s.stats != nil {
+				s.stats.IncRateLimited()
+			}
 			http.Error(w, "rate limited", http.StatusTooManyRequests)
 			return
 		}

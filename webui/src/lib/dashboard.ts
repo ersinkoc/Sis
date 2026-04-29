@@ -7,6 +7,7 @@ export type StatsSummary = {
   cache_hit: number;
   cache_miss: number;
   blocked_total: number;
+  rate_limited_total: number;
 };
 
 export type Client = {

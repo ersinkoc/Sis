@@ -222,6 +222,9 @@ func TestAPIRateLimitProtectedRoutes(t *testing.T) {
 	if secondRec.Code != http.StatusTooManyRequests {
 		t.Fatalf("second status = %d body=%s", secondRec.Code, secondRec.Body.String())
 	}
+	if got := s.stats.Snapshot().RateLimitedTotal; got != 1 {
+		t.Fatalf("rate limited total = %d", got)
+	}
 }
 
 func TestCSRFMiddlewareRejectsCrossOriginCookieMutation(t *testing.T) {
