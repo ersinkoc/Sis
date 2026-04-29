@@ -103,6 +103,13 @@ func TestValidateHTTPRequiresTLSFiles(t *testing.T) {
 	assertErrContains(t, err, "server.http.key_file")
 }
 
+func TestValidateHTTPRateLimit(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Server.HTTP.RateLimitPerMinute = -1
+	err := Validate(cfg)
+	assertErrContains(t, err, "server.http.rate_limit_per_minute")
+}
+
 func TestValidateClients(t *testing.T) {
 	cfg := validConfig(t)
 	cfg.Clients = []Client{

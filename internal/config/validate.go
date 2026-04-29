@@ -173,6 +173,9 @@ func Validate(c *Config) error {
 	if c.Server.DNS.RateLimitBurst < 0 {
 		errf("server.dns.rate_limit_burst", "must be >= 0")
 	}
+	if c.Server.HTTP.RateLimitPerMinute < 0 {
+		errf("server.http.rate_limit_per_minute", "must be >= 0")
+	}
 	if c.Server.DNS.UDPWorkers < 0 {
 		errf("server.dns.udp_workers", "must be >= 0")
 	}

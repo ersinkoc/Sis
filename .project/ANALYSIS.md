@@ -13,6 +13,8 @@
 > on this host.
 > Hardening update: API text errors are now returned as JSON envelopes with request IDs,
 > access logs include request IDs, and HSTS is emitted when TLS is active or configured.
+> Rate-limit update: authenticated API routes now have a configurable per-IP limiter via
+> `server.http.rate_limit_per_minute` / `SIS_HTTP_RATE_LIMIT_PER_MINUTE`.
 
 ## 1. Executive Summary
 

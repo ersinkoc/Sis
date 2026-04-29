@@ -124,6 +124,9 @@ func applyDefaults(c *Config) {
 	if c.Auth.CookieName == "" {
 		c.Auth.CookieName = "sis_session"
 	}
+	if c.Server.HTTP.RateLimitPerMinute == 0 {
+		c.Server.HTTP.RateLimitPerMinute = 600
+	}
 }
 
 func applyEnvOverrides(c *Config) {
@@ -135,6 +138,8 @@ func applyEnvOverrides(c *Config) {
 	setString(os.Getenv("SIS_SERVER_HTTP_LISTEN"), &c.Server.HTTP.Listen)
 	setString(os.Getenv("SIS_HTTP_CERT_FILE"), &c.Server.HTTP.CertFile)
 	setString(os.Getenv("SIS_HTTP_KEY_FILE"), &c.Server.HTTP.KeyFile)
+	setInt(os.Getenv("SIS_HTTP_RATE_LIMIT_PER_MINUTE"), &c.Server.HTTP.RateLimitPerMinute)
+	setInt(os.Getenv("SIS_SERVER_HTTP_RATE_LIMIT_PER_MINUTE"), &c.Server.HTTP.RateLimitPerMinute)
 	setString(os.Getenv("SIS_TZ"), &c.Server.TZ)
 	setString(os.Getenv("SIS_PRIVACY_LOG_MODE"), &c.Privacy.LogMode)
 	setString(os.Getenv("SIS_PRIVACY_LOG_SALT"), &c.Privacy.LogSalt)

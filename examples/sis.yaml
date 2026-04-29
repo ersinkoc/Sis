@@ -24,6 +24,8 @@ server:
     tls: false
     cert_file: ""
     key_file: ""
+    # 0 disables the authenticated API limiter.
+    rate_limit_per_minute: 600
   data_dir: "./data"
   # Supported values: json, sqlite.
   store_backend: "json"

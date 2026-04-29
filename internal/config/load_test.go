@@ -25,6 +25,7 @@ func TestEnvOverridePrecedence(t *testing.T) {
 	t.Setenv("SIS_DNS_LISTEN", "127.0.0.1:5354,[::1]:5354")
 	t.Setenv("SIS_DNS_RATE_LIMIT_QPS", "50")
 	t.Setenv("SIS_DNS_RATE_LIMIT_BURST", "75")
+	t.Setenv("SIS_HTTP_RATE_LIMIT_PER_MINUTE", "25")
 	t.Setenv("SIS_CACHE_MAX_ENTRIES", "1234")
 	t.Setenv("SIS_CACHE_MIN_TTL", "30s")
 	t.Setenv("SIS_LOGGING_GZIP", "true")
@@ -42,6 +43,9 @@ func TestEnvOverridePrecedence(t *testing.T) {
 	}
 	if cfg.Server.DNS.RateLimitQPS != 50 || cfg.Server.DNS.RateLimitBurst != 75 {
 		t.Fatalf("rate limit = %d/%d", cfg.Server.DNS.RateLimitQPS, cfg.Server.DNS.RateLimitBurst)
+	}
+	if cfg.Server.HTTP.RateLimitPerMinute != 25 {
+		t.Fatalf("HTTP rate limit = %d", cfg.Server.HTTP.RateLimitPerMinute)
 	}
 	if cfg.Cache.MaxEntries != 1234 || cfg.Cache.MinTTL.Duration != 30*time.Second {
 		t.Fatalf("cache env overrides not applied: %#v", cfg.Cache)

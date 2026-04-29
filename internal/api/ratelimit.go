@@ -25,7 +25,14 @@ func newRateLimiter(limit int, window time.Duration) *rateLimiter {
 }
 
 func (l *rateLimiter) allow(r *http.Request) bool {
-	if l == nil || l.limit <= 0 || l.window <= 0 {
+	if l == nil {
+		return true
+	}
+	return l.allowWith(r, l.limit, l.window)
+}
+
+func (l *rateLimiter) allowWith(r *http.Request, limit int, window time.Duration) bool {
+	if l == nil || limit <= 0 || window <= 0 {
 		return true
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -37,15 +44,15 @@ func (l *rateLimiter) allow(r *http.Request) bool {
 	defer l.mu.Unlock()
 	if l.nextPrune.IsZero() || now.After(l.nextPrune) {
 		l.pruneLocked(now)
-		l.nextPrune = now.Add(l.window)
+		l.nextPrune = now.Add(window)
 	}
 	entry := l.entries[host]
 	if entry.reset.IsZero() || now.After(entry.reset) {
-		entry = rateEntry{reset: now.Add(l.window)}
+		entry = rateEntry{reset: now.Add(window)}
 	}
 	entry.count++
 	l.entries[host] = entry
-	return entry.count <= l.limit
+	return entry.count <= limit
 }
 
 func (l *rateLimiter) pruneLocked(now time.Time) {

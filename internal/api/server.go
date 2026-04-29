@@ -45,6 +45,7 @@ type Server struct {
 	dnsReady     func() bool
 	configPath   string
 	loginLimiter *rateLimiter
+	apiLimiter   *rateLimiter
 }
 
 // New creates an API server with default dependencies.
@@ -81,6 +82,7 @@ func NewWithDeps(opts Options) *Server {
 		syncer: opts.Syncer, upstream: opts.Upstream, cache: opts.Cache,
 		pipeline: opts.Pipeline, dnsReady: opts.DNSReady,
 		configPath: opts.ConfigPath, loginLimiter: newRateLimiter(5, time.Minute),
+		apiLimiter: newRateLimiter(0, time.Minute),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
@@ -306,7 +308,17 @@ func (s *Server) queryLogStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) middleware(next http.Handler) http.Handler {
-	return recoverMiddleware(s.log)(s.securityHeaders(requestID(accessLog(s.log, apiErrorEnvelope(s.csrfGuard(s.authRequired(next)))))))
+	return recoverMiddleware(s.log)(s.securityHeaders(requestID(accessLog(s.log, apiErrorEnvelope(s.csrfGuard(s.authRequired(s.apiRateLimit(next))))))))
+}
+
+func (s *Server) apiRateLimit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/") && !s.apiLimiter.allowWith(r, s.apiRateLimitPerMinute(), time.Minute) {
+			http.Error(w, "rate limited", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) csrfGuard(next http.Handler) http.Handler {
@@ -426,6 +438,13 @@ func (s *Server) hstsEnabled(r *http.Request) bool {
 		return true
 	}
 	return s != nil && s.cfg != nil && s.cfg.Get() != nil && s.cfg.Get().Server.HTTP.TLS
+}
+
+func (s *Server) apiRateLimitPerMinute() int {
+	if s != nil && s.cfg != nil && s.cfg.Get() != nil {
+		return s.cfg.Get().Server.HTTP.RateLimitPerMinute
+	}
+	return 600
 }
 
 func writeJSON(w http.ResponseWriter, value any) {

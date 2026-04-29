@@ -188,6 +188,42 @@ func TestAPIErrorEnvelopeIncludesRequestID(t *testing.T) {
 	}
 }
 
+func TestAPIRateLimitProtectedRoutes(t *testing.T) {
+	holder := validAPIConfig(t)
+	cfg := *holder.Get()
+	cfg.Server.HTTP.RateLimitPerMinute = 1
+	holder.Replace(&cfg)
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Stats:  stats.New(),
+		Store:  st,
+	})
+
+	firstReq := httptest.NewRequest(http.MethodGet, "/api/v1/stats/summary", nil)
+	firstReq.RemoteAddr = "192.0.2.44:1234"
+	addSessionCookie(t, st, firstReq)
+	firstRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(firstRec, firstReq)
+	if firstRec.Code != http.StatusOK {
+		t.Fatalf("first status = %d body=%s", firstRec.Code, firstRec.Body.String())
+	}
+
+	secondReq := httptest.NewRequest(http.MethodGet, "/api/v1/stats/summary", nil)
+	secondReq.RemoteAddr = "192.0.2.44:1234"
+	addSessionCookie(t, st, secondReq)
+	secondRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(secondRec, secondReq)
+	if secondRec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second status = %d body=%s", secondRec.Code, secondRec.Body.String())
+	}
+}
+
 func TestCSRFMiddlewareRejectsCrossOriginCookieMutation(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {

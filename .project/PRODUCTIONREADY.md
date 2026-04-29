@@ -32,7 +32,7 @@ Estimated specified feature completion:
 Core feature status:
 
 - Complete: DNS UDP/TCP listener, pipeline, DoH forwarding, cache, policy engine, schedules backend, block/allow lists, custom lists, logging, stats counters/rollups, HTTP API, cookie sessions, config reload, JSON/SQLite stores, embedded WebUI, backup/restore, release scripts.
-- Partial: HTTP rate limiting, acceptance testing, performance targets, conformance tests, frontend accessibility, upstream cooldown semantics.
+- Partial: acceptance testing, performance targets, conformance tests, frontend accessibility, upstream cooldown semantics.
 - Missing: TUI, Unix-socket JSON-RPC, OpenAPI docs, full SPEC §19 integration suite, Prometheus metrics.
 - Recently fixed: WebUI group saves now preserve schedules and expose schedule editing.
 
@@ -100,6 +100,7 @@ Critical broken/unfinished flows:
 - [x] Password hashing contract is documented. It uses PBKDF2-SHA256 with 210,000 iterations, not bcrypt/argon2.
 - [x] Origin/Referer protection is implemented for unsafe cookie-authenticated API methods.
 - [x] Login rate limiting exists.
+- [x] Authenticated API rate limiting exists through `server.http.rate_limit_per_minute`.
 - [ ] Role-based authorization exists.
 
 ### 3.2 Input Validation & Injection
@@ -136,12 +137,12 @@ Critical broken/unfinished flows:
 |---|---|---|---|
 | Medium | Password hashing differs from original spec | `internal/api/password.go`; `SECURITY.md` documents PBKDF2-SHA256 contract | Operators must preserve compatibility or migrate credentials deliberately |
 | Low | `/readyz` can only report listener lifecycle known to the current process | `internal/dns/server.go` exposes `Ready`; API consumes it | Keep startup error monitoring and Go regression tests |
-| Medium | Only login HTTP rate-limited | `internal/api/server.go:80`, `auth.go:71-75` | API abuse risk |
+| Low | API rate limiting is coarse per-IP only | `server.http.rate_limit_per_minute` protects authenticated API routes | NAT/shared-admin clients can contend for the same bucket |
 | Low | HSTS relies on TLS detection/config | `securityHeaders` sets HSTS when request TLS or configured TLS is active | Reverse-proxy deployments still need correct TLS forwarding/operator docs |
 
 NPM audit: `found 0 vulnerabilities`.
 
-Go vulnerability status: not checked because `go` and `govulncheck` are unavailable.
+Go vulnerability status: not checked because `govulncheck` is unavailable.
 
 ## 4. Performance Assessment
 
@@ -304,8 +305,8 @@ Critical paths without enough visible coverage:
 1. Add `gcc`/cgo support to local/CI environments and run `go test -race ./...`.
 2. Add integration tests for SPEC §19 acceptance paths.
 3. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
-4. Add broad API rate limiting.
-5. Add reverse-proxy/TLS forwarding guidance for HSTS and secure cookie deployments.
+4. Add reverse-proxy/TLS forwarding guidance for HSTS and secure cookie deployments.
+5. Add metrics/visibility for rate-limit rejections.
 
 ### Recommendations
 

@@ -76,7 +76,7 @@ sis serve -config examples/sis.yaml
 The example config listens on `127.0.0.1:5353` for DNS and `127.0.0.1:8080` for HTTP.
 Set `server.http.tls: true` with `cert_file` and `key_file` to serve the API over HTTPS; session cookies become `Secure` automatically.
 When `privacy.log_mode: hashed` is enabled with an empty `log_salt`, Sis generates and persists a salt on startup or config update.
-Common deployment settings can be overridden with `SIS_*` environment variables, such as `SIS_DNS_LISTEN`, `SIS_HTTP_LISTEN`, `SIS_DATA_DIR`, `SIS_DNS_RATE_LIMIT_QPS`, and `SIS_AUTH_SESSION_TTL`.
+Common deployment settings can be overridden with `SIS_*` environment variables, such as `SIS_DNS_LISTEN`, `SIS_HTTP_LISTEN`, `SIS_DATA_DIR`, `SIS_DNS_RATE_LIMIT_QPS`, `SIS_HTTP_RATE_LIMIT_PER_MINUTE`, and `SIS_AUTH_SESSION_TTL`.
 The durable store backend is configured with `server.store_backend`; supported values are `json` and `sqlite`.
 
 Install as a Linux service:
