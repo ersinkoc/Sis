@@ -109,6 +109,8 @@ writing refreshed examples beside them as `.example` files during upgrades.
 `scripts/verify-linux-service.sh` checks the installed binary, config, systemd service state,
 HTTP health/readiness, and a DNS query. Override `SIS_VERIFY_*` variables for non-default
 ports, paths, or staged checks.
+If an install, DNS bind, upstream, first-run, or SQLite migration check fails, use
+[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for focused recovery steps.
 
 Create an operational backup before upgrades or config-heavy changes:
 

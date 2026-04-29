@@ -120,6 +120,8 @@ sudo SIS_LAN_VALIDATE_DNS_SERVER=192.168.1.2:53 \
 The helper checks config validity, UDP DNS, TCP DNS, optional blocked-domain behavior, and
 HTTP health/readiness. Set `SIS_LAN_VALIDATE_SKIP_HTTP=1` when HTTP is intentionally not
 reachable from the validation environment.
+For bind, firewall, router/DHCP, or policy failures, see
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Production Validation Report
 
@@ -218,6 +220,8 @@ Journal logs are skipped by default because they may contain domain or client da
 Set `SIS_DIAG_INCLUDE_JOURNAL=1` only after accepting that exposure.
 The bundle includes `sis store verify` output, which reports backend, path, total and
 collection-level record counts, and schema version without copying database contents.
+Use [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common DNS bind, upstream DoH, first-run,
+and SQLite migration recovery flows.
 
 ## Release Gate
 
