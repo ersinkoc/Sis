@@ -22,5 +22,5 @@ It separates covered source-level acceptance from remaining host/browser validat
 
 - Playwright browser execution is blocked on this host by unsupported Chromium package availability.
 - Race testing is blocked locally because `go test -race` requires cgo and no C compiler is installed.
-- Fuzz coverage is still absent for blocklist parsing, domain normalization, and DNS edge cases.
+- Seeded fuzz targets exist for blocklist parsing, domain normalization, and DNS edge cases; long-running fuzz campaigns are still pending.
 - Performance targets still need representative benchmarks before broad release claims.
