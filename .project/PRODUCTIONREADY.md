@@ -191,7 +191,7 @@ Source tests present:
 
 Critical paths without enough visible coverage:
 
-- Remaining SPEC §19 DNS-to-DoH-to-policy-to-log scenarios: per-client rename, hot reload, restart persistence.
+- Remaining SPEC §19 DNS-to-DoH-to-policy-to-log scenarios: hot reload and restart persistence.
 - WebUI group schedule preservation now has a mocked Playwright spec, but browser execution is blocked on this host.
 - Real production install validation on target host.
 - CSRF/security behavior.
@@ -298,7 +298,7 @@ Critical paths without enough visible coverage:
 1. Race verification could not be performed because cgo needs a C compiler and `gcc` is not installed.
 2. Playwright schedule regression coverage exists, but browser execution is blocked on this host's unsupported Chromium package.
 3. Original v1 scope still promises TUI/Unix-socket JSON-RPC, which is absent.
-4. SPEC §19 end-to-end DNS acceptance coverage is still incomplete, though core DNS forwarding/blocking, allowlist, schedule, failover, cache-hit, and privacy paths now have fake-DoH/real-client tests.
+4. SPEC §19 end-to-end DNS acceptance coverage is still incomplete, though core DNS forwarding/blocking, allowlist, schedule, failover, cache-hit, privacy, and per-client rename/group move paths now have fake-DoH/real-client tests.
 
 ### High Priority
 

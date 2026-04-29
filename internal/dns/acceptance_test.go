@@ -14,6 +14,7 @@ import (
 	sislog "github.com/ersinkoc/sis/internal/log"
 	"github.com/ersinkoc/sis/internal/policy"
 	"github.com/ersinkoc/sis/internal/stats"
+	"github.com/ersinkoc/sis/internal/store"
 	"github.com/ersinkoc/sis/internal/upstream"
 	mdns "github.com/miekg/dns"
 )
@@ -207,16 +208,83 @@ func TestSpec19DNSAcceptancePrivacyModeHashesClientIdentity(t *testing.T) {
 	}
 }
 
+func TestSpec19DNSAcceptanceClientRenameAndGroupMove(t *testing.T) {
+	var upstreamHits atomic.Int64
+	doh := fakeDoH(t, http.StatusOK, net.ParseIP("203.0.113.50"), &upstreamHits)
+	defer doh.Close()
+
+	cfg := acceptanceConfig(t, []config.Upstream{{
+		ID: "primary", URL: doh.URL, Bootstrap: []string{"127.0.0.1"}, Timeout: config.Duration{Duration: time.Second},
+	}})
+	cfg.Groups = []config.Group{
+		{Name: "default"},
+		{Name: "iot", Blocklists: []string{"ads"}},
+	}
+
+	st, err := store.Open(cfg.Server.DataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	counters := stats.New()
+	queryLog, err := sislog.OpenQuery(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer queryLog.Close()
+	engine, err := policy.NewEngine(cfg, policy.StoreClientResolver{Clients: st.Clients()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ads := policy.NewDomains()
+	if !ads.Add("ads.example.") {
+		t.Fatal("failed to add ads.example")
+	}
+	engine.ReplaceList("ads", ads)
+
+	server := startAcceptanceServerWithClientID(
+		t, cfg, counters, queryLog, engine, upstream.NewPool(cfg.Upstreams), NewClientID(nil, st.Clients()),
+	)
+	allowed := exchangeAcceptanceDNS(t, "udp", server.udpAddr(), "clean.example.", mdns.TypeA)
+	assertAAnswer(t, allowed, "203.0.113.50")
+
+	client, err := st.Clients().Get("127.0.0.1")
+	if err != nil {
+		t.Fatalf("client should be auto-discovered: %v", err)
+	}
+	client.Name = "Living Room TV"
+	client.Group = "iot"
+	if err := st.Clients().Upsert(client); err != nil {
+		t.Fatal(err)
+	}
+
+	blocked := exchangeAcceptanceDNS(t, "udp", server.udpAddr(), "ads.example.", mdns.TypeA)
+	assertAAnswer(t, blocked, "0.0.0.0")
+	entries := queryLog.Recent(sislog.Filter{QName: "ads.example", Limit: 5})
+	if len(entries) == 0 {
+		t.Fatal("expected blocked query log entry")
+	}
+	entry := entries[len(entries)-1]
+	if !entry.Blocked || entry.BlockList != "ads" || entry.ClientName != "Living Room TV" || entry.ClientGroup != "iot" {
+		t.Fatalf("renamed/moved client query log = %#v", entry)
+	}
+}
+
 type acceptanceServer struct {
 	server *Server
 }
 
 func startAcceptanceServer(t *testing.T, cfg *config.Config, counters *stats.Counters, queryLog *sislog.Query, engine *policy.Engine, pool *upstream.Pool) *acceptanceServer {
 	t.Helper()
+	return startAcceptanceServerWithClientID(t, cfg, counters, queryLog, engine, pool, nil)
+}
+
+func startAcceptanceServerWithClientID(t *testing.T, cfg *config.Config, counters *stats.Counters, queryLog *sislog.Query, engine *policy.Engine, pool *upstream.Pool, clientID *ClientID) *acceptanceServer {
+	t.Helper()
 	holder := config.NewHolder(cfg)
 	pipeline := NewPipelineWithDeps(PipelineOptions{
 		Config: holder, Cache: NewCache(CacheOptions{}), Policy: engine,
-		Upstream: pool, Log: queryLog, Stats: counters,
+		Upstream: pool, Log: queryLog, Stats: counters, ClientID: clientID,
 	})
 	server := NewServer(holder, pipeline)
 	ctx, cancel := context.WithCancel(context.Background())

@@ -185,8 +185,13 @@ func (p *Pipeline) finish(r *Request, id Identity, msg *mdns.Msg, source string,
 	}
 	if p.log != nil && len(r.Msg.Question) > 0 {
 		q := r.Msg.Question[0]
+		clientName, clientGroup := "", ""
+		if p.clientID != nil {
+			clientName, clientGroup = p.clientID.Metadata(id.Key)
+		}
 		_ = p.log.Write(&sislog.Entry{
 			TS: time.Now().UTC(), ClientKey: id.Key, ClientIP: id.IP.String(),
+			ClientName: clientName, ClientGroup: clientGroup,
 			QName: q.Name, QType: qtypeString(q.Qtype), QClass: qclassString(q.Qclass),
 			RCode: mdns.RcodeToString[msg.Rcode], Answers: answerStrings(msg),
 			Blocked: blocked, BlockReason: reason, BlockList: list,
