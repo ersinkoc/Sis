@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -1644,6 +1646,67 @@ func TestBlocklistPatchBadRefreshIntervalFails(t *testing.T) {
 	s.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestBlocklistSyncEndpointUpdatesPolicyEntries(t *testing.T) {
+	dir := t.TempDir()
+	listPath := filepath.Join(dir, "ads.txt")
+	if err := os.WriteFile(listPath, []byte("ads.example.com\ntracker.example.net\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(filepath.Join(dir, "data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	holder.Get().Blocklists[0].URL = "file://" + listPath
+	holder.Get().Blocklists[0].Enabled = true
+	engine, err := policy.NewEngine(holder.Get(), policy.StaticClientResolver{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	syncer := policy.NewSyncer(holder, policy.NewFetcher(filepath.Join(dir, "cache")), engine, nil)
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+		Policy: engine,
+		Syncer: syncer,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/blocklists/ads/sync", nil)
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		ID       string `json:"id"`
+		Accepted int    `json:"accepted"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.ID != "ads" || payload.Accepted != 2 {
+		t.Fatalf("sync payload = %#v", payload)
+	}
+	decision := engine.For(policy.Identity{Key: "client"}).Evaluate("ads.example.com.", 1, time.Now())
+	if !decision.Blocked || decision.List != "ads" {
+		t.Fatalf("decision = %#v", decision)
+	}
+
+	entriesReq := httptest.NewRequest(http.MethodGet, "/api/v1/blocklists/ads/entries?q=tracker&limit=10", nil)
+	addSessionCookie(t, st, entriesReq)
+	entriesRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(entriesRec, entriesReq)
+	if entriesRec.Code != http.StatusOK {
+		t.Fatalf("entries status = %d body=%s", entriesRec.Code, entriesRec.Body.String())
+	}
+	if !bytes.Contains(entriesRec.Body.Bytes(), []byte("tracker.example.net")) {
+		t.Fatalf("entries body = %s", entriesRec.Body.String())
 	}
 }
 

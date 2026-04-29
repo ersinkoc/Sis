@@ -191,7 +191,7 @@ Source tests present:
 
 Critical paths without enough visible coverage:
 
-- Remaining SPEC §19 DNS-to-DoH-to-policy-to-log gap: broadening the named scenario suite beyond the covered fake-DoH/real-client paths.
+- Remaining SPEC §19 DNS-to-DoH-to-policy-to-log gap: broadening the named scenario suite beyond the covered fake-DoH/real-client paths; blocklist sync now has file-backed API endpoint coverage.
 - WebUI group schedule preservation now has a mocked Playwright spec, but browser execution is blocked on this host.
 - Real production install validation on target host.
 - CSRF/security behavior.
@@ -303,7 +303,7 @@ Critical paths without enough visible coverage:
 ### High Priority
 
 1. Add `gcc`/cgo support to local/CI environments and run `go test -race ./...`.
-2. Extend integration tests for remaining SPEC §19 acceptance paths.
+2. Extend integration tests for remaining SPEC §19/API/WebUI acceptance paths.
 3. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
 4. Add alert definitions for key operational failures.
 
