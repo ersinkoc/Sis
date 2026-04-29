@@ -48,9 +48,10 @@ protected by TLS and network policy. When Sis terminates TLS itself
 (`server.http.tls: true`), HTTP responses include `Strict-Transport-Security`.
 
 When Sis runs behind a reverse proxy, terminate TLS at the proxy, configure the Sis HTTP
-listener on localhost, and configure HSTS at the proxy edge. The Sis process only knows
-about request TLS that reaches it directly or TLS enabled in its own config; proxy-only TLS
-must therefore be enforced by the proxy configuration.
+listener on localhost, configure HSTS at the proxy edge, and set `auth.secure_cookie: true`
+so session cookies are marked `Secure` even though Sis receives proxied HTTP. The Sis
+process only knows about request TLS that reaches it directly or TLS enabled in its own
+config; proxy-only TLS must therefore be enforced by the proxy configuration.
 
 ## Pre-Upgrade Checklist
 

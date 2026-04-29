@@ -74,9 +74,9 @@ sis serve -config examples/sis.yaml
 ```
 
 The example config listens on `127.0.0.1:5353` for DNS and `127.0.0.1:8080` for HTTP.
-Set `server.http.tls: true` with `cert_file` and `key_file` to serve the API over HTTPS; session cookies become `Secure` automatically.
+Set `server.http.tls: true` with `cert_file` and `key_file` to serve the API over HTTPS; session cookies become `Secure` automatically. When TLS terminates at a reverse proxy, set `auth.secure_cookie: true` so Sis still marks session cookies as `Secure`.
 When `privacy.log_mode: hashed` is enabled with an empty `log_salt`, Sis generates and persists a salt on startup or config update.
-Common deployment settings can be overridden with `SIS_*` environment variables, such as `SIS_DNS_LISTEN`, `SIS_HTTP_LISTEN`, `SIS_DATA_DIR`, `SIS_DNS_RATE_LIMIT_QPS`, `SIS_HTTP_RATE_LIMIT_PER_MINUTE`, and `SIS_AUTH_SESSION_TTL`.
+Common deployment settings can be overridden with `SIS_*` environment variables, such as `SIS_DNS_LISTEN`, `SIS_HTTP_LISTEN`, `SIS_DATA_DIR`, `SIS_DNS_RATE_LIMIT_QPS`, `SIS_HTTP_RATE_LIMIT_PER_MINUTE`, `SIS_AUTH_SESSION_TTL`, and `SIS_AUTH_SECURE_COOKIE`.
 The durable store backend is configured with `server.store_backend`; supported values are `json` and `sqlite`.
 
 Install as a Linux service:
@@ -268,7 +268,7 @@ DNS queries, blocklist enforcement, auth setup, CLI API access, inventory APIs, 
 mutation, query logs, stats, cache flush, and config reload/history.
 `make coverage` runs `scripts/coverage.sh`, which fails unless total Go coverage is at least
 `COVERAGE_THRESHOLD` (`60.0` by default). CI also runs WebUI install/build/lint, Go vet,
-the same coverage gate, binary build, and smoke test.
+the same coverage gate, binary build, smoke test, and `govulncheck`.
 `make bench` runs the Go benchmark suite with allocation reporting; set `BENCHTIME` or `BENCHCOUNT` for longer local runs.
 `make godoc` checks that exported Go declarations have GoDoc comments.
 `make preflight` verifies that required local tools such as Go, gofmt, and npm are installed.

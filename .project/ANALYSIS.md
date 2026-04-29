@@ -263,6 +263,7 @@ Error handling:
 - API distinguishes internal/gateway errors in helper methods (`internal/api/server.go:325-337`) but returns plaintext errors.
 - DNS pipeline drops malformed UDP/TCP messages silently (`internal/dns/server.go:162-166`, `233-237`), with no explicit malformed counter despite spec mention.
 - CLI HTTP client caps response size and streams SSE safely (`cmd/sis/httpcli.go:46-105`).
+- Config save now follows the store durability pattern by fsyncing the temporary YAML file before rename and fsyncing the parent directory after rename (`internal/config/load.go`).
 
 Context usage:
 
@@ -280,7 +281,8 @@ Logging:
 Configuration:
 
 - Loader applies YAML, defaults, env overrides, then validation (`internal/config/load.go:18-33`).
-- Save is atomic-ish via temp file and rename (`internal/config/load.go:36-64`) but does not fsync the config file or parent directory.
+- Save uses a temporary file, restricted permissions, temp-file fsync, atomic rename, and parent-directory fsync (`internal/config/load.go`).
+- Config mutation PATCH handlers preserve omitted fields for settings, groups, upstreams, and blocklists; explicit empty arrays and false booleans remain valid updates.
 - Validation creates data/log directories as a side effect (`internal/config/validate.go:251-259`), which is operationally convenient but surprising for a validator.
 
 Magic numbers and hardcoded values:
@@ -345,14 +347,14 @@ Resource management:
 
 - DoH response bodies are closed and capped at 65,535 bytes (`internal/upstream/doh.go:118-135`).
 - CLI HTTP responses are capped at 8 MiB (`cmd/sis/httpcli.go:15`, `84-90`).
-- File store fsyncs data during `saveLocked` by design (seen in `file.go` continuation), while config save does not.
+- File store and config save both fsync data before rename and fsync the parent directory after rename.
 
 ### 3.4 Security Assessment
 
 Positive:
 
 - Server-side random 32-byte session tokens (`internal/api/auth.go:199-205`).
-- HttpOnly, SameSite=Lax cookies; Secure set when TLS or TLS config is active (`internal/api/auth.go:163-170`, `192-197`).
+- HttpOnly, SameSite=Lax cookies; Secure set when request TLS, TLS config, or `auth.secure_cookie` is active (`internal/api/auth.go`).
 - Bounded JSON bodies and unknown-field rejection.
 - Security headers include `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and CSP (`internal/api/server.go:302-310`).
 - No hardcoded secrets found by inspection.

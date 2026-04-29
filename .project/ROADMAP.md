@@ -39,11 +39,11 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 - [x] Add HSTS when TLS is enabled and document reverse-proxy expectations.
 - [x] Add CSRF tests for unsafe methods.
-- [ ] Review every config mutation endpoint for partial update semantics and preservation of omitted fields.
+- [x] Review every config mutation endpoint for partial update semantics and preservation of omitted fields.
 - [x] Add request ID to access logs and JSON errors.
-- [ ] Ensure config save fsyncs temp file and parent directory like store writes.
-- [ ] Add optional secure cookie override for reverse proxy deployments.
-- [ ] Run `govulncheck ./...` in CI once Go tooling is available.
+- [x] Ensure config save fsyncs temp file and parent directory like store writes.
+- [x] Add optional secure cookie override for reverse proxy deployments.
+- [x] Run `govulncheck` in CI once Go tooling is available.
 
 ## Phase 4: Testing (Week 9-10)
 

@@ -7,6 +7,14 @@ import (
 	"github.com/ersinkoc/sis/internal/config"
 )
 
+type blocklistPatchRequest struct {
+	ID              *string          `json:"id"`
+	Name            *string          `json:"name"`
+	URL             *string          `json:"url"`
+	Enabled         *bool            `json:"enabled"`
+	RefreshInterval *config.Duration `json:"refresh_interval"`
+}
+
 func (s *Server) blocklistCreate(w http.ResponseWriter, r *http.Request) {
 	if s.cfg == nil || s.cfg.Get() == nil {
 		http.Error(w, "config unavailable", http.StatusServiceUnavailable)
@@ -47,14 +55,29 @@ func (s *Server) blocklistPatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	before := next.Blocklists[idx]
-	var blocklist config.Blocklist
-	if err := decodeJSON(r, &blocklist); err != nil {
+	var patch blocklistPatchRequest
+	if err := decodeJSON(r, &patch); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	blocklist.ID = strings.TrimSpace(blocklist.ID)
+	blocklist := before
+	if patch.ID != nil {
+		blocklist.ID = strings.TrimSpace(*patch.ID)
+	}
 	if blocklist.ID == "" {
 		blocklist.ID = id
+	}
+	if patch.Name != nil {
+		blocklist.Name = *patch.Name
+	}
+	if patch.URL != nil {
+		blocklist.URL = *patch.URL
+	}
+	if patch.Enabled != nil {
+		blocklist.Enabled = *patch.Enabled
+	}
+	if patch.RefreshInterval != nil {
+		blocklist.RefreshInterval = *patch.RefreshInterval
 	}
 	if blocklist.ID != id && blocklistIndex(next.Blocklists, blocklist.ID) >= 0 {
 		http.Error(w, "blocklist already exists", http.StatusConflict)

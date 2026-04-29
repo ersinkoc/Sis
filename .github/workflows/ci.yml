@@ -30,6 +30,10 @@ jobs:
           cache: npm
           cache-dependency-path: webui/package-lock.json
       - run: WEBUI_PM=npm WEBUI_INSTALL=ci ./scripts/check.sh
+      - name: Vulnerability scan
+        run: |
+          packages="$(go list ./... | grep -v '/webui/node_modules/')"
+          go run golang.org/x/vuln/cmd/govulncheck@v1.3.0 ${packages}
       - run: npx playwright install --with-deps chromium
         working-directory: webui
       - run: ./scripts/webui-smoke.sh

@@ -52,9 +52,9 @@ Critical broken/unfinished flows:
 - JSON store writes through in-memory map and atomic persistence; SQLite backend adds normalized tables and `PRAGMA quick_check` verification.
 - Migration/export commands exist for JSON-to-SQLite and SQLite-to-JSON.
 - Backup/restore commands and scripts exist.
-- Config mutation flow validates and stores history.
+- Config mutation flow validates, stores history, and preserves omitted fields on PATCH handlers.
 - Risk: WebUI group schedule behavior still lacks automated frontend/e2e regression coverage.
-- Risk: config save lacks fsync, unlike the file store.
+- Config saves use temp-file fsync, atomic rename, and parent-directory fsync.
 
 ## 2. Reliability & Error Handling
 
@@ -87,7 +87,7 @@ Critical broken/unfinished flows:
 - Store state persists across restart.
 - Cache is intentionally in-memory/cold after restart.
 - SQLite verification and backup restore help recovery.
-- Ungraceful config save crash safety is weaker than store writes because config save does not fsync.
+- Config save crash safety now matches the file-store atomic write pattern for temp-file fsync, rename, and parent-directory fsync.
 
 ## 3. Security Assessment
 
@@ -115,7 +115,7 @@ Critical broken/unfinished flows:
 ### 3.3 Network Security
 
 - [x] TLS support via cert/key config.
-- [x] Secure cookie when TLS is active.
+- [x] Secure cookie when TLS is active, or when `auth.secure_cookie` is enabled for reverse-proxy TLS termination.
 - [x] Security headers exist.
 - [x] HSTS header exists when TLS is active or configured.
 - [x] CORS is not wildcard; no CORS headers are set.
@@ -305,8 +305,7 @@ Critical paths without enough visible coverage:
 1. Add `gcc`/cgo support to local/CI environments and run `go test -race ./...`.
 2. Add integration tests for SPEC §19 acceptance paths.
 3. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
-4. Add reverse-proxy/TLS forwarding guidance for HSTS and secure cookie deployments.
-5. Add alert definitions for key operational failures.
+4. Add alert definitions for key operational failures.
 
 ### Recommendations
 

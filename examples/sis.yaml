@@ -94,3 +94,5 @@ auth:
   users: []
   session_ttl: "24h"
   cookie_name: "sis_session"
+  # Force Secure cookies when TLS terminates at a reverse proxy in front of Sis.
+  secure_cookie: false

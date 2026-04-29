@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -30,6 +31,7 @@ func TestEnvOverridePrecedence(t *testing.T) {
 	t.Setenv("SIS_CACHE_MIN_TTL", "30s")
 	t.Setenv("SIS_LOGGING_GZIP", "true")
 	t.Setenv("SIS_AUTH_SESSION_TTL", "2h")
+	t.Setenv("SIS_AUTH_SECURE_COOKIE", "true")
 	t.Setenv("SIS_STORE_BACKEND", "json")
 	cfg, err := (&Loader{Path: filepath.Join("..", "..", "examples", "sis.yaml")}).Load()
 	if err != nil {
@@ -56,6 +58,9 @@ func TestEnvOverridePrecedence(t *testing.T) {
 	if cfg.Auth.SessionTTL.Duration != 2*time.Hour {
 		t.Fatalf("session ttl = %s", cfg.Auth.SessionTTL.Duration)
 	}
+	if !cfg.Auth.SecureCookie {
+		t.Fatal("secure cookie override not applied")
+	}
 	if cfg.Server.StoreBackend != "json" {
 		t.Fatalf("store backend = %q", cfg.Server.StoreBackend)
 	}
@@ -73,5 +78,19 @@ func TestSaveCreatesParentDirAndRestrictsPermissions(t *testing.T) {
 	}
 	if got := info.Mode().Perm(); got != 0o640 {
 		t.Fatalf("mode = %o, want 640", got)
+	}
+	entries, err := os.ReadDir(filepath.Dir(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "sis.yaml" {
+		t.Fatalf("unexpected save artifacts: %#v", entries)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "tz: Local") {
+		t.Fatalf("saved config does not contain timezone: %s", raw)
 	}
 }

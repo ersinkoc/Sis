@@ -7,6 +7,13 @@ import (
 	"github.com/ersinkoc/sis/internal/config"
 )
 
+type groupPatchRequest struct {
+	Name       *string            `json:"name"`
+	Blocklists *[]string          `json:"blocklists"`
+	Allowlist  *[]string          `json:"allowlist"`
+	Schedules  *[]config.Schedule `json:"schedules"`
+}
+
 func (s *Server) groupsList(w http.ResponseWriter, _ *http.Request) {
 	if s.cfg == nil || s.cfg.Get() == nil {
 		http.Error(w, "config unavailable", http.StatusServiceUnavailable)
@@ -64,28 +71,40 @@ func (s *Server) groupPatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	before := next.Groups[idx]
-	var patch config.Group
+	var patch groupPatchRequest
 	if err := decodeJSON(r, &patch); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	patch.Name = strings.TrimSpace(patch.Name)
-	if patch.Name == "" {
-		patch.Name = name
+	updated := before
+	if patch.Name != nil {
+		updated.Name = strings.TrimSpace(*patch.Name)
 	}
-	if name == "default" && patch.Name != "default" {
+	if updated.Name == "" {
+		updated.Name = name
+	}
+	if patch.Blocklists != nil {
+		updated.Blocklists = append([]string(nil), (*patch.Blocklists)...)
+	}
+	if patch.Allowlist != nil {
+		updated.Allowlist = append([]string(nil), (*patch.Allowlist)...)
+	}
+	if patch.Schedules != nil {
+		updated.Schedules = append([]config.Schedule(nil), (*patch.Schedules)...)
+	}
+	if name == "default" && updated.Name != "default" {
 		http.Error(w, "default group cannot be renamed", http.StatusBadRequest)
 		return
 	}
-	if patch.Name != name && groupIndex(next.Groups, patch.Name) >= 0 {
+	if updated.Name != name && groupIndex(next.Groups, updated.Name) >= 0 {
 		http.Error(w, "group already exists", http.StatusConflict)
 		return
 	}
-	next.Groups[idx] = patch
-	if !s.applyConfig(w, next, "group.update", name, before, patch) {
+	next.Groups[idx] = updated
+	if !s.applyConfig(w, next, "group.update", name, before, updated) {
 		return
 	}
-	writeJSON(w, patch)
+	writeJSON(w, updated)
 }
 
 func (s *Server) groupDelete(w http.ResponseWriter, r *http.Request) {

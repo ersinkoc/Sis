@@ -57,10 +57,26 @@ func (l *Loader) Save(c *Config) error {
 		_ = tmp.Close()
 		return err
 	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmpPath, l.Path)
+	if err := os.Rename(tmpPath, l.Path); err != nil {
+		return err
+	}
+	return syncDir(dir)
+}
+
+func syncDir(dir string) error {
+	f, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Sync()
 }
 
 func applyDefaults(c *Config) {
@@ -144,6 +160,7 @@ func applyEnvOverrides(c *Config) {
 	setString(os.Getenv("SIS_PRIVACY_LOG_MODE"), &c.Privacy.LogMode)
 	setString(os.Getenv("SIS_PRIVACY_LOG_SALT"), &c.Privacy.LogSalt)
 	setString(os.Getenv("SIS_AUTH_COOKIE_NAME"), &c.Auth.CookieName)
+	setBool(os.Getenv("SIS_AUTH_SECURE_COOKIE"), &c.Auth.SecureCookie)
 
 	if v := os.Getenv("SIS_DNS_LISTEN"); v != "" {
 		c.Server.DNS.Listen = splitCSV(v)

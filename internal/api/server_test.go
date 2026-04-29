@@ -1006,6 +1006,39 @@ func TestLoginCookieSecureWhenTLSConfigured(t *testing.T) {
 	}
 }
 
+func TestLoginCookieSecureWhenConfiguredForProxy(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	hash, err := HashPassword("secret123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	holder := config.NewHolder(&config.Config{
+		Auth: config.Auth{
+			FirstRun: false, CookieName: "sis_session", SecureCookie: true,
+			Users: []config.User{{Username: "admin", PasswordHash: hash}},
+		},
+	})
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"username":"admin","password":"secret123"}`))
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || !cookies[0].Secure {
+		t.Fatalf("expected secure cookie, got %#v", cookies)
+	}
+}
+
 func TestNewTokenUsesURLSafeRandomBytes(t *testing.T) {
 	token, err := newToken()
 	if err != nil {
@@ -1093,6 +1126,38 @@ func TestGroupPatchUpdatesPolicyFields(t *testing.T) {
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte(`"blocklists":["ads","malware"]`)) {
 		t.Fatalf("response should use JSON tags: %s", rec.Body.String())
+	}
+}
+
+func TestGroupPatchPreservesOmittedFields(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	holder.Get().Groups[0].Schedules = []config.Schedule{{
+		Name: "school", Days: []string{"mon"}, From: "08:00", To: "16:00", Block: []string{"ads"},
+	}}
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/groups/default", bytes.NewBufferString(`{"allowlist":["safe.example"]}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	group, ok := findConfigGroup(holder.Get().Groups, "default")
+	if !ok {
+		t.Fatal("default group missing")
+	}
+	if strings.Join(group.Blocklists, ",") != "ads" || strings.Join(group.Allowlist, ",") != "safe.example" ||
+		len(group.Schedules) != 1 || group.Schedules[0].Name != "school" {
+		t.Fatalf("group = %#v", group)
 	}
 }
 
@@ -1315,6 +1380,34 @@ func TestUpstreamPatch(t *testing.T) {
 	}
 }
 
+func TestUpstreamPatchPreservesOmittedFields(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	holder.Get().Upstreams[0].Name = "Cloudflare"
+	holder.Get().Upstreams[0].Timeout = config.Duration{Duration: 3 * time.Second}
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/upstreams/cloudflare", bytes.NewBufferString(`{"name":"Cloudflare DNS"}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	upstream := holder.Get().Upstreams[upstreamIndex(holder.Get().Upstreams, "cloudflare")]
+	if upstream.Name != "Cloudflare DNS" || upstream.URL != "https://cloudflare-dns.com/dns-query" ||
+		strings.Join(upstream.Bootstrap, ",") != "1.1.1.1" || upstream.Timeout.Duration != 3*time.Second {
+		t.Fatalf("upstream = %#v", upstream)
+	}
+}
+
 func TestUpstreamPatchDuplicateIDFails(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
@@ -1478,6 +1571,35 @@ func TestBlocklistPatch(t *testing.T) {
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte(`"refresh_interval":"12h0m0s"`)) {
 		t.Fatalf("response should use JSON tags: %s", rec.Body.String())
+	}
+}
+
+func TestBlocklistPatchPreservesOmittedFields(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	holder.Get().Blocklists[0].Name = "Ads"
+	holder.Get().Blocklists[0].Enabled = true
+	holder.Get().Blocklists[0].RefreshInterval = config.Duration{Duration: 24 * time.Hour}
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/blocklists/ads", bytes.NewBufferString(`{"name":"Advertising"}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	blocklist := holder.Get().Blocklists[blocklistIndex(holder.Get().Blocklists, "ads")]
+	if blocklist.Name != "Advertising" || blocklist.URL != "file:///tmp/ads.txt" ||
+		!blocklist.Enabled || blocklist.RefreshInterval.Duration != 24*time.Hour {
+		t.Fatalf("blocklist = %#v", blocklist)
 	}
 }
 

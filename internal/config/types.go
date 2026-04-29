@@ -191,10 +191,11 @@ type Client struct {
 
 // Auth configures local users and cookie sessions.
 type Auth struct {
-	Users      []User   `yaml:"users" json:"users"`
-	FirstRun   bool     `yaml:"first_run" json:"first_run"`
-	SessionTTL Duration `yaml:"session_ttl" json:"session_ttl"`
-	CookieName string   `yaml:"cookie_name" json:"cookie_name"`
+	Users        []User   `yaml:"users" json:"users"`
+	FirstRun     bool     `yaml:"first_run" json:"first_run"`
+	SessionTTL   Duration `yaml:"session_ttl" json:"session_ttl"`
+	CookieName   string   `yaml:"cookie_name" json:"cookie_name"`
+	SecureCookie bool     `yaml:"secure_cookie" json:"secure_cookie"`
 }
 
 // User configures one local management user.
