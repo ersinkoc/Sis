@@ -7,7 +7,12 @@
 
 Sis has a credible core: DNS UDP/TCP ingress, policy enforcement, DoH forwarding, auth, API, embedded WebUI, JSON/SQLite stores, release scripts, CI, backup/restore, and runbooks. The project is plausible for controlled home/lab/small-office deployments, especially if operators accept the documented limitations.
 
-Production blockers are concentrated in verification, scope reconciliation, and remaining hardening rather than basic feature absence. This session closed the WebUI schedule-erasure path, added schedule editing, made `/readyz` dependency-aware, documented the PBKDF2-SHA256 password hashing contract, and added Origin/Referer protection for cookie-authenticated mutations. Go tests still could not be run in this environment because the Go toolchain is unavailable.
+Production blockers are concentrated in live-host validation, broader acceptance coverage,
+and remaining hardening rather than basic feature absence. Recent work closed the WebUI
+schedule-erasure path, added schedule editing, made `/readyz` dependency-aware, documented
+the PBKDF2-SHA256 password hashing contract, added Origin/Referer protection for
+cookie-authenticated mutations, and reconciled the project scope documents with the current
+WebUI plus HTTP-backed CLI posture.
 
 What is working well: modular Go package layout, strong operational scripts, SQLite migration/export posture, WebUI build/lint, npm audit, DNS pipeline shape, and API coverage.
 
@@ -26,9 +31,9 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 ### Complete missing core features from specification
 
-- [ ] Reconcile TUI scope - either remove T065-T068 from v1 docs or implement Unix-socket JSON-RPC and Bubble Tea TUI; estimate 32-48h if implemented.
-- [ ] Align CLI transport decision - document HTTP-based CLI as intentional replacement for Unix socket, or add local socket mode; estimate 4-20h.
-- [ ] Complete WebUI navigation model - add real app shell/navigation or update spec to match single-page panel layout; estimate 12-20h.
+- [x] Reconcile TUI scope - TUI/Unix-socket control plane is deferred from current v1 scope; supported management surfaces are WebUI and HTTP-backed CLI.
+- [x] Align CLI transport decision - HTTP-backed CLI is documented as intentional for live operations.
+- [x] Complete WebUI navigation model - project docs now describe the current single-page operational console instead of an unbuilt multi-route shell.
 - [x] Add JSON error envelope for API failures - middleware converts text API errors into `{error, request_id}` responses while preserving streaming; estimate 6h.
 - [x] Expand HTTP rate limiting beyond login - `server.http.rate_limit_per_minute` adds a configurable per-IP limiter for authenticated `/api/v1/*`; estimate 6h.
 - [x] Add malformed DNS/error counters - `rate_limited_total` and `malformed_total` are counted in live stats, persisted rollups, and WebUI summary; estimate 4h.
@@ -72,8 +77,8 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 ### Documentation and developer experience
 
-- [ ] Update `.project/SPECIFICATION.md` to match current decisions: SQLite, HTTP CLI, PBKDF2/bcrypt decision, WebUI scope, TUI status.
-- [ ] Update `.project/IMPLEMENTATION.md` store and WebUI sections for current architecture.
+- [x] Update `.project/SPECIFICATION.md` to match current decisions: SQLite, HTTP CLI, PBKDF2-SHA256, WebUI scope, TUI status.
+- [x] Update `.project/IMPLEMENTATION.md` store, auth, CLI, diagnostics, release, and WebUI/TUI sections for current architecture.
 - [ ] Add API documentation, preferably OpenAPI generated from route definitions or maintained alongside handlers.
 - [ ] Add config reference generated from `internal/config/types.go`.
 - [ ] Add troubleshooting guide for DNS bind failures, upstream DoH failures, first-run setup, and SQLite migration.
