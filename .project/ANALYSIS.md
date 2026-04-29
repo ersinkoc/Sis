@@ -377,7 +377,7 @@ Concerns:
 Test files:
 
 - 33 Go `_test.go` files across CLI, API, config, DNS, log, policy, stats, store, SBOM, upstream.
-- Frontend has one Playwright smoke spec: `webui/e2e/smoke.spec.ts`.
+- Frontend has Playwright specs for first-run smoke, group schedule editing, and mocked management flows.
 
 Could not run:
 
@@ -421,7 +421,7 @@ Scripts:
 
 Frontend:
 
-- Playwright smoke validates first-run setup, store verification, and blocked query test.
+- Playwright specs validate first-run setup, store verification, blocked query test, group schedule editing, login, client edit, upstream CRUD, blocklist inspect, and allow/block list edit flows where browser execution is available.
 - No Storybook/shadcn setup despite TASKS T054.
 
 ## 5. Specification vs Implementation Gap Analysis
@@ -639,7 +639,7 @@ CI/CD:
 | Total Go LOC | 17,440 |
 | Total Frontend Files | 8 |
 | Total Frontend LOC | 3,184 |
-| Test Files | 34 Go + 1 Playwright |
+| Test Files | 37 Go + 3 Playwright |
 | Test Coverage | Not measured in this audit |
 | External Go Dependencies | 3 direct, 13 indirect |
 | External Frontend Dependencies | 6 runtime, 9 dev, 172 lockfile packages |

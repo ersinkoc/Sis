@@ -187,23 +187,23 @@ Not locally testable:
 Source tests present:
 
 - Broad unit tests for config, DNS, policy, API, store, stats, upstream, CLI helpers.
-- Playwright smoke for first-run, dashboard, store verify, blocked query, plus a mocked group schedule preservation/editing spec.
+- Playwright specs for first-run, dashboard, store verify, blocked query, mocked group schedule preservation/editing, login, client edit, upstream CRUD, blocklist inspect, and allow/block list edit flows.
 
 Critical paths without enough visible coverage:
 
 - SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation, browser execution, completed scheduled race/fuzz evidence, and performance evidence.
-- WebUI group schedule preservation now has a mocked Playwright spec, but browser execution is blocked on this host.
+- WebUI management flows now have mocked Playwright specs, but browser execution is blocked on this host.
 - Real production install validation on target host.
 - CSRF/security behavior.
 - Readiness dependency checks now have Go tests.
 
 ### 5.2 Test Categories Present
 
-- [x] Unit tests - 34 Go test files.
+- [x] Unit tests - 37 Go test files.
 - [ ] Integration tests - no dedicated integration suite found.
 - [x] API/endpoint tests - concentrated in `internal/api/server_test.go`.
 - [ ] Frontend component tests - absent.
-- [x] E2E tests - 2 Playwright specs.
+- [x] E2E tests - 3 Playwright specs.
 - [x] Benchmark tests - DNS cache and domain matching benchmarks.
 - [ ] Fuzz tests - absent.
 - [ ] Load tests - absent.
@@ -296,7 +296,7 @@ Critical paths without enough visible coverage:
 ### Production Blockers
 
 1. Race verification could not be performed locally because cgo needs a C compiler and `gcc` is not installed; CI now has a scheduled/manual race job.
-2. Playwright schedule regression coverage exists, but browser execution is blocked on this host's unsupported Chromium package.
+2. Playwright regression coverage exists for key WebUI flows, but browser execution is blocked on this host's unsupported Chromium package.
 3. Original v1 scope still promises TUI/Unix-socket JSON-RPC, which is absent.
 4. SPEC §19 local acceptance evidence is mapped, but production validation still needs real target host/router/LAN/client evidence.
 

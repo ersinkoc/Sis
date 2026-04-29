@@ -57,7 +57,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 - [x] Map SPEC §19 acceptance scenarios to automated evidence in `.project/ACCEPTANCE_MATRIX.md`, including remaining host/browser/race/fuzz gaps.
 - [x] Add integration tests for setup/login/session restart persistence, blocklist sync, and group schedule mutation through query/test.
 - [x] Add frontend test coverage for group schedule preservation/editing.
-- [ ] Add Playwright coverage for login, client edit, group edit, upstream CRUD, blocklist inspect, allow/block list edits.
+- [x] Add mocked Playwright coverage for login, client edit, group edit, upstream CRUD, blocklist inspect, and allow/block list edits.
 - [x] Add scheduled/manual CI quality job for `go test -race` and short fuzz campaigns.
 - [x] Add fuzz tests for blocklist parser, domain normalization, and DNS message edge cases.
 

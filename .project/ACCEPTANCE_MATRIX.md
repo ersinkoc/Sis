@@ -20,7 +20,7 @@ It separates covered source-level acceptance from remaining host/browser validat
 
 ## Cross-Cutting Gaps
 
-- Playwright browser execution is blocked on this host by unsupported Chromium package availability.
+- Playwright browser execution is blocked on this host by unsupported Chromium package availability; mocked specs cover key WebUI flows for supported hosts.
 - Race testing is blocked locally because `go test -race` requires cgo and no C compiler is installed; CI has a scheduled/manual race job.
 - Seeded fuzz targets exist for blocklist parsing, domain normalization, and DNS edge cases; CI has scheduled/manual short fuzz campaigns.
 - Performance targets still need representative benchmarks before broad release claims.
