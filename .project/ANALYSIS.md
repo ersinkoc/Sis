@@ -396,7 +396,7 @@ Coverage reality:
 
 - Unit tests exist for most core packages.
 - No `tests/integration/` directory exists.
-- SPEC §19-style DNS acceptance coverage now exists in `internal/dns/acceptance_test.go`, using fake DoH upstreams and real UDP/TCP DNS clients for default forwarding/blocking, allowlist override, active/inactive schedules, upstream failover, cache-hit logging, hashed privacy logging, per-client rename/group move, hot reload, and restart persistence. API integration coverage includes file-backed blocklist sync, setup/session restart persistence, and group schedule mutation through query/test HTTP endpoints. It is not yet the full 10-scenario suite.
+- SPEC §19-style DNS acceptance coverage now exists in `internal/dns/acceptance_test.go`, using fake DoH upstreams and real UDP/TCP DNS clients for default forwarding/blocking, allowlist override, active/inactive schedules, upstream failover, cache-hit logging, hashed privacy logging, per-client rename/group move, hot reload, and restart persistence. API integration coverage includes file-backed blocklist sync, setup/session restart persistence, and group schedule mutation through query/test HTTP endpoints. `.project/ACCEPTANCE_MATRIX.md` maps all SPEC §19 scenarios to evidence and remaining gaps.
 - No benchmark harness package exists; only package-level benchmarks for DNS cache and domain matching.
 - No fuzz tests found.
 - No frontend unit/component tests found.
@@ -617,7 +617,7 @@ CI/CD:
 | `internal/api` errors | Plaintext error bodies inconsistent with JSON API | Standardize JSON error envelope | 4-8h |
 | `internal/dns/server.go:149-156` | UDP hot path allocates/copies per packet | Introduce buffer pool or benchmark current cost and document | 4-8h |
 | `internal/policy/engine.go:87-90` | Per-query map copy | Replace with immutable snapshot pointer or benchmark and document | 4-8h |
-| Tests | SPEC §19 acceptance suite is partial | Map remaining SPEC §19 scenarios to named Go/API/WebUI acceptance tests and close gaps | 4-10h |
+| Tests | Browser/race/fuzz/performance evidence remains partial | Run browser e2e where Playwright Chromium is supported; add race/fuzz/perf gates | 8-16h |
 | Observability | No Prometheus/pprof endpoint, request ID not in access logs | Add request ID to logs and optional metrics/profiling endpoints | 8-16h |
 | API rate limits | Only login is limited | Add configurable limiter for other API endpoints | 4-8h |
 

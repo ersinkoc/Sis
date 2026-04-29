@@ -54,7 +54,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 ### Comprehensive test coverage
 
-- [ ] Automate SPEC §19 acceptance scenarios with fake DoH upstream and real DNS client - current Go coverage exercises default forwarding/blocking, allowlist override, active/inactive schedules, upstream failover, cache-hit logging, hashed privacy logging, per-client rename/group move, hot reload, and restart persistence. Remaining gaps are broader API/WebUI integration coverage and any SPEC scenarios not yet mirrored as named Go acceptance tests.
+- [x] Map SPEC §19 acceptance scenarios to automated evidence in `.project/ACCEPTANCE_MATRIX.md`, including remaining host/browser/race/fuzz gaps.
 - [x] Add integration tests for setup/login/session restart persistence, blocklist sync, and group schedule mutation through query/test.
 - [x] Add frontend test coverage for group schedule preservation/editing.
 - [ ] Add Playwright coverage for login, client edit, group edit, upstream CRUD, blocklist inspect, allow/block list edits.

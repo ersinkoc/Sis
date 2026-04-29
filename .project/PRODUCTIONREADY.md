@@ -191,7 +191,7 @@ Source tests present:
 
 Critical paths without enough visible coverage:
 
-- Remaining SPEC §19 DNS-to-DoH-to-policy-to-log gap: broadening the named scenario suite beyond the covered fake-DoH/real-client paths; blocklist sync, setup/session restart persistence, and group schedule mutation through query/test now have API endpoint coverage.
+- SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation, browser execution, race/fuzz coverage, and performance evidence.
 - WebUI group schedule preservation now has a mocked Playwright spec, but browser execution is blocked on this host.
 - Real production install validation on target host.
 - CSRF/security behavior.
@@ -298,12 +298,12 @@ Critical paths without enough visible coverage:
 1. Race verification could not be performed because cgo needs a C compiler and `gcc` is not installed.
 2. Playwright schedule regression coverage exists, but browser execution is blocked on this host's unsupported Chromium package.
 3. Original v1 scope still promises TUI/Unix-socket JSON-RPC, which is absent.
-4. SPEC §19 end-to-end DNS acceptance coverage is still incomplete, though core DNS forwarding/blocking, allowlist, schedule, failover, cache-hit, privacy, per-client rename/group move, hot reload, and restart persistence paths now have fake-DoH/real-client tests.
+4. SPEC §19 local acceptance evidence is mapped, but production validation still needs real target host/router/LAN/client evidence.
 
 ### High Priority
 
 1. Add `gcc`/cgo support to local/CI environments and run `go test -race ./...`.
-2. Extend integration tests for remaining SPEC §19/API/WebUI acceptance paths.
+2. Run browser e2e on a supported Playwright host and extend WebUI acceptance paths.
 3. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
 4. Add alert definitions for key operational failures.
 
