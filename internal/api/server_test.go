@@ -1289,6 +1289,60 @@ func TestGroupPatchUnknownBlocklistFailsValidation(t *testing.T) {
 	}
 }
 
+func TestGroupSchedulePatchAffectsQueryTest(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	holder.Get().Groups = []config.Group{{Name: "default"}}
+	holder.Get().Blocklists[0].Enabled = true
+	engine, err := policy.NewEngine(holder.Get(), policy.StaticClientResolver{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ads := policy.NewDomains()
+	if !ads.Add("ads.example.com.") {
+		t.Fatal("failed to add ads.example.com")
+	}
+	engine.ReplaceList("ads", ads)
+	pipeline := sisdns.NewPipelineWithDeps(sisdns.PipelineOptions{
+		Config: holder,
+		Cache:  sisdns.NewCache(sisdns.CacheOptions{}),
+		Policy: engine,
+		Stats:  stats.New(),
+	})
+	s := NewWithDeps(Options{
+		Config:   holder,
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:    st,
+		Policy:   engine,
+		Pipeline: pipeline,
+	})
+
+	body := `{"schedules":[{"name":"bedtime","days":["all"],"from":"00:00","to":"00:00","block":["ads"]}]}`
+	patchReq := httptest.NewRequest(http.MethodPatch, "/api/v1/groups/default", bytes.NewBufferString(body))
+	addSessionCookie(t, st, patchReq)
+	patchRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(patchRec, patchReq)
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("patch status = %d body=%s", patchRec.Code, patchRec.Body.String())
+	}
+
+	queryReq := httptest.NewRequest(http.MethodPost, "/api/v1/query/test", bytes.NewBufferString(`{"domain":"ads.example.com","type":"A","client_ip":"192.0.2.55"}`))
+	addSessionCookie(t, st, queryReq)
+	queryRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(queryRec, queryReq)
+	if queryRec.Code != http.StatusOK {
+		t.Fatalf("query status = %d body=%s", queryRec.Code, queryRec.Body.String())
+	}
+	if !bytes.Contains(queryRec.Body.Bytes(), []byte(`"source":"synthetic"`)) ||
+		!bytes.Contains(queryRec.Body.Bytes(), []byte("0.0.0.0")) {
+		t.Fatalf("query body = %s", queryRec.Body.String())
+	}
+}
+
 func TestSettingsPatch(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {

@@ -396,7 +396,7 @@ Coverage reality:
 
 - Unit tests exist for most core packages.
 - No `tests/integration/` directory exists.
-- SPEC §19-style DNS acceptance coverage now exists in `internal/dns/acceptance_test.go`, using fake DoH upstreams and real UDP/TCP DNS clients for default forwarding/blocking, allowlist override, active/inactive schedules, upstream failover, cache-hit logging, hashed privacy logging, per-client rename/group move, hot reload, and restart persistence. API integration coverage includes file-backed blocklist sync and setup/session restart persistence through HTTP endpoints. It is not yet the full 10-scenario suite.
+- SPEC §19-style DNS acceptance coverage now exists in `internal/dns/acceptance_test.go`, using fake DoH upstreams and real UDP/TCP DNS clients for default forwarding/blocking, allowlist override, active/inactive schedules, upstream failover, cache-hit logging, hashed privacy logging, per-client rename/group move, hot reload, and restart persistence. API integration coverage includes file-backed blocklist sync, setup/session restart persistence, and group schedule mutation through query/test HTTP endpoints. It is not yet the full 10-scenario suite.
 - No benchmark harness package exists; only package-level benchmarks for DNS cache and domain matching.
 - No fuzz tests found.
 - No frontend unit/component tests found.

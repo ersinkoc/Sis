@@ -191,7 +191,7 @@ Source tests present:
 
 Critical paths without enough visible coverage:
 
-- Remaining SPEC §19 DNS-to-DoH-to-policy-to-log gap: broadening the named scenario suite beyond the covered fake-DoH/real-client paths; blocklist sync and setup/session restart persistence now have file-backed API endpoint coverage.
+- Remaining SPEC §19 DNS-to-DoH-to-policy-to-log gap: broadening the named scenario suite beyond the covered fake-DoH/real-client paths; blocklist sync, setup/session restart persistence, and group schedule mutation through query/test now have API endpoint coverage.
 - WebUI group schedule preservation now has a mocked Playwright spec, but browser execution is blocked on this host.
 - Real production install validation on target host.
 - CSRF/security behavior.
