@@ -85,6 +85,18 @@ For a first install or a standard upgrade on the host architecture, the wrapper
 performs the download, verification, install, systemd enable/start, and live checks:
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/ersinkoc/Sis/main/install.sh | sudo bash
+```
+
+The root `install.sh` resolves the latest GitHub release, downloads and verifies release
+artifacts, asks for DNS/API/store/privacy settings when run interactively, writes managed
+environment overrides to `/etc/sis/sis.env`, and installs the systemd service. To skip
+prompts in automation, set `SIS_INSTALL_NONINTERACTIVE=1` plus any `SIS_*` overrides before
+running it.
+
+If you already have a checkout and want to install a specific version, use:
+
+```sh
 sudo ./scripts/install-release-linux.sh v0.1.2
 ```
 

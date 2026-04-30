@@ -8,7 +8,11 @@ that require careful upgrade notes.
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Added an interactive root `install.sh` that resolves the latest GitHub release, verifies
+  release artifacts, writes managed service environment overrides, and installs the Linux
+  systemd service.
 
 ## v0.1.2 - 2026-04-30
 
