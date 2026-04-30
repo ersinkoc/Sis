@@ -69,13 +69,13 @@ sudo ./scripts/verify-linux-service.sh
 Download and verify the release bundle before replacing the installed binary:
 
 ```sh
-./scripts/download-release.sh v0.1.1 dist/v0.1.1
-dist/v0.1.1/sis_linux_amd64 version
+./scripts/download-release.sh v0.1.2 dist/v0.1.2
+dist/v0.1.2/sis_linux_amd64 version
 ```
 
 ```sh
 sudo systemctl stop sis
-sudo install -m 0755 dist/v0.1.1/sis_linux_amd64 /usr/local/bin/sis
+sudo install -m 0755 dist/v0.1.2/sis_linux_amd64 /usr/local/bin/sis
 sudo /usr/local/bin/sis config check -config /etc/sis/sis.yaml
 sudo systemctl start sis
 sudo ./scripts/verify-linux-service.sh
@@ -85,7 +85,7 @@ For a first install or a standard upgrade on the host architecture, the wrapper
 performs the download, verification, install, systemd enable/start, and live checks:
 
 ```sh
-sudo ./scripts/install-release-linux.sh v0.1.1
+sudo ./scripts/install-release-linux.sh v0.1.2
 ```
 
 Docker, Compose, and Kubernetes deployments are explicitly unsupported for the current v1
@@ -95,7 +95,7 @@ packaged Linux binary plus the systemd scripts in this repository.
 For upgrades of an existing host, prefer the backup-first wrapper:
 
 ```sh
-sudo ./scripts/upgrade-release-linux.sh v0.1.1
+sudo ./scripts/upgrade-release-linux.sh v0.1.2
 ```
 
 If the service fails after an upgrade, restore the last verified backup:

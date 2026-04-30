@@ -33,7 +33,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release scope, upgrade notes, and known lim
 Install the latest Linux release:
 
 ```sh
-sudo ./scripts/install-release-linux.sh v0.1.1
+sudo ./scripts/install-release-linux.sh v0.1.2
 ```
 
 Quick local start:
