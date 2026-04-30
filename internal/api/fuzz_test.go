@@ -16,6 +16,20 @@ func TestNormalizeDomainInputConvertsIDNToALabel(t *testing.T) {
 	}
 }
 
+func TestNormalizeDomainInputRejectsInvalidUTF8(t *testing.T) {
+	normalized, ok := normalizeDomainInput("\x8f")
+	if ok || normalized != "" {
+		t.Fatalf("normalizeDomainInput returned %q, %v; want empty, false", normalized, ok)
+	}
+}
+
+func TestNormalizeDomainInputRejectsUnstableIDNA(t *testing.T) {
+	normalized, ok := normalizeDomainInput("0ℸ")
+	if ok || normalized != "" {
+		t.Fatalf("normalizeDomainInput returned %q, %v; want empty, false", normalized, ok)
+	}
+}
+
 func FuzzNormalizeDomainInput(f *testing.F) {
 	for _, seed := range []string{
 		"example.com",

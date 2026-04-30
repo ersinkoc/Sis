@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/net/idna"
 )
@@ -178,7 +179,7 @@ func NormalizeDomainPattern(domain string) (string, bool) {
 	if wild {
 		domain = domain[2:]
 	}
-	if strings.TrimSpace(domain) != domain || strings.HasSuffix(domain, ".") || domain == "" || containsSpace(domain) {
+	if !utf8.ValidString(domain) || strings.TrimSpace(domain) != domain || strings.HasSuffix(domain, ".") || domain == "" || containsSpace(domain) {
 		return "", false
 	}
 	ascii, err := idna.Lookup.ToASCII(domain)
@@ -187,6 +188,10 @@ func NormalizeDomainPattern(domain string) (string, bool) {
 	}
 	ascii = strings.ToLower(strings.TrimSuffix(ascii, "."))
 	if ascii == "" || len(ascii) > 253 || containsSpace(ascii) {
+		return "", false
+	}
+	stable, err := idna.Lookup.ToASCII(ascii)
+	if err != nil || strings.ToLower(strings.TrimSuffix(stable, ".")) != ascii {
 		return "", false
 	}
 	parts := strings.Split(ascii, ".")
