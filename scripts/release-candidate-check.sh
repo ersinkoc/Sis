@@ -10,8 +10,9 @@ if [[ -z "${tag}" || ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]
 fi
 
 branch="$(git branch --show-current)"
-if [[ "${branch}" != "${SIS_RELEASE_BRANCH:-main}" ]]; then
-  echo "release-candidate-check: expected branch ${SIS_RELEASE_BRANCH:-main}, got ${branch}" >&2
+expected_branch="${SIS_RELEASE_BRANCH-main}"
+if [[ "${branch}" != "${expected_branch}" ]]; then
+  echo "release-candidate-check: expected branch ${expected_branch}, got ${branch}" >&2
   exit 1
 fi
 
