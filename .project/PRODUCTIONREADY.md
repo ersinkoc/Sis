@@ -130,7 +130,7 @@ Critical broken/unfinished flows:
 - [x] `.env` examples are separate.
 - [x] Config/backups are documented as sensitive.
 - [x] Privacy salt generation exists.
-- [ ] Git history secret scan was not performed.
+- [x] Git history secret scan evidence is recorded in `docs/SECRET_SCAN.md`.
 - [ ] Sensitive config masking in all logs was not exhaustively verified.
 
 ### 3.5 Security Vulnerabilities Found

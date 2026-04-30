@@ -12,6 +12,7 @@ if [[ -n "${unformatted}" ]]; then
   exit 1
 fi
 git diff --exit-code
+./scripts/secret-scan.sh
 ./scripts/godoc.sh
 ./scripts/release-candidate-check-smoke.sh
 ./scripts/release-readiness-smoke.sh
