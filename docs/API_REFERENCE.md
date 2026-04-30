@@ -10,7 +10,7 @@ contract yet.
 ## Authentication And Middleware
 
 - `POST /api/v1/auth/setup` and `POST /api/v1/auth/login` are public.
-- `/healthz` and `/readyz` are public.
+- `/healthz`, `/readyz`, and `/metrics` are public on the configured management listener.
 - Other `/api/v1/*` routes require the configured session cookie, default
   `sis_session`.
 - The current v1 scope has one authenticated role: every authenticated user is a full
@@ -37,6 +37,7 @@ Error envelope:
 | --- | --- | --- | --- |
 | `GET` | `/healthz` | no | Liveness check. Returns `{"ok": true}` when the process is serving HTTP. |
 | `GET` | `/readyz` | no | Readiness check for config, store, upstreams, DNS pipeline, and DNS listener state. Returns `503` when not ready. |
+| `GET` | `/metrics` | no | Prometheus text exposition for live DNS, cache, rate-limit, malformed-packet, latency, and upstream counters. Returns `503` when stats are unavailable. |
 
 ## Auth
 

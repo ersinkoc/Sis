@@ -87,6 +87,7 @@ func NewWithDeps(opts Options) *Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /readyz", s.readyz)
+	mux.HandleFunc("GET /metrics", s.metrics)
 	mux.HandleFunc("POST /api/v1/auth/setup", s.setup)
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
@@ -429,7 +430,7 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		if s.hstsEnabled(r) {
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
-		if strings.HasPrefix(r.URL.Path, "/api/v1/") || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/") || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" || r.URL.Path == "/metrics" {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		next.ServeHTTP(w, r)

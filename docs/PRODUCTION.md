@@ -241,9 +241,8 @@ and SQLite migration recovery flows.
 ## Alerting
 
 Current v1 deployments should alert from service state, `/healthz`, `/readyz`, store
-verification, DNS validation, backup verification, and stats counters. Suggested alert
-conditions and manual checks are documented in [ALERTING.md](ALERTING.md). Prometheus
-metrics are reserved for future work.
+verification, DNS validation, backup verification, `/metrics`, and stats counters.
+Suggested alert conditions and manual checks are documented in [ALERTING.md](ALERTING.md).
 
 ## Release Gate
 

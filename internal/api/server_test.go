@@ -54,6 +54,82 @@ func TestAccessLogIncludesRequestID(t *testing.T) {
 	}
 }
 
+func TestMetricsExposesPrometheusCounters(t *testing.T) {
+	counters := stats.New()
+	counters.IncQuery()
+	counters.IncCacheHit()
+	counters.IncBlocked()
+	counters.ObserveLatency(3 * time.Millisecond)
+	upstream := counters.Upstream("cloudflare")
+	upstream.IncRequest()
+	upstream.IncError()
+	upstream.MarkUnhealthy()
+	upstream.ObserveLatency(12 * time.Millisecond)
+	s := NewWithDeps(Options{
+		Config: testHolder(),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Stats:  counters,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/plain") {
+		t.Fatalf("content type = %q", got)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"# TYPE sis_dns_queries_total counter",
+		"sis_dns_queries_total 1",
+		"sis_dns_cache_hits_total 1",
+		"sis_dns_blocked_queries_total 1",
+		"sis_dns_latency_observations_total 1",
+		`sis_upstream_requests_total{upstream="cloudflare"} 1`,
+		`sis_upstream_errors_total{upstream="cloudflare"} 1`,
+		`sis_upstream_healthy{upstream="cloudflare"} 0`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("metrics missing %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestMetricsEscapesUpstreamLabels(t *testing.T) {
+	counters := stats.New()
+	counters.Upstream("bad\"\\\nlabel").IncRequest()
+	s := NewWithDeps(Options{
+		Config: testHolder(),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Stats:  counters,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `sis_upstream_requests_total{upstream="bad\"\\\nlabel"} 1`) {
+		t.Fatalf("upstream label was not escaped:\n%s", rec.Body.String())
+	}
+}
+
+func TestMetricsWithoutStatsReturnsUnavailable(t *testing.T) {
+	s := NewWithDeps(Options{
+		Config: testHolder(),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestReadyzChecksRuntimeDependencies(t *testing.T) {
 	holder := validAPIConfig(t)
 	st, err := store.Open(holder.Get().Server.DataDir)

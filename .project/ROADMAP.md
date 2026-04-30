@@ -100,7 +100,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 ### Features and improvements for future versions
 
-- [ ] Prometheus metrics endpoint.
+- [x] Prometheus metrics endpoint.
 - [ ] Optional pprof endpoint protected by local/admin access.
 - [ ] Role-based admin permissions (deferred beyond current v1 scope).
 - [ ] OIDC or reverse-proxy auth integration.

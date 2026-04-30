@@ -2,9 +2,9 @@
 
 Scope: operator alert definitions for the current v1 small-site deployment posture.
 
-ASSUMPTION: Sis does not expose Prometheus metrics in the current v1 scope. These alerts use
-the existing health/readiness endpoints, CLI/API store verification, service manager state,
-query-log/stat counters, and diagnostics scripts.
+Sis exposes Prometheus text metrics on `/metrics` from the configured management listener.
+Keep the management listener on localhost, VPN, or a trusted management network before
+scraping it from another host.
 
 ## Critical Alerts
 
@@ -32,6 +32,7 @@ query-log/stat counters, and diagnostics scripts.
 sudo systemctl is-active sis
 curl -fsS http://127.0.0.1:8080/healthz
 curl -fsS http://127.0.0.1:8080/readyz
+curl -fsS http://127.0.0.1:8080/metrics
 sudo /usr/local/bin/sis config check -config /etc/sis/sis.yaml
 sudo /usr/local/bin/sis store verify -config /etc/sis/sis.yaml
 sudo ./scripts/validate-lan-dns.sh
@@ -57,7 +58,6 @@ sis upstream -cookie 'sis_session=...' health
 
 ## Missing Automation
 
-1. Prometheus metrics are reserved for future work.
-2. No bundled alert manager integration exists.
-3. Thresholds should be calibrated from the target site baseline after live production
+1. No bundled alert manager integration exists.
+2. Thresholds should be calibrated from the target site baseline after live production
    validation and sustained load testing.

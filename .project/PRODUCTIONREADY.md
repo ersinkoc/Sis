@@ -33,7 +33,7 @@ Core feature status:
 
 - Complete: DNS UDP/TCP listener, pipeline, DoH forwarding, cache, policy engine, schedules backend, block/allow lists, custom lists, logging, stats counters/rollups, HTTP API, cookie sessions, config reload, JSON/SQLite stores, embedded WebUI, backup/restore, release scripts.
 - Partial: acceptance testing, sustained live production load targets, conformance tests, frontend accessibility, upstream cooldown semantics.
-- Missing or deferred: OpenAPI docs, full live SPEC §19 production validation, Prometheus metrics. TUI/Unix-socket JSON-RPC is explicitly deferred from current v1 scope.
+- Missing or deferred: OpenAPI docs and full live SPEC §19 production validation. TUI/Unix-socket JSON-RPC is explicitly deferred from current v1 scope.
 - Recently fixed: WebUI group saves now preserve schedules and expose schedule editing.
 
 ### 1.2 Critical Path Analysis
@@ -243,7 +243,7 @@ Critical paths without enough visible coverage:
 
 - [x] `/healthz` exists.
 - [x] `/readyz` checks core runtime dependencies and DNS listener lifecycle state.
-- [ ] Prometheus endpoint exists.
+- [x] Prometheus endpoint exists.
 - [x] In-memory counters and API stats exist, including `rate_limited_total` and `malformed_total`.
 - [x] Store verification exists.
 - [x] Alert-worthy conditions are formalized in `docs/ALERTING.md`.
