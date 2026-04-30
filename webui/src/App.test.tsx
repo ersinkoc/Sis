@@ -50,6 +50,43 @@ describe("App", () => {
     expect(screen.getByText("cloudflare")).toBeInTheDocument();
   });
 
+  it("shows login errors when authentication fails", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const path = input instanceof Request ? input.url : String(input);
+      const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+      if (method === "GET" && path === "/api/v1/auth/me") {
+        return textResponse("signed out", 401);
+      }
+      if (method === "POST" && path === "/api/v1/auth/login") {
+        return textResponse("invalid credentials", 403);
+      }
+      return textResponse(`unhandled ${method} ${path}`, 500);
+    });
+
+    renderApp();
+
+    expect(await screen.findByRole("heading", { name: "Sign In" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Username"), { target: { value: "alice" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "badpassword" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByText("invalid credentials")).toBeInTheDocument();
+    const request = findFetchCall(fetchMock, "/api/v1/auth/login", "POST");
+    expect(request).toMatchObject({ username: "alice", password: "badpassword" });
+  });
+
+  it("renders dashboard errors when required API data fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      mockDashboardFetch({ "/api/v1/stats/summary": textResponse("dashboard unavailable", 503) }),
+    );
+
+    renderApp();
+
+    expect(await screen.findByText("dashboard unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByText("alice")).toBeInTheDocument();
+  });
+
   it("submits query tests with the selected type and client IP", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(mockDashboardFetch());
 
@@ -102,10 +139,15 @@ describe("App", () => {
   });
 });
 
-function mockDashboardFetch() {
+function mockDashboardFetch(overrides: Record<string, Response> = {}) {
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = input instanceof Request ? input.url : String(input);
     const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+
+    const override = overrides[path];
+    if (override != null) {
+      return override.clone();
+    }
 
     if (method === "POST" && path === "/api/v1/query/test") {
       return jsonResponse({
