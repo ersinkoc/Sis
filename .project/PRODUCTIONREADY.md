@@ -196,7 +196,7 @@ Source tests present:
 
 - Broad unit tests for config, DNS, policy, API, store, stats, upstream, CLI helpers.
 - Acceptance-style DNS/API tests cover SPEC §19 core scenarios in package tests; evidence is
-  mapped in `.project/ACCEPTANCE_MATRIX.md`.
+  mapped in `.project/ACCEPTANCE_MATRIX.md` and runnable through `make test-integration`.
 - Playwright specs for first-run, dashboard, store verify, blocked query, mocked group schedule preservation/editing, login, client edit, upstream CRUD, blocklist inspect, and allow/block list edit flows.
 
 Critical paths without enough visible coverage:
@@ -212,7 +212,7 @@ Critical paths without enough visible coverage:
 ### 5.2 Test Categories Present
 
 - [x] Unit tests - 41 Go test files.
-- [ ] Integration tests - acceptance-style DNS/API coverage exists in Go package tests, but no dedicated `tests/integration/` suite or `make test-integration` target exists.
+- [x] Integration test target - `make test-integration` runs acceptance-style DNS/API coverage from package tests.
 - [x] API/endpoint tests - concentrated in `internal/api/server_test.go`.
 - [ ] Frontend component tests - absent; browser coverage is Playwright E2E/spec based.
 - [x] E2E tests - 3 Playwright specs in `webui/e2e/`.

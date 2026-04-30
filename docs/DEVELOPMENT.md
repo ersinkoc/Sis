@@ -88,6 +88,14 @@ On non-`main` release-hardening branches, set the branch expected by release smo
 SIS_RELEASE_BRANCH="$(git branch --show-current)" ./scripts/check.sh
 ```
 
+Run the source-level integration subset separately when you want the SPEC §19 DNS/API
+acceptance path without the full gate:
+
+```sh
+./scripts/integration.sh
+make test-integration
+```
+
 The gate performs:
 
 - Go formatting check.

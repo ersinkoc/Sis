@@ -236,6 +236,7 @@ make preflight
 make check
 make fmt
 make test
+make test-integration
 make coverage
 make bench
 make godoc
@@ -246,6 +247,8 @@ make release-smoke
 
 `scripts/check.sh` runs the same main gate without requiring `make`: Go format drift check,
 GoDoc, WebUI install/build/lint, Go coverage, Go vet, binary build, and a local serve smoke test.
+`scripts/integration.sh` runs the acceptance-style DNS/API integration subset directly; `make
+test-integration` is a convenience wrapper when `make` is installed.
 `scripts/build.sh` creates the release binaries and `dist/SHA256SUMS`.
 `scripts/verify-release-artifacts.sh` validates release checksums, optional GPG signatures,
 and the SPDX SBOM for a downloaded or locally-built release bundle.

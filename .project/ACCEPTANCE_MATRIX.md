@@ -2,6 +2,7 @@
 
 This matrix maps the SPECIFICATION.md section 19 scenarios to automated evidence.
 It separates covered source-level acceptance from remaining host/browser validation.
+The source-level integration subset is runnable with `make test-integration`.
 
 | # | Scenario | Automated evidence | Status | Remaining gap |
 |---|---|---|---|---|
