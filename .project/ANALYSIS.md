@@ -402,7 +402,7 @@ Coverage reality:
 - SPEC §19-style DNS acceptance coverage now exists in `internal/dns/acceptance_test.go`, using fake DoH upstreams and real UDP/TCP DNS clients for default forwarding/blocking, allowlist override, active/inactive schedules, upstream failover, cache-hit logging, hashed privacy logging, per-client rename/group move, hot reload, and restart persistence. API integration coverage includes file-backed blocklist sync, setup/session restart persistence, and group schedule mutation through query/test HTTP endpoints. `.project/ACCEPTANCE_MATRIX.md` maps all SPEC §19 scenarios to evidence and remaining gaps.
 - No `sis bench` harness exists; package-level benchmarks now cover DNS cache/pipeline, policy, blocklist parsing, DoH forwarding, and SQLite store paths.
 - Seeded Go fuzz targets exist for blocklist parsing, policy domain matching, API domain normalization, and DNS message edge cases; CI has a scheduled/manual quality job for race and short fuzz campaigns.
-- Frontend component tests now cover first-run setup, authenticated dashboard rendering, login failure handling, required dashboard API failures, optional panel API failures, query test submission, settings PATCH payloads, and system mutation failure handling with Vitest/Testing Library.
+- Frontend component tests now cover first-run setup, authenticated dashboard rendering, login failure handling, required dashboard API failures, optional panel API failures, query test submission, settings PATCH payloads, system mutation failure handling, and group creation failure handling with Vitest/Testing Library.
 
 Packages with weak/no direct test coverage:
 

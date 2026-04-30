@@ -127,6 +127,33 @@ describe("App", () => {
     expect(countFetchCalls(fetchMock, "/api/v1/stats/summary", "GET")).toBe(1);
   });
 
+  it("shows group creation errors without reloading dashboard data", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      mockDashboardFetch({
+        "POST /api/v1/groups": textResponse("group create failed", 409),
+      }),
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Live Summary" });
+    const groups = sectionByHeading("Groups");
+    fireEvent.change(within(groups).getByPlaceholderText("new group"), {
+      target: { value: "kids" },
+    });
+    fireEvent.click(within(groups).getByRole("button", { name: "Add" }));
+
+    expect(await screen.findByText("group create failed")).toBeInTheDocument();
+    const request = findFetchCall(fetchMock, "/api/v1/groups", "POST");
+    expect(request).toMatchObject({
+      name: "kids",
+      blocklists: [],
+      allowlist: [],
+      schedules: [],
+    });
+    expect(countFetchCalls(fetchMock, "/api/v1/groups", "GET")).toBe(1);
+  });
+
   it("submits query tests with the selected type and client IP", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(mockDashboardFetch());
 
@@ -184,7 +211,7 @@ function mockDashboardFetch(overrides: Record<string, Response> = {}) {
     const path = input instanceof Request ? input.url : String(input);
     const method = init?.method ?? (input instanceof Request ? input.method : "GET");
 
-    const override = overrides[path];
+    const override = overrides[`${method} ${path}`] ?? overrides[path];
     if (override != null) {
       return override.clone();
     }
@@ -244,6 +271,12 @@ function countFetchCalls(
     const requestMethod = init?.method ?? (input instanceof Request ? input.method : "GET");
     return requestPath === path && requestMethod === method;
   }).length;
+}
+
+function sectionByHeading(name: string) {
+  const section = screen.getByRole("heading", { name }).closest("section");
+  expect(section).not.toBeNull();
+  return section as HTMLElement;
 }
 
 function dashboardResponses(): Record<string, unknown> {
