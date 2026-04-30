@@ -33,6 +33,12 @@ See [CHANGELOG.md](CHANGELOG.md) for release scope, upgrade notes, and known lim
 Install the latest Linux release:
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/ersinkoc/Sis/main/install.sh | sudo bash
+```
+
+Or download and install a specific release through the repository helper:
+
+```sh
 sudo ./scripts/install-release-linux.sh v0.1.2
 ```
 
