@@ -29,6 +29,7 @@ git diff --exit-code
 git diff --exit-code -- internal/webui/dist
 
 ./scripts/coverage.sh
+./scripts/integration.sh
 go vet ${go_packages}
 CGO_ENABLED=0 go build -trimpath -o bin/sis ./cmd/sis
 ./scripts/smoke.sh

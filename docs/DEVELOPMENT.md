@@ -105,6 +105,7 @@ The gate performs:
 - WebUI install/build/lint.
 - WebUI embed synchronization check.
 - Coverage gate.
+- Source-level DNS/API integration subset.
 - `go vet`.
 - Static binary build.
 - Runtime smoke test covering health, readiness, DNS, API, CLI, config reload/history, and
