@@ -19,6 +19,8 @@
 > exposed in live stats, persisted rollups, and the WebUI summary.
 > DNS error visibility update: malformed DNS packets increment `malformed_total`, which is
 > exposed in live stats, persisted rollups, and the WebUI summary.
+> Alerting update: key operational alert conditions are documented in `docs/ALERTING.md`
+> for the current non-Prometheus v1 posture.
 
 ## 1. Executive Summary
 

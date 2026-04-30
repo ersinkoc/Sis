@@ -274,6 +274,8 @@ backup contents.
 Docker and Kubernetes deployments are not supported for the current v1 release scope. Use
 the packaged Linux binaries and systemd install/upgrade/verify scripts for production
 validation.
+Operator alert definitions for the current non-Prometheus v1 posture are in
+`docs/ALERTING.md`.
 `scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies health/readiness,
 DNS queries, blocklist enforcement, auth setup, CLI API access, inventory APIs, custom blocklist
 mutation, query logs, stats, cache flush, and config reload/history.

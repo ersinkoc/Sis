@@ -244,7 +244,7 @@ Critical paths without enough visible coverage:
 - [ ] Prometheus endpoint exists.
 - [x] In-memory counters and API stats exist, including `rate_limited_total` and `malformed_total`.
 - [x] Store verification exists.
-- [ ] Alert-worthy conditions are formalized.
+- [x] Alert-worthy conditions are formalized in `docs/ALERTING.md`.
 
 ### 6.3 Tracing
 
@@ -310,8 +310,8 @@ Critical paths without enough visible coverage:
 ### High Priority
 
 1. Complete strict live-host production validation with real LAN DNS, authenticated API, diagnostics, and real-client observation.
-2. Add alert definitions for key operational failures.
-3. Add sustained live-host DNS/API load evidence beyond package benchmark baselines.
+2. Add sustained live-host DNS/API load evidence beyond package benchmark baselines.
+3. Calibrate alert thresholds from the target site baseline after live validation.
 4. Keep SPEC/IMPLEMENTATION/TASKS aligned if deferred TUI/socket scope changes.
 
 ### Recommendations
