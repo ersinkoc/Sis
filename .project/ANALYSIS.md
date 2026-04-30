@@ -587,7 +587,10 @@ Build:
 Deploy:
 
 - systemd example and install/upgrade/verify scripts exist.
-- No Dockerfile or docker-compose file found.
+- No Dockerfile or docker-compose file found; Docker, Compose, and Kubernetes are explicitly
+  unsupported for the current v1 release scope.
+- Local rollback drill evidence is recorded in `docs/ROLLBACK_DRILL.md`; target-host
+  rollback validation is still part of live production validation.
 - No `.goreleaser.yml` found; custom scripts and GitHub Actions handle releases.
 
 CI/CD:

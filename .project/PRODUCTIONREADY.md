@@ -86,7 +86,8 @@ Critical broken/unfinished flows:
 
 - Store state persists across restart.
 - Cache is intentionally in-memory/cold after restart.
-- SQLite verification and backup restore help recovery.
+- SQLite verification and backup restore help recovery; local rollback drill evidence is
+  recorded in `docs/ROLLBACK_DRILL.md`.
 - Config save crash safety now matches the file-store atomic write pattern for temp-file fsync, rename, and parent-directory fsync.
 
 ## 3. Security Assessment
@@ -199,6 +200,7 @@ Critical paths without enough visible coverage:
 - SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation and sustained production load evidence.
 - WebUI management flows now have mocked Playwright specs and CI browser execution.
 - Real production install validation on target host.
+- Live target-host rollback drill.
 - Final security review of auth/session/cookie/config/backup behavior is recorded in
   `docs/SECURITY_REVIEW.md`; external security testing is still pending.
 - Readiness dependency checks now have Go tests.
@@ -257,7 +259,7 @@ Critical paths without enough visible coverage:
 
 - [x] Reproducible-ish scripted builds with `-trimpath`.
 - [x] Multi-platform binary compilation.
-- [ ] Docker image exists.
+- [x] Docker posture is documented as unsupported for current v1 scope.
 - [x] Version information embedded via ldflags.
 - [x] SBOM generation exists.
 - [x] Checksums and optional signing exist.
@@ -285,7 +287,7 @@ Critical paths without enough visible coverage:
 - [x] Linux systemd install/verify scripts.
 - [x] Release smoke and production validation scripts.
 - [ ] Zero-downtime deployment support.
-- [ ] Container/Kubernetes readiness.
+- [x] Container/Kubernetes posture is documented as unsupported for current v1 scope.
 
 ## 8. Documentation Readiness
 

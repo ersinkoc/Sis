@@ -271,6 +271,9 @@ Linux service; override `SIS_BACKUP_*` variables for non-default paths.
 `scripts/collect-linux-diagnostics.sh` writes a support bundle with version, config-check,
 store verification, service, and host diagnostics without including config, database, or
 backup contents.
+Docker and Kubernetes deployments are not supported for the current v1 release scope. Use
+the packaged Linux binaries and systemd install/upgrade/verify scripts for production
+validation.
 `scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies health/readiness,
 DNS queries, blocklist enforcement, auth setup, CLI API access, inventory APIs, custom blocklist
 mutation, query logs, stats, cache flush, and config reload/history.

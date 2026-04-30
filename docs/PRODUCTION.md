@@ -88,6 +88,10 @@ performs the download, verification, install, systemd enable/start, and live che
 sudo ./scripts/install-release-linux.sh v0.1.1
 ```
 
+Docker, Compose, and Kubernetes deployments are explicitly unsupported for the current v1
+release scope. Production validation, rollback, diagnostics, and support docs assume the
+packaged Linux binary plus the systemd scripts in this repository.
+
 For upgrades of an existing host, prefer the backup-first wrapper:
 
 ```sh
@@ -98,10 +102,18 @@ If the service fails after an upgrade, restore the last verified backup:
 
 ```sh
 sudo systemctl stop sis
+sudo /usr/local/bin/sis backup verify -in /var/backups/sis/sis-YYYYMMDDTHHMMSSZ.tar.gz
 sudo /usr/local/bin/sis backup restore -in /var/backups/sis/sis-YYYYMMDDTHHMMSSZ.tar.gz -config /etc/sis/sis.yaml -data-dir /var/lib/sis -force
+sudo /usr/local/bin/sis config check -config /etc/sis/sis.yaml
+sudo /usr/local/bin/sis store verify -config /etc/sis/sis.yaml
 sudo systemctl start sis
 sudo ./scripts/verify-linux-service.sh
 ```
+
+The current local rollback drill evidence is recorded in
+[ROLLBACK_DRILL.md](ROLLBACK_DRILL.md). Repeat the same procedure on the target host and
+copy the live evidence into [PRODUCTION_VALIDATION.md](PRODUCTION_VALIDATION.md) before a
+stable release.
 
 ## LAN DNS Validation
 
