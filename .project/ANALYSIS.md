@@ -580,7 +580,8 @@ Weak/drift:
 
 - `.project/SPECIFICATION.md`, `.project/IMPLEMENTATION.md`, and `.project/TASKS.md` now agree that TUI/Unix-socket work is deferred, but downstream release messaging must keep that explicit.
 - Password hashing and WebUI component choices are documented implementation decisions, but security/design review should revisit them before a stable v1 claim.
-- No OpenAPI/API reference document exists beyond README examples and route code.
+- A maintained API reference exists in `docs/API_REFERENCE.md`; generated OpenAPI is still
+  absent.
 
 ### 7.3 Build & Deploy
 

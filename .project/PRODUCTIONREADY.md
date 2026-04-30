@@ -298,8 +298,8 @@ Critical paths without enough visible coverage:
 - [x] Security policy exists.
 - [x] Architecture overview exists.
 - [ ] SPEC/IMPLEMENTATION are fully accurate to current code.
-- [ ] API reference/OpenAPI exists.
-- [ ] Troubleshooting guide exists as a dedicated doc.
+- [x] Maintained API reference exists in `docs/API_REFERENCE.md`; OpenAPI generation remains deferred.
+- [x] Troubleshooting guide exists as a dedicated doc.
 
 ## 9. Final Verdict
 
