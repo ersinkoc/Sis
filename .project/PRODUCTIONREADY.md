@@ -198,8 +198,8 @@ Source tests present:
 - Acceptance-style DNS/API tests cover SPEC §19 core scenarios in package tests; evidence is
   mapped in `.project/ACCEPTANCE_MATRIX.md` and runnable through `make test-integration`.
 - Vitest/Testing Library component tests for first-run setup, authenticated dashboard rendering,
-  login failure handling, required dashboard API failures, query test submission, and settings
-  PATCH payloads.
+  login failure handling, required dashboard API failures, optional panel API failures, query test
+  submission, and settings PATCH payloads.
 - Playwright specs for first-run, dashboard, store verify, blocked query, mocked group schedule preservation/editing, login, client edit, upstream CRUD, blocklist inspect, and allow/block list edit flows.
 
 Critical paths without enough visible coverage:
@@ -219,7 +219,7 @@ Critical paths without enough visible coverage:
 - [x] API/endpoint tests - concentrated in `internal/api/server_test.go`.
 - [x] Frontend component tests - Vitest/Testing Library covers first-run setup,
   authenticated dashboard rendering, login failure handling, required dashboard API failures,
-  query test submission, and settings PATCH payloads.
+  optional panel API failures, query test submission, and settings PATCH payloads.
 - [x] E2E tests - 3 Playwright specs in `webui/e2e/`.
 - [x] Benchmark tests - DNS cache, policy evaluation, DNS pipeline, DoH forwarding, and SQLite store benchmarks; longer local baseline is recorded in `docs/PERFORMANCE_BASELINE.md`.
 - [x] Fuzz tests - blocklist parsing, domain normalization, policy domain matching, and DNS message edge cases.

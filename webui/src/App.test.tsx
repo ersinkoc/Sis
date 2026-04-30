@@ -87,6 +87,29 @@ describe("App", () => {
     expect(screen.getByText("alice")).toBeInTheDocument();
   });
 
+  it("renders optional panel errors without blocking the dashboard", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      mockDashboardFetch({
+        "/api/v1/logs/query?limit=8": textResponse("logs unavailable", 503),
+        "/api/v1/system/config/history?limit=3": textResponse("history unavailable", 503),
+        "/api/v1/stats/top-domains?limit=5": textResponse("top stats unavailable", 503),
+        "/api/v1/stats/timeseries?bucket=1m&limit=12": textResponse(
+          "timeseries unavailable",
+          503,
+        ),
+      }),
+    );
+
+    renderApp();
+
+    expect(await screen.findByRole("heading", { name: "Live Summary" })).toBeInTheDocument();
+    expect(screen.getByText("123")).toBeInTheDocument();
+    expect(screen.getByText("logs unavailable")).toBeInTheDocument();
+    expect(screen.getByText("history unavailable")).toBeInTheDocument();
+    expect(screen.getByText("top stats unavailable")).toBeInTheDocument();
+    expect(screen.getByText("timeseries unavailable")).toBeInTheDocument();
+  });
+
   it("submits query tests with the selected type and client IP", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(mockDashboardFetch());
 
