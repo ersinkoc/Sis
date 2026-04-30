@@ -102,7 +102,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 - [ ] Prometheus metrics endpoint.
 - [ ] Optional pprof endpoint protected by local/admin access.
-- [ ] Role-based admin permissions.
+- [ ] Role-based admin permissions (deferred beyond current v1 scope).
 - [ ] OIDC or reverse-proxy auth integration.
 - [ ] DoT/DoH ingress.
 - [ ] DNSSEC validation.

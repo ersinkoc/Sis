@@ -51,6 +51,8 @@ gpg --verify dist/SHA256SUMS.asc dist/SHA256SUMS
 - Keep the HTTP listener on localhost unless it is protected by a trusted management network,
   firewall, VPN, or reverse proxy.
 - Use TLS when exposing the HTTP API beyond localhost.
+- Treat every authenticated account as a full administrator; v1 does not implement role-based
+  permissions. See [`docs/AUTHORIZATION_SCOPE.md`](docs/AUTHORIZATION_SCOPE.md).
 - Treat config files and backups as secrets; they can contain password hashes, sessions,
   client metadata, and privacy salts.
 - Run the packaged systemd unit where possible; it includes capability bounding and sandboxing.

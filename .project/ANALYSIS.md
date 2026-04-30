@@ -43,7 +43,7 @@ Key metrics from discovery:
 | API routes registered | 47 |
 | TODO/FIXME/HACK markers | 0 in source/docs excluding generated artifacts |
 
-Overall health: **8/10 for small-site pre-v1 deployment, 6/10 against the current v1 specification**. The core DNS/API/storage architecture is coherent and surprisingly broad, with SQLite support, release scripts, CI, WebUI build/lint, and operational runbooks. The score is held down by remaining live-host validation, security/spec decisions around password hashing and broad admin authorization, deferred TUI/Unix-socket expectations, and lack of deeper conformance/sustained live-load testing evidence.
+Overall health: **8/10 for small-site pre-v1 deployment, 6/10 against the current v1 specification**. The core DNS/API/storage architecture is coherent and surprisingly broad, with SQLite support, release scripts, CI, WebUI build/lint, and operational runbooks. The score is held down by remaining live-host validation, deferred role-based authorization for broad admin use, deferred TUI/Unix-socket expectations, and lack of deeper conformance/sustained live-load testing evidence.
 
 Top strengths:
 
@@ -55,7 +55,7 @@ Top concerns:
 
 - The local TUI/Unix-socket management surface is absent and explicitly deferred from current v1 scope.
 - Live production validation still needs target host/router/LAN/client evidence in `docs/PRODUCTION_VALIDATION.md`.
-- Security remains simple: passwords use documented PBKDF2-SHA256 (`internal/api/password.go`), and all authenticated users are full admins.
+- Security remains simple: passwords use documented PBKDF2-SHA256 (`internal/api/password.go`), and all authenticated users are full admins by explicit current v1 scope decision.
 
 ## 2. Architecture Analysis
 
@@ -368,7 +368,8 @@ Concerns:
 - Unsafe cookie-authenticated `POST/PATCH/DELETE` endpoints enforce Origin/Referer checks for browser requests.
 - HSTS is emitted when TLS is active or configured.
 - Authenticated API routes have configurable per-IP rate limiting.
-- No authorization roles; any authenticated user is full admin.
+- No authorization roles; any authenticated user is full admin. This is explicitly deferred
+  from current v1 scope in `docs/AUTHORIZATION_SCOPE.md`.
 - `/readyz` verifies configured dependencies, including store/config, upstream health, DNS pipeline wiring, and DNS listener lifecycle state.
 - No explicit session token redaction in access logs is needed because cookies are not logged, but query/audit data remains sensitive and must be protected operationally.
 
@@ -513,7 +514,8 @@ Priority missing items:
 1. **Live production validation.** `docs/PRODUCTION_VALIDATION.md` still needs target host/router/LAN/client evidence.
 2. **TUI/Unix socket if still considered v1 scope.**
 3. **Sustained production load evidence.** Short CI benchmarks and a longer local package baseline exist, but long-running production-like DNS/API load evidence is still thin.
-4. **Authorization model.** Authenticated users are full admins; no role separation exists.
+4. **Authorization model.** Authenticated users are full admins; role separation is deferred
+   beyond current v1 small-site scope.
 
 ## 6. Performance & Scalability
 

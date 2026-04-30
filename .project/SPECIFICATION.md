@@ -685,6 +685,8 @@ Base path: `/api/v1`. All requests after `/auth/login` require a valid session c
 - Session TTL configurable, default 24h, sliding expiration.
 - Brute-force: per-IP login rate limit and configurable authenticated API rate limit.
 - Unsafe cookie-authenticated API methods require same-origin `Origin` or `Referer`.
+- Authorization: current v1 has one authenticated role. Every authenticated user is a full
+  administrator; role-based permissions are deferred for broader production use.
 
 ### 13.2 Network Exposure
 

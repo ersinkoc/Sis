@@ -103,6 +103,7 @@ Critical broken/unfinished flows:
 - [x] Login rate limiting exists.
 - [x] Authenticated API rate limiting exists through `server.http.rate_limit_per_minute`.
 - [ ] Role-based authorization exists.
+- [x] Single-role admin authorization scope is documented in `docs/AUTHORIZATION_SCOPE.md`.
 
 ### 3.2 Input Validation & Injection
 
@@ -332,6 +333,6 @@ Critical paths without enough visible coverage:
 
 **CONDITIONAL GO** for a tightly controlled home/lab/small-office deployment where HTTP is localhost/trusted-network only, SQLite is preferred, operators take backups, and operators accept that live target-host validation is still pending.
 
-**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification gaps for that posture today: incomplete live production validation, limited sustained live-load evidence, and no external security review.
+**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification gaps for that posture today: incomplete live production validation, limited sustained live-load evidence, no external security review, and no role-based authorization.
 
 The honest read: Sis is not a toy, and the operational scaffolding is unusually serious for this stage. Recent work removed several production blockers: schedule data loss, shallow dependency readiness, undocumented auth hashing, browser-origin mutation gaps, local Go test/vet gaps, CI race/fuzz gaps, CI browser-smoke gaps, and stale v1 TUI/socket expectations. It is still not safe to present as fully production-ready until live production validation is recorded and sustained load/security evidence is stronger.

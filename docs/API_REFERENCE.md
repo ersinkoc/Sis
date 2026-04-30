@@ -13,6 +13,8 @@ contract yet.
 - `/healthz` and `/readyz` are public.
 - Other `/api/v1/*` routes require the configured session cookie, default
   `sis_session`.
+- The current v1 scope has one authenticated role: every authenticated user is a full
+  administrator. See [AUTHORIZATION_SCOPE.md](AUTHORIZATION_SCOPE.md).
 - JSON request bodies are limited to 1 MiB, reject unknown fields, and must contain a single
   JSON value.
 - Unsafe cookie-authenticated methods (`POST`, `PATCH`, `DELETE`) require same-origin

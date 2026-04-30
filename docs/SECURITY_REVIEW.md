@@ -30,9 +30,10 @@ remain required before making those claims.
 - Login attempts are rate limited per client IP, and authenticated API routes can be rate
   limited through `server.http.rate_limit_per_minute`.
 
-Open risk: all authenticated users currently have full administrative access. Role-based
-authorization and external identity integration are tracked as future work for broader
-production use.
+Accepted v1 risk: all authenticated users currently have full administrative access. This
+scope decision is documented in [AUTHORIZATION_SCOPE.md](AUTHORIZATION_SCOPE.md).
+Role-based authorization and external identity integration are tracked as future work for
+broader production use.
 
 ## Cookie And Browser Protections
 
@@ -91,7 +92,6 @@ password hashes, and privacy salts. Backups must be stored and transferred as se
 1. Complete strict live-host production validation with real LAN DNS, authenticated API, and
    real-client observation.
 2. Add sustained DNS/API load evidence for the supported small-site production envelope.
-3. Decide whether v1 needs role-based admin permissions or can explicitly defer them.
-4. Run an external security review before making broad production or managed-service claims.
-5. Revisit password hashing after v1 compatibility requirements are settled; any migration
+3. Run an external security review before making broad production or managed-service claims.
+4. Revisit password hashing after v1 compatibility requirements are settled; any migration
    must continue accepting existing PBKDF2 hashes during rotation or transparent upgrade.
