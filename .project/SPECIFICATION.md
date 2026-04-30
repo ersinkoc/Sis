@@ -705,7 +705,8 @@ Base path: `/api/v1`. All requests after `/auth/login` require a valid session c
 
 - DNS messages parsed with `miekg/dns`; malformed messages dropped with a counter.
 - All API request bodies validated against schema; unknown fields rejected.
-- Domain names are normalized to lowercase before comparison. Full IDN/A-label hardening remains a tracked v1 hardening gap.
+- Domain names are normalized to lowercase ASCII A-labels before comparison for policy
+  domain sets and API-managed allow/block entries.
 
 ### 13.5 Secrets
 

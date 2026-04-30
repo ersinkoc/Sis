@@ -112,7 +112,7 @@ Critical broken/unfinished flows:
 - [x] React output escaping protects normal text rendering.
 - [x] Command injection risk is low; runtime does not shell out for DNS paths.
 - [x] Path traversal in WebUI static serving is mitigated through `path.Clean` and `fs`.
-- [ ] IDN/A-label normalization promised by spec is not clearly implemented.
+- [x] IDN/A-label normalization is implemented for policy domain sets and API-managed allow/block entries.
 
 ### 3.3 Network Security
 

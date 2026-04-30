@@ -9,10 +9,18 @@ func TestNormalizeDomainInputRejectsWhitespaceBeforeTrailingDot(t *testing.T) {
 	}
 }
 
+func TestNormalizeDomainInputConvertsIDNToALabel(t *testing.T) {
+	normalized, ok := normalizeDomainInput(" Bücher.Example. ")
+	if !ok || normalized != "xn--bcher-kva.example" {
+		t.Fatalf("normalizeDomainInput returned %q, %v; want A-label", normalized, ok)
+	}
+}
+
 func FuzzNormalizeDomainInput(f *testing.F) {
 	for _, seed := range []string{
 		"example.com",
 		" Example.COM. ",
+		"bücher.example",
 		"*.example.net",
 		"bad domain",
 		"0 .",
