@@ -29,11 +29,15 @@ This document breaks the v1 build into discrete, reviewable tasks. Each task is 
 | 2      | M2 finish, M3 Policy, M4 Upstream        | T016–T033   | 72    |
 | 3      | M5 Client ID, M6 Stats, M7 API           | T034–T052   | 80    |
 | 4      | M8 WebUI                                 | T053–T064   | 64    |
-| 5      | M9 TUI, M10 CLI, M11 Hardening & Release | T065–T078   | 60    |
+| 5      | M9 Deferred TUI, M10 CLI, M11 Hardening & Release | T065–T078   | 60    |
 
 Notes:
 
-- The current implementation uses a file-backed JSON store through `internal/store` interfaces. A future SQLite backend can replace it without changing callers.
+- The current implementation uses `internal/store` interfaces with JSON and SQLite backends.
+  SQLite is available for new larger small-site deployments; JSON remains supported for
+  simple and existing deployments.
+- The TUI/Unix-socket control plane originally listed under M9 is deferred from the current
+  v1 release scope. Supported management surfaces are WebUI and HTTP-backed CLI.
 - All frontend tasks (M8) can begin once T046 (auth handlers) and T056 (API client) are stubbed; UI screens land independently after that.
 
 ---
@@ -44,7 +48,7 @@ Notes:
 
 - **Scope:**
   - Create `cmd/sis/main.go` (empty `func main()`).
-  - `go.mod` with module `github.com/ersinkoc/sis`, Go 1.23.
+  - `go.mod` with module `github.com/ersinkoc/sis`, Go 1.25.9.
   - `LICENSE` (MIT).
   - `.gitignore`, `.editorconfig`.
   - `pkg/version` with `Version`, `Commit`, `Date` ldflag-injected vars.
@@ -100,7 +104,7 @@ Notes:
 - **Scope:**
   - `internal/log/query.go` — `Query` writer with mutex, JSON encoder.
   - `internal/log/rotate.go` — size-based rotation, retention eviction, optional gzip.
-  - In-memory fanout (channel) for SSE/TUI subscribers; bounded buffers; drop-oldest policy.
+  - In-memory fanout (channel) for SSE subscribers; bounded buffers; drop-oldest policy.
   - Privacy modes (`full | hashed | anonymous`).
 - **Deps:** T003
 - **Est:** 8h
@@ -502,7 +506,7 @@ Notes:
 ### T044 — Auth service
 
 - **Scope:**
-  - `internal/api/auth.go` — bcrypt password verification.
+  - `internal/api/auth.go` — PBKDF2-SHA256 password verification.
   - Session token generation, store-backed lookup, sliding expiration.
   - Cookie set/clear helpers.
 - **Deps:** T008, T043
@@ -601,26 +605,26 @@ Notes:
 
 ## M8 — WebUI (12 tasks)
 
-### T053 — Vite + React 19 + Tailwind 4.1 setup
+### T053 — Vite + React 19 + Tailwind setup
 
 - **Scope:**
   - `webui/` workspace.
-  - Vite 5 config, TypeScript strict, ESLint flat config.
-  - Tailwind CSS 4.1 with PostCSS pipeline.
+  - Vite config, TypeScript strict, ESLint flat config.
+  - Tailwind CSS 4 with the local Vite integration.
   - `dist/` output committed for embeds in release builds.
 - **Deps:** T001
 - **Est:** 4h
 - **Acceptance:** `pnpm dev` runs. `pnpm build` produces `dist/`. Lighthouse perf ≥ 95 for empty shell.
 
-### T054 — shadcn/ui + lucide-react integration
+### T054 — WebUI component foundation
 
 - **Scope:**
-  - Install shadcn components needed: Button, Input, Label, Card, Table, Dialog, Sheet, Tabs, Select, Switch, Badge, Toast, Tooltip, ScrollArea, DropdownMenu, Popover, Calendar.
-  - lucide-react for all icons.
+  - Reusable form, table, panel, dialog, tab, select, switch, badge, tooltip, and scroll controls.
+  - App shell or single-page operational panel layout, matching the current WebUI scope.
   - Tailored color tokens matching Sis branding.
 - **Deps:** T053
 - **Est:** 4h
-- **Acceptance:** All listed components render in a Storybook-style smoke page.
+- **Acceptance:** Shared controls render consistently in light and dark themes.
 
 ### T055 — Theme provider (dark/light/system)
 
@@ -628,7 +632,7 @@ Notes:
   - Context + localStorage persistence.
   - Toggle in topbar.
   - Respects `prefers-color-scheme`.
-  - All shadcn tokens themed via CSS variables.
+  - All shared controls themed through the common stylesheet.
 - **Deps:** T054
 - **Est:** 3h
 - **Acceptance:** Toggle persists across reloads; system mode follows OS in real time.
@@ -735,11 +739,15 @@ Notes:
 
 ---
 
-## M9 — TUI (4 tasks)
+## M9 — Deferred TUI / Unix Socket (4 tasks)
+
+These tasks are retained for historical planning only. They are not part of the current v1
+release scope unless the product scope is explicitly reopened.
 
 ### T065 — Unix socket JSON-RPC
 
 - **Scope:**
+  - Deferred from v1.
   - `internal/api/sock.go` — listens on `<data_dir>/sis.sock` (mode 0660).
   - Method registry: `stats.summary`, `stats.timeseries`, `stats.topClients`, `stats.topDomains`, `log.subscribe` (streaming), `clients.list`, `clients.update`, `blocklists.list`, `blocklists.sync`, `upstreams.list`, `cache.flush`, `query.test`.
   - Newline-delimited JSON-RPC 2.0.
@@ -750,6 +758,7 @@ Notes:
 ### T066 — Bubble tea app shell
 
 - **Scope:**
+  - Deferred from v1.
   - `internal/tui/app.go` — top-level `Model`, view router.
   - Hotkeys: `1-5` switch view, `q` quit, `?` help, `/` filter, `r` refresh.
   - Top bar with current view label and live timestamp.
@@ -761,6 +770,7 @@ Notes:
 ### T067 — Dashboard + live log views
 
 - **Scope:**
+  - Deferred from v1.
   - Dashboard: QPS, hit %, blocked % gauges; sparklines via `lipgloss` blocks.
   - Live log: streaming entries, `/text` filter, color-coded blocks.
 - **Deps:** T066
@@ -770,6 +780,7 @@ Notes:
 ### T068 — Clients + upstreams + blocklists views
 
 - **Scope:**
+  - Deferred from v1.
   - Clients: list with rename (`r`) and group-move (`g`) inline.
   - Upstreams: health table with latency.
   - Blocklists: list with sync (`s`) trigger.
@@ -794,9 +805,9 @@ Notes:
 ### T070 — CLI live commands
 
 - **Scope:**
-  - All commands that connect via Unix socket: `client list/rename/move/forget`, `group list/add`, `blocklist sync/test`, `allowlist add/remove`, `cache flush/stats`, `query test`, `logs tail`, `stats`, `upstream test/health`.
-  - Helpful error when server not running.
-- **Deps:** T065, T069
+  - All commands that connect through the authenticated HTTP API: `client list/rename/move/forget`, `group list/add`, `blocklist sync/test`, `allowlist add/remove`, `cache flush/stats`, `query test`, `logs tail`, `stats`, `upstream test/health`, `system info/store-verify`.
+  - Helpful error when server is not reachable or a session cookie is missing/expired.
+- **Deps:** T046, T069
 - **Est:** 6h
 - **Acceptance:** Each command produces expected output against a live server.
 
@@ -898,7 +909,7 @@ Notes:
 | M6 Stats            | 5     | 21         | 750           | —                 |
 | M7 API              | 10    | 50         | 1,500         | —                 |
 | M8 WebUI            | 12    | 62         | 200           | 3,800             |
-| M9 TUI              | 4     | 22         | 800           | —                 |
+| M9 Deferred TUI     | 4     | 22         | 800           | —                 |
 | M10 CLI             | 3     | 14         | 500           | —                 |
 | M11 Hardening       | 7     | 40         | 1,300         | —                 |
 | **Total**           | **78**| **~360**   | **~9,200**    | **~3,800**        |

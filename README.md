@@ -33,7 +33,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release scope, upgrade notes, and known lim
 Install the latest Linux release:
 
 ```sh
-sudo ./scripts/install-release-linux.sh v0.1.1
+sudo ./scripts/install-release-linux.sh v0.1.2
 ```
 
 Quick local start:
@@ -74,10 +74,16 @@ sis serve -config examples/sis.yaml
 ```
 
 The example config listens on `127.0.0.1:5353` for DNS and `127.0.0.1:8080` for HTTP.
-Set `server.http.tls: true` with `cert_file` and `key_file` to serve the API over HTTPS; session cookies become `Secure` automatically.
+Set `server.http.tls: true` with `cert_file` and `key_file` to serve the API over HTTPS; session cookies become `Secure` automatically. When TLS terminates at a reverse proxy, set `auth.secure_cookie: true` so Sis still marks session cookies as `Secure`.
 When `privacy.log_mode: hashed` is enabled with an empty `log_salt`, Sis generates and persists a salt on startup or config update.
-Common deployment settings can be overridden with `SIS_*` environment variables, such as `SIS_DNS_LISTEN`, `SIS_HTTP_LISTEN`, `SIS_DATA_DIR`, `SIS_DNS_RATE_LIMIT_QPS`, and `SIS_AUTH_SESSION_TTL`.
+Common deployment settings can be overridden with `SIS_*` environment variables, such as `SIS_DNS_LISTEN`, `SIS_HTTP_LISTEN`, `SIS_DATA_DIR`, `SIS_DNS_RATE_LIMIT_QPS`, `SIS_HTTP_RATE_LIMIT_PER_MINUTE`, `SIS_AUTH_SESSION_TTL`, and `SIS_AUTH_SECURE_COOKIE`.
 The durable store backend is configured with `server.store_backend`; supported values are `json` and `sqlite`.
+See [docs/CONFIG_REFERENCE.md](docs/CONFIG_REFERENCE.md) for the full config schema,
+defaults, validation rules, and environment overrides.
+See [docs/API_REFERENCE.md](docs/API_REFERENCE.md) for the maintained management API route
+reference.
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for local toolchain, Playwright, and check
+gate setup.
 
 Install as a Linux service:
 
@@ -109,6 +115,8 @@ writing refreshed examples beside them as `.example` files during upgrades.
 `scripts/verify-linux-service.sh` checks the installed binary, config, systemd service state,
 HTTP health/readiness, and a DNS query. Override `SIS_VERIFY_*` variables for non-default
 ports, paths, or staged checks.
+If an install, DNS bind, upstream, first-run, or SQLite migration check fails, use
+[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for focused recovery steps.
 
 Create an operational backup before upgrades or config-heavy changes:
 
@@ -228,6 +236,7 @@ make preflight
 make check
 make fmt
 make test
+make test-integration
 make coverage
 make bench
 make godoc
@@ -237,7 +246,10 @@ make release-smoke
 ```
 
 `scripts/check.sh` runs the same main gate without requiring `make`: Go format drift check,
-GoDoc, WebUI install/build/lint, Go coverage, Go vet, binary build, and a local serve smoke test.
+GoDoc, WebUI install/test/build/lint, Go coverage, the integration subset, Go vet, binary
+build, and a local serve smoke test.
+`scripts/integration.sh` runs the acceptance-style DNS/API integration subset directly; `make
+test-integration` is a convenience wrapper when `make` is installed.
 `scripts/build.sh` creates the release binaries and `dist/SHA256SUMS`.
 `scripts/verify-release-artifacts.sh` validates release checksums, optional GPG signatures,
 and the SPDX SBOM for a downloaded or locally-built release bundle.
@@ -263,13 +275,19 @@ Linux service; override `SIS_BACKUP_*` variables for non-default paths.
 `scripts/collect-linux-diagnostics.sh` writes a support bundle with version, config-check,
 store verification, service, and host diagnostics without including config, database, or
 backup contents.
+Docker and Kubernetes deployments are not supported for the current v1 release scope. Use
+the packaged Linux binaries and systemd install/upgrade/verify scripts for production
+validation.
+Operator alert definitions for the current non-Prometheus v1 posture are in
+`docs/ALERTING.md`.
 `scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies health/readiness,
 DNS queries, blocklist enforcement, auth setup, CLI API access, inventory APIs, custom blocklist
 mutation, query logs, stats, cache flush, and config reload/history.
 `make coverage` runs `scripts/coverage.sh`, which fails unless total Go coverage is at least
 `COVERAGE_THRESHOLD` (`60.0` by default). CI also runs WebUI install/build/lint, Go vet,
-the same coverage gate, binary build, and smoke test.
+the same coverage gate, binary build, smoke test, and `govulncheck`.
 `make bench` runs the Go benchmark suite with allocation reporting; set `BENCHTIME` or `BENCHCOUNT` for longer local runs.
+The current local benchmark baseline is recorded in `docs/PERFORMANCE_BASELINE.md`.
 `make godoc` checks that exported Go declarations have GoDoc comments.
 `make preflight` verifies that required local tools such as Go, gofmt, and npm are installed.
 `make check` runs the full CI-style gate: Go formatting drift check, WebUI build/lint,

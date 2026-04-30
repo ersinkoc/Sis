@@ -29,6 +29,19 @@ func TestDomainsWildcardNormalizes(t *testing.T) {
 	}
 }
 
+func TestDomainsNormalizeIDNToALabel(t *testing.T) {
+	d := NewDomains()
+	if !d.Add("Bücher.Example.") {
+		t.Fatal("Add returned false")
+	}
+	if !d.Match("www.xn--bcher-kva.example") || !d.Match("www.bücher.example") {
+		t.Fatal("expected IDN and A-label matches")
+	}
+	if entries := d.Entries("", 10); len(entries) != 1 || entries[0] != "xn--bcher-kva.example" {
+		t.Fatalf("entries = %#v", entries)
+	}
+}
+
 func TestDomainsRejectsOverlongDomain(t *testing.T) {
 	d := NewDomains()
 	long := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa." +

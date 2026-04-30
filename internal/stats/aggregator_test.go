@@ -17,6 +17,8 @@ func TestAggregatorFlush(t *testing.T) {
 	counters := New()
 	counters.IncQuery()
 	counters.IncBlocked()
+	counters.IncRateLimited()
+	counters.IncMalformed()
 	agg := NewAggregator(counters, st.Stats())
 	agg.now = func() time.Time {
 		return time.Unix(120, 0).UTC()
@@ -28,7 +30,7 @@ func TestAggregatorFlush(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if row.Counters["queries"] != 1 || row.Counters["blocked"] != 1 {
+	if row.Counters["queries"] != 1 || row.Counters["blocked"] != 1 || row.Counters["rate_limited"] != 1 || row.Counters["malformed"] != 1 {
 		t.Fatalf("row = %#v", row)
 	}
 	hour, err := st.Stats().Get("1h", "0")
@@ -39,7 +41,7 @@ func TestAggregatorFlush(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hour.Counters["queries"] != 1 || day.Counters["blocked"] != 1 {
+	if hour.Counters["queries"] != 1 || day.Counters["blocked"] != 1 || day.Counters["rate_limited"] != 1 || hour.Counters["malformed"] != 1 {
 		t.Fatalf("unexpected rollups: hour=%#v day=%#v", hour, day)
 	}
 	counters.IncQuery()
@@ -50,7 +52,7 @@ func TestAggregatorFlush(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if row.Counters["queries"] != 1 || row.Counters["blocked"] != 0 {
+	if row.Counters["queries"] != 1 || row.Counters["blocked"] != 0 || row.Counters["rate_limited"] != 0 || row.Counters["malformed"] != 0 {
 		t.Fatalf("second row should be a delta: %#v", row)
 	}
 	hour, err = st.Stats().Get("1h", "0")

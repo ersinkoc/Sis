@@ -16,6 +16,7 @@ import (
 
 // Server listens for classic DNS over UDP and TCP.
 type Server struct {
+	mu       sync.RWMutex
 	cfg      *config.Holder
 	pipeline *Pipeline
 	workers  *workerPool
@@ -23,6 +24,7 @@ type Server struct {
 	udpConns []*net.UDPConn
 	tcpLns   []*net.TCPListener
 	cancel   context.CancelFunc
+	ready    bool
 	wg       sync.WaitGroup
 }
 
@@ -83,11 +85,17 @@ func (s *Server) Start(ctx context.Context) error {
 		s.wg.Add(1)
 		go s.serveTCP(runCtx, tcpLn)
 	}
+	s.mu.Lock()
+	s.ready = len(s.udpConns) > 0 && len(s.tcpLns) > 0
+	s.mu.Unlock()
 	started = true
 	return nil
 }
 
 func (s *Server) cleanupStarted() {
+	s.mu.Lock()
+	s.ready = false
+	s.mu.Unlock()
 	if s.cancel != nil {
 		s.cancel()
 		s.cancel = nil
@@ -108,8 +116,21 @@ func (s *Server) cleanupStarted() {
 	s.tcpSlots = nil
 }
 
+// Ready reports whether the DNS server has successfully started UDP and TCP listeners.
+func (s *Server) Ready() bool {
+	if s == nil {
+		return false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.ready
+}
+
 // Shutdown closes listeners and waits for active workers to finish.
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.mu.Lock()
+	s.ready = false
+	s.mu.Unlock()
 	if s.cancel != nil {
 		s.cancel()
 	}
@@ -162,6 +183,7 @@ func (s *Server) serveUDP(ctx context.Context, conn *net.UDPConn) {
 func (s *Server) handleUDP(ctx context.Context, conn *net.UDPConn, addr *net.UDPAddr, packet []byte) {
 	var msg mdns.Msg
 	if err := msg.Unpack(packet); err != nil {
+		s.incMalformed()
 		return
 	}
 	resp := s.pipeline.Handle(ctx, &Request{Msg: &msg, SrcIP: addr.IP, Proto: "udp", StartedAt: time.Now()})
@@ -233,6 +255,7 @@ func (s *Server) handleTCPConn(ctx context.Context, conn *net.TCPConn) {
 		}
 		var msg mdns.Msg
 		if err := msg.Unpack(packet); err != nil {
+			s.incMalformed()
 			return
 		}
 		resp := s.pipeline.Handle(ctx, &Request{Msg: &msg, SrcIP: remoteIP(conn.RemoteAddr()), Proto: "tcp", StartedAt: time.Now()})
@@ -273,6 +296,12 @@ func (s *Server) releaseTCPSlot() {
 	select {
 	case <-s.tcpSlots:
 	default:
+	}
+}
+
+func (s *Server) incMalformed() {
+	if s != nil && s.pipeline != nil && s.pipeline.stats != nil {
+		s.pipeline.stats.IncMalformed()
 	}
 }
 

@@ -41,6 +41,23 @@ func TestValidateUnknownBlocklistPath(t *testing.T) {
 	assertErrContains(t, err, "groups[0].blocklists[0]")
 }
 
+func TestValidateAcceptsIDNAllowlistPatterns(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Allowlist.Domains = []string{"Bücher.Example.", "*.München.Example"}
+	cfg.Groups[0].Allowlist = []string{"Café.Example"}
+	if err := Validate(cfg); err != nil {
+		t.Fatalf("IDN allowlist patterns should validate: %v", err)
+	}
+}
+
+func TestValidateRejectsUnstableIDNAllowlistPatterns(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Allowlist.Domains = []string{"0ℸ", "\x8f"}
+	err := Validate(cfg)
+	assertErrContains(t, err, "allowlist.domains[0]")
+	assertErrContains(t, err, "allowlist.domains[1]")
+}
+
 func TestValidateBlocklistURLAndRefresh(t *testing.T) {
 	cfg := validConfig(t)
 	cfg.Blocklists[0].URL = "ftp://example.com/list.txt"
@@ -101,6 +118,13 @@ func TestValidateHTTPRequiresTLSFiles(t *testing.T) {
 	err := Validate(cfg)
 	assertErrContains(t, err, "server.http.cert_file")
 	assertErrContains(t, err, "server.http.key_file")
+}
+
+func TestValidateHTTPRateLimit(t *testing.T) {
+	cfg := validConfig(t)
+	cfg.Server.HTTP.RateLimitPerMinute = -1
+	err := Validate(cfg)
+	assertErrContains(t, err, "server.http.rate_limit_per_minute")
 }
 
 func TestValidateClients(t *testing.T) {

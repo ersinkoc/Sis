@@ -7,6 +7,14 @@ import (
 	"github.com/ersinkoc/sis/internal/config"
 )
 
+type upstreamPatchRequest struct {
+	ID        *string          `json:"id"`
+	Name      *string          `json:"name"`
+	URL       *string          `json:"url"`
+	Bootstrap *[]string        `json:"bootstrap"`
+	Timeout   *config.Duration `json:"timeout"`
+}
+
 func (s *Server) upstreamCreate(w http.ResponseWriter, r *http.Request) {
 	if s.cfg == nil || s.cfg.Get() == nil {
 		http.Error(w, "config unavailable", http.StatusServiceUnavailable)
@@ -47,14 +55,29 @@ func (s *Server) upstreamPatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	before := next.Upstreams[idx]
-	var upstream config.Upstream
-	if err := decodeJSON(r, &upstream); err != nil {
+	var patch upstreamPatchRequest
+	if err := decodeJSON(r, &patch); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	upstream.ID = strings.TrimSpace(upstream.ID)
+	upstream := before
+	if patch.ID != nil {
+		upstream.ID = strings.TrimSpace(*patch.ID)
+	}
 	if upstream.ID == "" {
 		upstream.ID = id
+	}
+	if patch.Name != nil {
+		upstream.Name = *patch.Name
+	}
+	if patch.URL != nil {
+		upstream.URL = *patch.URL
+	}
+	if patch.Bootstrap != nil {
+		upstream.Bootstrap = append([]string(nil), (*patch.Bootstrap)...)
+	}
+	if patch.Timeout != nil {
+		upstream.Timeout = *patch.Timeout
 	}
 	if upstream.ID != id && upstreamIndex(next.Upstreams, upstream.ID) >= 0 {
 		http.Error(w, "upstream already exists", http.StatusConflict)

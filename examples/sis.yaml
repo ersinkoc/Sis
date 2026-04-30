@@ -24,6 +24,8 @@ server:
     tls: false
     cert_file: ""
     key_file: ""
+    # 0 disables the authenticated API limiter.
+    rate_limit_per_minute: 600
   data_dir: "./data"
   # Supported values: json, sqlite.
   store_backend: "json"
@@ -92,3 +94,5 @@ auth:
   users: []
   session_ttl: "24h"
   cookie_name: "sis_session"
+  # Force Secure cookies when TLS terminates at a reverse proxy in front of Sis.
+  secure_cookie: false

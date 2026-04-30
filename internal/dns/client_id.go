@@ -83,3 +83,15 @@ func (c *ClientID) Touch(id Identity) error {
 	}
 	return c.clients.Upsert(client)
 }
+
+// Metadata returns the stored display metadata for key when it is available.
+func (c *ClientID) Metadata(key string) (name, group string) {
+	if c == nil || c.clients == nil || key == "" {
+		return "", ""
+	}
+	client, err := c.clients.Get(key)
+	if err != nil || client == nil {
+		return "", ""
+	}
+	return client.Name, client.Group
+}

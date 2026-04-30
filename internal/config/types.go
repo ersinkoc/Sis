@@ -100,10 +100,11 @@ type DNSServer struct {
 
 // HTTPServer configures the management API and WebUI listener.
 type HTTPServer struct {
-	Listen   string `yaml:"listen" json:"listen"`
-	TLS      bool   `yaml:"tls" json:"tls"`
-	CertFile string `yaml:"cert_file" json:"cert_file"`
-	KeyFile  string `yaml:"key_file" json:"key_file"`
+	Listen             string `yaml:"listen" json:"listen"`
+	TLS                bool   `yaml:"tls" json:"tls"`
+	CertFile           string `yaml:"cert_file" json:"cert_file"`
+	KeyFile            string `yaml:"key_file" json:"key_file"`
+	RateLimitPerMinute int    `yaml:"rate_limit_per_minute" json:"rate_limit_per_minute"`
 }
 
 // Cache configures DNS response caching behavior.
@@ -190,10 +191,11 @@ type Client struct {
 
 // Auth configures local users and cookie sessions.
 type Auth struct {
-	Users      []User   `yaml:"users" json:"users"`
-	FirstRun   bool     `yaml:"first_run" json:"first_run"`
-	SessionTTL Duration `yaml:"session_ttl" json:"session_ttl"`
-	CookieName string   `yaml:"cookie_name" json:"cookie_name"`
+	Users        []User   `yaml:"users" json:"users"`
+	FirstRun     bool     `yaml:"first_run" json:"first_run"`
+	SessionTTL   Duration `yaml:"session_ttl" json:"session_ttl"`
+	CookieName   string   `yaml:"cookie_name" json:"cookie_name"`
+	SecureCookie bool     `yaml:"secure_cookie" json:"secure_cookie"`
 }
 
 // User configures one local management user.

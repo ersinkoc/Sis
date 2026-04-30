@@ -13,7 +13,7 @@ body:
     attributes:
       label: Version
       description: Paste `sis version` or the commit SHA.
-      placeholder: "sis v0.1.1 (...)"
+      placeholder: "sis v0.1.2 (...)"
     validations:
       required: true
   - type: dropdown

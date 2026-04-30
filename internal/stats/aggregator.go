@@ -58,17 +58,23 @@ func (a *Aggregator) Flush() error {
 	cacheHit := snap.CacheHit
 	cacheMiss := snap.CacheMiss
 	blocked := snap.BlockedTotal
+	rateLimited := snap.RateLimitedTotal
+	malformed := snap.MalformedTotal
 	if a.hasLast {
 		queries = deltaCounter(snap.QueryTotal, a.last.QueryTotal)
 		cacheHit = deltaCounter(snap.CacheHit, a.last.CacheHit)
 		cacheMiss = deltaCounter(snap.CacheMiss, a.last.CacheMiss)
 		blocked = deltaCounter(snap.BlockedTotal, a.last.BlockedTotal)
+		rateLimited = deltaCounter(snap.RateLimitedTotal, a.last.RateLimitedTotal)
+		malformed = deltaCounter(snap.MalformedTotal, a.last.MalformedTotal)
 	}
 	row := &store.StatsRow{Counters: map[string]uint64{
-		"queries":    queries,
-		"cache_hit":  cacheHit,
-		"cache_miss": cacheMiss,
-		"blocked":    blocked,
+		"queries":      queries,
+		"cache_hit":    cacheHit,
+		"cache_miss":   cacheMiss,
+		"blocked":      blocked,
+		"rate_limited": rateLimited,
+		"malformed":    malformed,
 	}}
 	if err := a.store.Put("1m", strconv.FormatInt(bucket, 10), row); err != nil {
 		return err

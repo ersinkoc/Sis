@@ -2,6 +2,7 @@
 set -euo pipefail
 
 tag="v0.0.0-rc.1"
+release_branch="$(git branch --show-current)"
 tmp="$(mktemp -d)"
 cleanup() {
   rm -rf "${tmp}"
@@ -116,6 +117,6 @@ if grep -q '| .* | Pending |' "${record}"; then
   exit 1
 fi
 
-SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_VALIDATION_RECORD="${record}" ./scripts/release-candidate-check.sh "${tag}" >"${gate_out}"
+SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_BRANCH="${release_branch}" SIS_RELEASE_VALIDATION_RECORD="${record}" ./scripts/release-candidate-check.sh "${tag}" >"${gate_out}"
 
 echo "update-production-validation-record-smoke: passed"

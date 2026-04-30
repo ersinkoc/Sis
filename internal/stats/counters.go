@@ -9,10 +9,12 @@ import (
 
 // Counters holds live in-memory counters for DNS and upstream activity.
 type Counters struct {
-	QueryTotal   atomic.Uint64
-	CacheHit     atomic.Uint64
-	CacheMiss    atomic.Uint64
-	BlockedTotal atomic.Uint64
+	QueryTotal       atomic.Uint64
+	CacheHit         atomic.Uint64
+	CacheMiss        atomic.Uint64
+	BlockedTotal     atomic.Uint64
+	RateLimitedTotal atomic.Uint64
+	MalformedTotal   atomic.Uint64
 
 	upstreams      sync.Map
 	latency        *Histogram
@@ -33,12 +35,14 @@ type UpstreamCounters struct {
 
 // Snapshot is a point-in-time view of live counters.
 type Snapshot struct {
-	QueryTotal   uint64                      `json:"query_total"`
-	CacheHit     uint64                      `json:"cache_hit"`
-	CacheMiss    uint64                      `json:"cache_miss"`
-	BlockedTotal uint64                      `json:"blocked_total"`
-	Latency      HistogramSnapshot           `json:"latency"`
-	Upstreams    map[string]UpstreamSnapshot `json:"upstreams"`
+	QueryTotal       uint64                      `json:"query_total"`
+	CacheHit         uint64                      `json:"cache_hit"`
+	CacheMiss        uint64                      `json:"cache_miss"`
+	BlockedTotal     uint64                      `json:"blocked_total"`
+	RateLimitedTotal uint64                      `json:"rate_limited_total"`
+	MalformedTotal   uint64                      `json:"malformed_total"`
+	Latency          HistogramSnapshot           `json:"latency"`
+	Upstreams        map[string]UpstreamSnapshot `json:"upstreams"`
 }
 
 // UpstreamSnapshot is a point-in-time view of one upstream's counters.
@@ -89,6 +93,22 @@ func (c *Counters) IncBlocked() {
 		return
 	}
 	c.BlockedTotal.Add(1)
+}
+
+// IncRateLimited increments total DNS/API rate-limit rejection count.
+func (c *Counters) IncRateLimited() {
+	if c == nil {
+		return
+	}
+	c.RateLimitedTotal.Add(1)
+}
+
+// IncMalformed increments total malformed DNS packet count.
+func (c *Counters) IncMalformed() {
+	if c == nil {
+		return
+	}
+	c.MalformedTotal.Add(1)
 }
 
 // ObserveLatency records end-to-end DNS query latency.
@@ -177,7 +197,9 @@ func (c *Counters) Snapshot() Snapshot {
 	out := Snapshot{
 		QueryTotal: c.QueryTotal.Load(), CacheHit: c.CacheHit.Load(),
 		CacheMiss: c.CacheMiss.Load(), BlockedTotal: c.BlockedTotal.Load(),
-		Latency: c.latency.Snapshot(), Upstreams: make(map[string]UpstreamSnapshot),
+		RateLimitedTotal: c.RateLimitedTotal.Load(),
+		MalformedTotal:   c.MalformedTotal.Load(),
+		Latency:          c.latency.Snapshot(), Upstreams: make(map[string]UpstreamSnapshot),
 	}
 	c.upstreams.Range(func(key, value any) bool {
 		id := key.(string)

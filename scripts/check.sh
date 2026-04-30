@@ -12,6 +12,7 @@ if [[ -n "${unformatted}" ]]; then
   exit 1
 fi
 git diff --exit-code
+./scripts/secret-scan.sh
 ./scripts/godoc.sh
 ./scripts/release-candidate-check-smoke.sh
 ./scripts/release-readiness-smoke.sh
@@ -21,6 +22,7 @@ git diff --exit-code
 (
   cd webui
   "${webui_pm}" "${webui_install}"
+  "${webui_pm}" test
   "${webui_pm}" run build
   "${webui_pm}" run lint
 )
@@ -28,6 +30,7 @@ git diff --exit-code
 git diff --exit-code -- internal/webui/dist
 
 ./scripts/coverage.sh
+./scripts/integration.sh
 go vet ${go_packages}
 CGO_ENABLED=0 go build -trimpath -o bin/sis ./cmd/sis
 ./scripts/smoke.sh

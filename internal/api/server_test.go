@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +37,237 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestAccessLogIncludesRequestID(t *testing.T) {
+	var logs bytes.Buffer
+	s := New(testHolder(), slog.New(slog.NewTextHandler(&logs, nil)))
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req.Header.Set("X-Request-ID", "request-log-test")
+	rec := httptest.NewRecorder()
+
+	s.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if got := logs.String(); !strings.Contains(got, "request_id=request-log-test") {
+		t.Fatalf("access log missing request id: %s", got)
+	}
+}
+
+func TestMetricsExposesPrometheusCounters(t *testing.T) {
+	counters := stats.New()
+	counters.IncQuery()
+	counters.IncCacheHit()
+	counters.IncBlocked()
+	counters.ObserveLatency(3 * time.Millisecond)
+	upstream := counters.Upstream("cloudflare")
+	upstream.IncRequest()
+	upstream.IncError()
+	upstream.MarkUnhealthy()
+	upstream.ObserveLatency(12 * time.Millisecond)
+	s := NewWithDeps(Options{
+		Config: testHolder(),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Stats:  counters,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/plain") {
+		t.Fatalf("content type = %q", got)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"# TYPE sis_dns_queries_total counter",
+		"sis_dns_queries_total 1",
+		"sis_dns_cache_hits_total 1",
+		"sis_dns_blocked_queries_total 1",
+		"sis_dns_latency_observations_total 1",
+		`sis_upstream_requests_total{upstream="cloudflare"} 1`,
+		`sis_upstream_errors_total{upstream="cloudflare"} 1`,
+		`sis_upstream_healthy{upstream="cloudflare"} 0`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("metrics missing %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestMetricsEscapesUpstreamLabels(t *testing.T) {
+	counters := stats.New()
+	counters.Upstream("bad\"\\\nlabel").IncRequest()
+	s := NewWithDeps(Options{
+		Config: testHolder(),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Stats:  counters,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `sis_upstream_requests_total{upstream="bad\"\\\nlabel"} 1`) {
+		t.Fatalf("upstream label was not escaped:\n%s", rec.Body.String())
+	}
+}
+
+func TestMetricsWithoutStatsReturnsUnavailable(t *testing.T) {
+	s := NewWithDeps(Options{
+		Config: testHolder(),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPprofRoutesRequireAuthentication(t *testing.T) {
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/system/pprof/goroutine?debug=1", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPprofNamedProfile(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/system/pprof/goroutine?debug=1", nil)
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/plain") {
+		t.Fatalf("content type = %q", got)
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("goroutine profile:")) {
+		t.Fatalf("unexpected pprof body: %s", rec.Body.String())
+	}
+}
+
+func TestReadyzChecksRuntimeDependencies(t *testing.T) {
+	holder := validAPIConfig(t)
+	st, err := store.Open(holder.Get().Server.DataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	pool := upstream.NewPool(holder.Get().Upstreams)
+	pipeline := sisdns.NewPipelineWithDeps(sisdns.PipelineOptions{
+		Config:   holder,
+		Upstream: pool,
+	})
+	s := NewWithDeps(Options{
+		Config:   holder,
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:    st,
+		Upstream: pool,
+		Pipeline: pipeline,
+		DNSReady: func() bool { return true },
+	})
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Ready  bool              `json:"ready"`
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if !out.Ready || out.Checks["store"] != "ok" || out.Checks["upstreams"] != "ok" || out.Checks["pipeline"] != "ok" || out.Checks["dns"] != "ok" {
+		t.Fatalf("readyz response = %#v", out)
+	}
+}
+
+func TestReadyzReturnsUnavailableWhenDNSListenersNotReady(t *testing.T) {
+	holder := validAPIConfig(t)
+	st, err := store.Open(holder.Get().Server.DataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	pool := upstream.NewPool(holder.Get().Upstreams)
+	pipeline := sisdns.NewPipelineWithDeps(sisdns.PipelineOptions{
+		Config:   holder,
+		Upstream: pool,
+	})
+	s := NewWithDeps(Options{
+		Config:   holder,
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:    st,
+		Upstream: pool,
+		Pipeline: pipeline,
+		DNSReady: func() bool { return false },
+	})
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Ready  bool              `json:"ready"`
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Ready || out.Checks["dns"] != "listeners not ready" {
+		t.Fatalf("readyz response = %#v", out)
+	}
+}
+
+func TestReadyzReturnsUnavailableWhenDependenciesMissing(t *testing.T) {
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Ready  bool              `json:"ready"`
+		Checks map[string]string `json:"checks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Ready || out.Checks["upstreams"] != "unavailable" || out.Checks["pipeline"] != "unavailable" {
+		t.Fatalf("readyz response = %#v", out)
+	}
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	s := New(testHolder(), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -45,6 +278,128 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 	if rec.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("cache-control = %q", rec.Header().Get("Cache-Control"))
+	}
+}
+
+func TestSecurityHeadersIncludeHSTSWhenTLSConfigured(t *testing.T) {
+	holder := testHolder()
+	cfg := *holder.Get()
+	cfg.Server.HTTP.TLS = true
+	holder.Replace(&cfg)
+	s := New(holder, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Header().Get("Strict-Transport-Security") == "" {
+		t.Fatal("missing strict transport security")
+	}
+}
+
+func TestAPIErrorEnvelopeIncludesRequestID(t *testing.T) {
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/stats/summary", nil)
+	req.Header.Set("X-Request-ID", "request-123")
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "application/json") {
+		t.Fatalf("content-type = %q", got)
+	}
+	var out struct {
+		Error     string `json:"error"`
+		RequestID string `json:"request_id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Error != "unauthorized" || out.RequestID != "request-123" {
+		t.Fatalf("error envelope = %#v", out)
+	}
+}
+
+func TestAPIRateLimitProtectedRoutes(t *testing.T) {
+	holder := validAPIConfig(t)
+	cfg := *holder.Get()
+	cfg.Server.HTTP.RateLimitPerMinute = 1
+	holder.Replace(&cfg)
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Stats:  stats.New(),
+		Store:  st,
+	})
+
+	firstReq := httptest.NewRequest(http.MethodGet, "/api/v1/stats/summary", nil)
+	firstReq.RemoteAddr = "192.0.2.44:1234"
+	addSessionCookie(t, st, firstReq)
+	firstRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(firstRec, firstReq)
+	if firstRec.Code != http.StatusOK {
+		t.Fatalf("first status = %d body=%s", firstRec.Code, firstRec.Body.String())
+	}
+
+	secondReq := httptest.NewRequest(http.MethodGet, "/api/v1/stats/summary", nil)
+	secondReq.RemoteAddr = "192.0.2.44:1234"
+	addSessionCookie(t, st, secondReq)
+	secondRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(secondRec, secondReq)
+	if secondRec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second status = %d body=%s", secondRec.Code, secondRec.Body.String())
+	}
+	if got := s.stats.Snapshot().RateLimitedTotal; got != 1 {
+		t.Fatalf("rate limited total = %d", got)
+	}
+}
+
+func TestCSRFMiddlewareRejectsCrossOriginCookieMutation(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "http://sis.local/api/v1/allowlist", bytes.NewBufferString(`{"domain":"allowed.example.com"}`))
+	req.Header.Set("Origin", "http://evil.example")
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCSRFMiddlewareAllowsSameOriginCookieMutation(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "http://sis.local/api/v1/allowlist", bytes.NewBufferString(`{"domain":"allowed.example.com"}`))
+	req.Header.Set("Origin", "http://sis.local")
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -511,6 +866,70 @@ func TestSetupAndLogin(t *testing.T) {
 	}
 }
 
+func TestSetupPersistsConfigAndSessionAcrossRestart(t *testing.T) {
+	dir := t.TempDir()
+	dataDir := filepath.Join(dir, "data")
+	configPath := filepath.Join(dir, "sis.yaml")
+	cfg := *validAPIConfig(t).Get()
+	cfg.Server.DataDir = dataDir
+	cfg.Auth.FirstRun = true
+	cfg.Auth.Users = nil
+	cfg.Auth.CookieName = "sis_session"
+	holder := config.NewHolder(&cfg)
+	st, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := NewWithDeps(Options{
+		Config:     holder,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:      st,
+		ConfigPath: configPath,
+	})
+	setupReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/setup", bytes.NewBufferString(`{"username":" admin ","password":"secret123"}`))
+	setupRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(setupRec, setupReq)
+	if setupRec.Code != http.StatusOK {
+		t.Fatalf("setup status = %d body=%s", setupRec.Code, setupRec.Body.String())
+	}
+	cookies := setupRec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Value == "" {
+		t.Fatalf("setup cookie = %#v", cookies)
+	}
+	if err := st.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := (&config.Loader{Path: configPath}).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Auth.FirstRun || len(loaded.Auth.Users) != 1 || loaded.Auth.Users[0].Username != "admin" ||
+		loaded.Auth.Users[0].PasswordHash == "" || loaded.Auth.Users[0].PasswordHash == "secret123" {
+		t.Fatalf("loaded auth config = %#v", loaded.Auth)
+	}
+	reopened, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	restarted := NewWithDeps(Options{
+		Config: config.NewHolder(loaded),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  reopened,
+	})
+	meReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	meReq.AddCookie(cookies[0])
+	meRec := httptest.NewRecorder()
+	restarted.Handler().ServeHTTP(meRec, meReq)
+	if meRec.Code != http.StatusOK {
+		t.Fatalf("me status = %d body=%s", meRec.Code, meRec.Body.String())
+	}
+	if !bytes.Contains(meRec.Body.Bytes(), []byte(`"username":"admin"`)) {
+		t.Fatalf("me body = %s", meRec.Body.String())
+	}
+}
+
 func TestSystemInfoIncludesStoreBackend(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
@@ -785,6 +1204,39 @@ func TestLoginCookieSecureWhenTLSConfigured(t *testing.T) {
 	}
 }
 
+func TestLoginCookieSecureWhenConfiguredForProxy(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	hash, err := HashPassword("secret123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	holder := config.NewHolder(&config.Config{
+		Auth: config.Auth{
+			FirstRun: false, CookieName: "sis_session", SecureCookie: true,
+			Users: []config.User{{Username: "admin", PasswordHash: hash}},
+		},
+	})
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewBufferString(`{"username":"admin","password":"secret123"}`))
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || !cookies[0].Secure {
+		t.Fatalf("expected secure cookie, got %#v", cookies)
+	}
+}
+
 func TestNewTokenUsesURLSafeRandomBytes(t *testing.T) {
 	token, err := newToken()
 	if err != nil {
@@ -875,6 +1327,38 @@ func TestGroupPatchUpdatesPolicyFields(t *testing.T) {
 	}
 }
 
+func TestGroupPatchPreservesOmittedFields(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	holder.Get().Groups[0].Schedules = []config.Schedule{{
+		Name: "school", Days: []string{"mon"}, From: "08:00", To: "16:00", Block: []string{"ads"},
+	}}
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/groups/default", bytes.NewBufferString(`{"allowlist":["safe.example"]}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	group, ok := findConfigGroup(holder.Get().Groups, "default")
+	if !ok {
+		t.Fatal("default group missing")
+	}
+	if strings.Join(group.Blocklists, ",") != "ads" || strings.Join(group.Allowlist, ",") != "safe.example" ||
+		len(group.Schedules) != 1 || group.Schedules[0].Name != "school" {
+		t.Fatalf("group = %#v", group)
+	}
+}
+
 func TestGroupPatchDefaultRenameFails(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
@@ -934,6 +1418,60 @@ func TestGroupPatchUnknownBlocklistFailsValidation(t *testing.T) {
 	s.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGroupSchedulePatchAffectsQueryTest(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	holder.Get().Groups = []config.Group{{Name: "default"}}
+	holder.Get().Blocklists[0].Enabled = true
+	engine, err := policy.NewEngine(holder.Get(), policy.StaticClientResolver{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ads := policy.NewDomains()
+	if !ads.Add("ads.example.com.") {
+		t.Fatal("failed to add ads.example.com")
+	}
+	engine.ReplaceList("ads", ads)
+	pipeline := sisdns.NewPipelineWithDeps(sisdns.PipelineOptions{
+		Config: holder,
+		Cache:  sisdns.NewCache(sisdns.CacheOptions{}),
+		Policy: engine,
+		Stats:  stats.New(),
+	})
+	s := NewWithDeps(Options{
+		Config:   holder,
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:    st,
+		Policy:   engine,
+		Pipeline: pipeline,
+	})
+
+	body := `{"schedules":[{"name":"bedtime","days":["all"],"from":"00:00","to":"00:00","block":["ads"]}]}`
+	patchReq := httptest.NewRequest(http.MethodPatch, "/api/v1/groups/default", bytes.NewBufferString(body))
+	addSessionCookie(t, st, patchReq)
+	patchRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(patchRec, patchReq)
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("patch status = %d body=%s", patchRec.Code, patchRec.Body.String())
+	}
+
+	queryReq := httptest.NewRequest(http.MethodPost, "/api/v1/query/test", bytes.NewBufferString(`{"domain":"ads.example.com","type":"A","client_ip":"192.0.2.55"}`))
+	addSessionCookie(t, st, queryReq)
+	queryRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(queryRec, queryReq)
+	if queryRec.Code != http.StatusOK {
+		t.Fatalf("query status = %d body=%s", queryRec.Code, queryRec.Body.String())
+	}
+	if !bytes.Contains(queryRec.Body.Bytes(), []byte(`"source":"synthetic"`)) ||
+		!bytes.Contains(queryRec.Body.Bytes(), []byte("0.0.0.0")) {
+		t.Fatalf("query body = %s", queryRec.Body.String())
 	}
 }
 
@@ -1091,6 +1629,34 @@ func TestUpstreamPatch(t *testing.T) {
 	}
 	if !bytes.Contains(rec.Body.Bytes(), []byte(`"bootstrap":["1.0.0.1"]`)) {
 		t.Fatalf("response should use JSON tags: %s", rec.Body.String())
+	}
+}
+
+func TestUpstreamPatchPreservesOmittedFields(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	holder.Get().Upstreams[0].Name = "Cloudflare"
+	holder.Get().Upstreams[0].Timeout = config.Duration{Duration: 3 * time.Second}
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/upstreams/cloudflare", bytes.NewBufferString(`{"name":"Cloudflare DNS"}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	upstream := holder.Get().Upstreams[upstreamIndex(holder.Get().Upstreams, "cloudflare")]
+	if upstream.Name != "Cloudflare DNS" || upstream.URL != "https://cloudflare-dns.com/dns-query" ||
+		strings.Join(upstream.Bootstrap, ",") != "1.1.1.1" || upstream.Timeout.Duration != 3*time.Second {
+		t.Fatalf("upstream = %#v", upstream)
 	}
 }
 
@@ -1260,6 +1826,35 @@ func TestBlocklistPatch(t *testing.T) {
 	}
 }
 
+func TestBlocklistPatchPreservesOmittedFields(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	holder.Get().Blocklists[0].Name = "Ads"
+	holder.Get().Blocklists[0].Enabled = true
+	holder.Get().Blocklists[0].RefreshInterval = config.Duration{Duration: 24 * time.Hour}
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/blocklists/ads", bytes.NewBufferString(`{"name":"Advertising"}`))
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	blocklist := holder.Get().Blocklists[blocklistIndex(holder.Get().Blocklists, "ads")]
+	if blocklist.Name != "Advertising" || blocklist.URL != "file:///tmp/ads.txt" ||
+		!blocklist.Enabled || blocklist.RefreshInterval.Duration != 24*time.Hour {
+		t.Fatalf("blocklist = %#v", blocklist)
+	}
+}
+
 func TestBlocklistPatchDuplicateIDFails(t *testing.T) {
 	st, err := store.Open(t.TempDir())
 	if err != nil {
@@ -1301,6 +1896,67 @@ func TestBlocklistPatchBadRefreshIntervalFails(t *testing.T) {
 	s.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestBlocklistSyncEndpointUpdatesPolicyEntries(t *testing.T) {
+	dir := t.TempDir()
+	listPath := filepath.Join(dir, "ads.txt")
+	if err := os.WriteFile(listPath, []byte("ads.example.com\ntracker.example.net\n"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	st, err := store.Open(filepath.Join(dir, "data"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	holder := validAPIConfig(t)
+	holder.Get().Blocklists[0].URL = "file://" + listPath
+	holder.Get().Blocklists[0].Enabled = true
+	engine, err := policy.NewEngine(holder.Get(), policy.StaticClientResolver{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	syncer := policy.NewSyncer(holder, policy.NewFetcher(filepath.Join(dir, "cache")), engine, nil)
+	s := NewWithDeps(Options{
+		Config: holder,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+		Policy: engine,
+		Syncer: syncer,
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/blocklists/ads/sync", nil)
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		ID       string `json:"id"`
+		Accepted int    `json:"accepted"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.ID != "ads" || payload.Accepted != 2 {
+		t.Fatalf("sync payload = %#v", payload)
+	}
+	decision := engine.For(policy.Identity{Key: "client"}).Evaluate("ads.example.com.", 1, time.Now())
+	if !decision.Blocked || decision.List != "ads" {
+		t.Fatalf("decision = %#v", decision)
+	}
+
+	entriesReq := httptest.NewRequest(http.MethodGet, "/api/v1/blocklists/ads/entries?q=tracker&limit=10", nil)
+	addSessionCookie(t, st, entriesReq)
+	entriesRec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(entriesRec, entriesReq)
+	if entriesRec.Code != http.StatusOK {
+		t.Fatalf("entries status = %d body=%s", entriesRec.Code, entriesRec.Body.String())
+	}
+	if !bytes.Contains(entriesRec.Body.Bytes(), []byte("tracker.example.net")) {
+		t.Fatalf("entries body = %s", entriesRec.Body.String())
 	}
 }
 

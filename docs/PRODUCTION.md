@@ -19,6 +19,9 @@ with `server.store_backend`; supported values are `json` and `sqlite`. New large
 deployments should prefer `sqlite`, while existing small-site JSON deployments can continue
 using `json`. The active backend is exposed by `sis system info` and the WebUI System
 panel.
+For the full schema, defaults, validation rules, and environment overrides, see
+[CONFIG_REFERENCE.md](CONFIG_REFERENCE.md).
+For the authenticated management API surface, see [API_REFERENCE.md](API_REFERENCE.md).
 
 ## Files To Protect
 
@@ -41,6 +44,18 @@ prints collection-level record counts, and for SQLite also runs `PRAGMA quick_ch
 The same check is available remotely to authenticated operators through
 `sis system store-verify`, `/api/v1/system/store/verify`, or the WebUI System panel.
 
+## HTTP/TLS Exposure
+
+Keep the management HTTP listener on localhost or a trusted management network unless it is
+protected by TLS and network policy. When Sis terminates TLS itself
+(`server.http.tls: true`), HTTP responses include `Strict-Transport-Security`.
+
+When Sis runs behind a reverse proxy, terminate TLS at the proxy, configure the Sis HTTP
+listener on localhost, configure HSTS at the proxy edge, and set `auth.secure_cookie: true`
+so session cookies are marked `Secure` even though Sis receives proxied HTTP. The Sis
+process only knows about request TLS that reaches it directly or TLS enabled in its own
+config; proxy-only TLS must therefore be enforced by the proxy configuration.
+
 ## Pre-Upgrade Checklist
 
 ```sh
@@ -54,13 +69,13 @@ sudo ./scripts/verify-linux-service.sh
 Download and verify the release bundle before replacing the installed binary:
 
 ```sh
-./scripts/download-release.sh v0.1.1 dist/v0.1.1
-dist/v0.1.1/sis_linux_amd64 version
+./scripts/download-release.sh v0.1.2 dist/v0.1.2
+dist/v0.1.2/sis_linux_amd64 version
 ```
 
 ```sh
 sudo systemctl stop sis
-sudo install -m 0755 dist/v0.1.1/sis_linux_amd64 /usr/local/bin/sis
+sudo install -m 0755 dist/v0.1.2/sis_linux_amd64 /usr/local/bin/sis
 sudo /usr/local/bin/sis config check -config /etc/sis/sis.yaml
 sudo systemctl start sis
 sudo ./scripts/verify-linux-service.sh
@@ -70,23 +85,35 @@ For a first install or a standard upgrade on the host architecture, the wrapper
 performs the download, verification, install, systemd enable/start, and live checks:
 
 ```sh
-sudo ./scripts/install-release-linux.sh v0.1.1
+sudo ./scripts/install-release-linux.sh v0.1.2
 ```
+
+Docker, Compose, and Kubernetes deployments are explicitly unsupported for the current v1
+release scope. Production validation, rollback, diagnostics, and support docs assume the
+packaged Linux binary plus the systemd scripts in this repository.
 
 For upgrades of an existing host, prefer the backup-first wrapper:
 
 ```sh
-sudo ./scripts/upgrade-release-linux.sh v0.1.1
+sudo ./scripts/upgrade-release-linux.sh v0.1.2
 ```
 
 If the service fails after an upgrade, restore the last verified backup:
 
 ```sh
 sudo systemctl stop sis
+sudo /usr/local/bin/sis backup verify -in /var/backups/sis/sis-YYYYMMDDTHHMMSSZ.tar.gz
 sudo /usr/local/bin/sis backup restore -in /var/backups/sis/sis-YYYYMMDDTHHMMSSZ.tar.gz -config /etc/sis/sis.yaml -data-dir /var/lib/sis -force
+sudo /usr/local/bin/sis config check -config /etc/sis/sis.yaml
+sudo /usr/local/bin/sis store verify -config /etc/sis/sis.yaml
 sudo systemctl start sis
 sudo ./scripts/verify-linux-service.sh
 ```
+
+The current local rollback drill evidence is recorded in
+[ROLLBACK_DRILL.md](ROLLBACK_DRILL.md). Repeat the same procedure on the target host and
+copy the live evidence into [PRODUCTION_VALIDATION.md](PRODUCTION_VALIDATION.md) before a
+stable release.
 
 ## LAN DNS Validation
 
@@ -108,6 +135,8 @@ sudo SIS_LAN_VALIDATE_DNS_SERVER=192.168.1.2:53 \
 The helper checks config validity, UDP DNS, TCP DNS, optional blocked-domain behavior, and
 HTTP health/readiness. Set `SIS_LAN_VALIDATE_SKIP_HTTP=1` when HTTP is intentionally not
 reachable from the validation environment.
+For bind, firewall, router/DHCP, or policy failures, see
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Production Validation Report
 
@@ -206,6 +235,18 @@ Journal logs are skipped by default because they may contain domain or client da
 Set `SIS_DIAG_INCLUDE_JOURNAL=1` only after accepting that exposure.
 The bundle includes `sis store verify` output, which reports backend, path, total and
 collection-level record counts, and schema version without copying database contents.
+Use [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common DNS bind, upstream DoH, first-run,
+and SQLite migration recovery flows.
+
+Authenticated pprof endpoints are available under `/api/v1/system/pprof/*` for short
+troubleshooting windows. Keep the HTTP management listener on localhost, VPN, or a trusted
+management network before collecting profiles over HTTP.
+
+## Alerting
+
+Current v1 deployments should alert from service state, `/healthz`, `/readyz`, store
+verification, DNS validation, backup verification, `/metrics`, and stats counters.
+Suggested alert conditions and manual checks are documented in [ALERTING.md](ALERTING.md).
 
 ## Release Gate
 

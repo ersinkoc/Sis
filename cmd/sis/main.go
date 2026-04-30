@@ -545,12 +545,11 @@ func runConfig(args []string) error {
 		if err != nil {
 			return err
 		}
-		out := *cfg
+		out := cfg
 		if !*secrets {
-			out.Auth.Users = redactUsers(out.Auth.Users)
-			out.Privacy.LogSalt = redactString(out.Privacy.LogSalt)
+			out = config.RedactedCopy(cfg)
 		}
-		raw, err := yaml.Marshal(&out)
+		raw, err := yaml.Marshal(out)
 		if err != nil {
 			return err
 		}
@@ -1030,22 +1029,6 @@ func addBytesToTar(tw *tar.Writer, name string, raw []byte, mode os.FileMode) er
 	return err
 }
 
-func redactUsers(users []config.User) []config.User {
-	out := make([]config.User, len(users))
-	copy(out, users)
-	for i := range out {
-		out[i].PasswordHash = redactString(out[i].PasswordHash)
-	}
-	return out
-}
-
-func redactString(value string) string {
-	if value == "" {
-		return ""
-	}
-	return "redacted"
-}
-
 func runServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	path := fs.String("config", defaultConfigPath(), "config file path")
@@ -1126,6 +1109,7 @@ func runServe(args []string) error {
 		Config: holder, Logger: slog.Default(), QueryLog: queryLog,
 		Audit: auditLog, Policy: engine, Stats: counters, Store: st,
 		Syncer: syncer, Upstream: pool, Cache: cache, Pipeline: pipeline, ConfigPath: *path,
+		DNSReady: dnsServer.Ready,
 	})
 	reloader.Register(func(_, next *config.Config) error {
 		if err := seedConfigClients(st, next); err != nil {

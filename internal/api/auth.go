@@ -190,10 +190,16 @@ func (s *Server) cookieName() string {
 }
 
 func (s *Server) secureCookie(r *http.Request) bool {
-	if s.cfg != nil && s.cfg.Get() != nil && s.cfg.Get().Server.HTTP.TLS {
+	if s.cfg != nil && s.cfg.Get() != nil {
+		cfg := s.cfg.Get()
+		if cfg.Auth.SecureCookie || cfg.Server.HTTP.TLS {
+			return true
+		}
+	}
+	if r != nil && r.TLS != nil {
 		return true
 	}
-	return r != nil && r.TLS != nil
+	return false
 }
 
 func newToken() (string, error) {

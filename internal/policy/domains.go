@@ -3,6 +3,10 @@ package policy
 import (
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
+
+	"golang.org/x/net/idna"
 )
 
 // Domains is a suffix-matching domain trie.
@@ -166,26 +170,57 @@ func domainFromLabels(labels []string) string {
 	return strings.Join(parts, ".")
 }
 
-func labelsFor(domain string) ([]string, bool) {
-	domain = strings.TrimSpace(strings.ToLower(domain))
+// NormalizeDomainPattern converts a domain or wildcard pattern to its canonical
+// lower-case ASCII form.
+func NormalizeDomainPattern(domain string) (string, bool) {
+	domain = strings.TrimSpace(domain)
 	domain = strings.TrimSuffix(domain, ".")
-	domain = strings.TrimPrefix(domain, "*.")
-	if domain == "" || strings.Contains(domain, " ") {
+	wild := strings.HasPrefix(domain, "*.")
+	if wild {
+		domain = domain[2:]
+	}
+	if !utf8.ValidString(domain) || strings.TrimSpace(domain) != domain || strings.HasSuffix(domain, ".") || domain == "" || containsSpace(domain) {
+		return "", false
+	}
+	ascii, err := idna.Lookup.ToASCII(domain)
+	if err != nil {
+		return "", false
+	}
+	ascii = strings.ToLower(strings.TrimSuffix(ascii, "."))
+	if ascii == "" || len(ascii) > 253 || containsSpace(ascii) {
+		return "", false
+	}
+	stable, err := idna.Lookup.ToASCII(ascii)
+	if err != nil || strings.ToLower(strings.TrimSuffix(stable, ".")) != ascii {
+		return "", false
+	}
+	parts := strings.Split(ascii, ".")
+	for _, part := range parts {
+		if !validLabel(part) {
+			return "", false
+		}
+	}
+	if wild {
+		return "*." + ascii, true
+	}
+	return ascii, true
+}
+
+func labelsFor(domain string) ([]string, bool) {
+	normalized, ok := NormalizeDomainPattern(domain)
+	if !ok {
 		return nil, false
 	}
-	if len(domain) > 253 {
-		return nil, false
-	}
+	domain = strings.TrimPrefix(normalized, "*.")
 	parts := strings.Split(domain, ".")
 	for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
 		parts[i], parts[j] = parts[j], parts[i]
 	}
-	for _, part := range parts {
-		if !validLabel(part) {
-			return nil, false
-		}
-	}
 	return parts, true
+}
+
+func containsSpace(s string) bool {
+	return strings.ContainsFunc(s, unicode.IsSpace)
 }
 
 func validLabel(label string) bool {

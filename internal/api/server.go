@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -41,8 +42,10 @@ type Server struct {
 	upstream     *upstream.Pool
 	cache        *sisdns.Cache
 	pipeline     *sisdns.Pipeline
+	dnsReady     func() bool
 	configPath   string
 	loginLimiter *rateLimiter
+	apiLimiter   *rateLimiter
 }
 
 // New creates an API server with default dependencies.
@@ -63,6 +66,7 @@ type Options struct {
 	Upstream   *upstream.Pool
 	Cache      *sisdns.Cache
 	Pipeline   *sisdns.Pipeline
+	DNSReady   func() bool
 	ConfigPath string
 }
 
@@ -76,12 +80,14 @@ func NewWithDeps(opts Options) *Server {
 		cfg: opts.Config, log: logger, queryLog: opts.QueryLog,
 		audit: opts.Audit, policy: opts.Policy, stats: opts.Stats, store: opts.Store,
 		syncer: opts.Syncer, upstream: opts.Upstream, cache: opts.Cache,
-		pipeline:   opts.Pipeline,
+		pipeline: opts.Pipeline, dnsReady: opts.DNSReady,
 		configPath: opts.ConfigPath, loginLimiter: newRateLimiter(5, time.Minute),
+		apiLimiter: newRateLimiter(0, time.Minute),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /readyz", s.readyz)
+	mux.HandleFunc("GET /metrics", s.metrics)
 	mux.HandleFunc("POST /api/v1/auth/setup", s.setup)
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
@@ -127,6 +133,13 @@ func NewWithDeps(opts Options) *Server {
 	mux.HandleFunc("POST /api/v1/system/cache/flush", s.cacheFlush)
 	mux.HandleFunc("GET /api/v1/system/config/history", s.configHistory)
 	mux.HandleFunc("POST /api/v1/system/config/reload", s.configReload)
+	mux.HandleFunc("GET /api/v1/system/pprof/", s.pprofIndex)
+	mux.HandleFunc("GET /api/v1/system/pprof/cmdline", s.pprofCmdline)
+	mux.HandleFunc("GET /api/v1/system/pprof/profile", s.pprofProfile)
+	mux.HandleFunc("POST /api/v1/system/pprof/symbol", s.pprofSymbol)
+	mux.HandleFunc("GET /api/v1/system/pprof/symbol", s.pprofSymbol)
+	mux.HandleFunc("GET /api/v1/system/pprof/trace", s.pprofTrace)
+	mux.HandleFunc("GET /api/v1/system/pprof/{name}", s.pprofNamed)
 	mux.Handle("/", webui.Handler())
 	s.handler = s.middleware(mux)
 	return s
@@ -142,7 +155,7 @@ func (s *Server) Start(ctx context.Context) error {
 	if s == nil || s.handler == nil {
 		return errors.New("api server handler is required")
 	}
-	addr := "0.0.0.0:8080"
+	addr := "127.0.0.1:8080"
 	httpCfg := config.HTTPServer{}
 	if s.cfg != nil && s.cfg.Get() != nil {
 		httpCfg = s.cfg.Get().Server.HTTP
@@ -197,8 +210,63 @@ func (s *Server) healthz(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) readyz(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"ready":true}` + "\n"))
+	checks := map[string]string{}
+	ready := true
+
+	var cfg *config.Config
+	if s.cfg != nil {
+		cfg = s.cfg.Get()
+	}
+	if cfg == nil {
+		ready = false
+		checks["config"] = "unavailable"
+	} else {
+		checks["config"] = "ok"
+		if _, err := store.VerifyBackend(cfg.Server.StoreBackend, cfg.Server.DataDir); err != nil {
+			ready = false
+			checks["store"] = err.Error()
+		} else {
+			checks["store"] = "ok"
+		}
+	}
+
+	if s.upstream == nil {
+		ready = false
+		checks["upstreams"] = "unavailable"
+	} else if len(s.upstream.AllIDs()) == 0 {
+		ready = false
+		checks["upstreams"] = "none configured"
+	} else if len(s.upstream.HealthyIDs()) == 0 {
+		ready = false
+		checks["upstreams"] = "no healthy upstreams"
+	} else {
+		checks["upstreams"] = "ok"
+	}
+
+	if s.pipeline == nil {
+		ready = false
+		checks["pipeline"] = "unavailable"
+	} else {
+		checks["pipeline"] = "ok"
+	}
+
+	if s.dnsReady == nil {
+		checks["dns"] = "not reported"
+	} else if !s.dnsReady() {
+		ready = false
+		checks["dns"] = "listeners not ready"
+	} else {
+		checks["dns"] = "ok"
+	}
+
+	status := http.StatusOK
+	if !ready {
+		status = http.StatusServiceUnavailable
+	}
+	writeJSONStatus(w, status, map[string]any{
+		"ready":  ready,
+		"checks": checks,
+	})
 }
 
 func (s *Server) statsSummary(w http.ResponseWriter, _ *http.Request) {
@@ -248,7 +316,38 @@ func (s *Server) queryLogStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) middleware(next http.Handler) http.Handler {
-	return recoverMiddleware(s.log)(securityHeaders(requestID(accessLog(s.log, s.authRequired(next)))))
+	return recoverMiddleware(s.log)(s.securityHeaders(requestID(accessLog(s.log, apiErrorEnvelope(s.csrfGuard(s.authRequired(s.apiRateLimit(next))))))))
+}
+
+func (s *Server) apiRateLimit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/") && !s.apiLimiter.allowWith(r, s.apiRateLimitPerMinute(), time.Minute) {
+			if s.stats != nil {
+				s.stats.IncRateLimited()
+			}
+			http.Error(w, "rate limited", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) csrfGuard(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !requiresOriginCheck(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if _, err := r.Cookie(s.cookieName()); err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !requestFromSameOrigin(r) {
+			http.Error(w, "cross-site request rejected", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) authRequired(next http.Handler) http.Handler {
@@ -285,6 +384,36 @@ func (s *Server) authExempt(r *http.Request) bool {
 	}
 }
 
+func requiresOriginCheck(r *http.Request) bool {
+	if r == nil || !strings.HasPrefix(r.URL.Path, "/api/v1/") {
+		return false
+	}
+	switch r.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return false
+	default:
+		return true
+	}
+}
+
+func requestFromSameOrigin(r *http.Request) bool {
+	if origin := r.Header.Get("Origin"); origin != "" {
+		return headerMatchesHost(origin, r.Host)
+	}
+	if referer := r.Header.Get("Referer"); referer != "" {
+		return headerMatchesHost(referer, r.Host)
+	}
+	return true
+}
+
+func headerMatchesHost(raw, host string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || host == "" {
+		return false
+	}
+	return strings.EqualFold(u.Host, host)
+}
+
 func recoverMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -299,17 +428,34 @@ func recoverMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-func securityHeaders(next http.Handler) http.Handler {
+func (s *Server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:")
-		if strings.HasPrefix(r.URL.Path, "/api/v1/") || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
+		if s.hstsEnabled(r) {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/v1/") || r.URL.Path == "/healthz" || r.URL.Path == "/readyz" || r.URL.Path == "/metrics" {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) hstsEnabled(r *http.Request) bool {
+	if r != nil && r.TLS != nil {
+		return true
+	}
+	return s != nil && s.cfg != nil && s.cfg.Get() != nil && s.cfg.Get().Server.HTTP.TLS
+}
+
+func (s *Server) apiRateLimitPerMinute() int {
+	if s != nil && s.cfg != nil && s.cfg.Get() != nil {
+		return s.cfg.Get().Server.HTTP.RateLimitPerMinute
+	}
+	return 600
 }
 
 func writeJSON(w http.ResponseWriter, value any) {

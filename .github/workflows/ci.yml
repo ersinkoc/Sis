@@ -5,6 +5,8 @@ on:
     branches: ["main"]
     tags: ["v*"]
   pull_request:
+  schedule:
+    - cron: "17 3 * * 1"
   workflow_dispatch:
     inputs:
       release_version:
@@ -30,6 +32,12 @@ jobs:
           cache: npm
           cache-dependency-path: webui/package-lock.json
       - run: WEBUI_PM=npm WEBUI_INSTALL=ci ./scripts/check.sh
+        env:
+          SIS_RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
+      - name: Vulnerability scan
+        run: |
+          packages="$(go list ./... | grep -v '/webui/node_modules/')"
+          go run golang.org/x/vuln/cmd/govulncheck@v1.3.0 ${packages}
       - run: npx playwright install --with-deps chromium
         working-directory: webui
       - run: ./scripts/webui-smoke.sh
@@ -37,6 +45,30 @@ jobs:
         run: |
           packages="$(go list ./... | grep -v '/webui/node_modules/')"
           go test -run '^$' -bench=. -benchmem -benchtime=100ms -count=1 ${packages}
+
+  scheduled-quality:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install race detector toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc
+      - name: Race detector
+        run: |
+          packages="$(go list ./... | grep -v '/webui/node_modules/')"
+          CGO_ENABLED=1 go test -race -count=1 ${packages}
+      - name: Fuzz campaigns
+        run: |
+          go test -run '^$' -fuzz=FuzzParseBlocklist -fuzztime=30s ./internal/policy
+          go test -run '^$' -fuzz=FuzzDomainsAddMatchDelete -fuzztime=30s ./internal/policy
+          go test -run '^$' -fuzz=FuzzNormalizeDomainInput -fuzztime=30s ./internal/api
+          go test -run '^$' -fuzz=FuzzDNSMessageEdgeCases -fuzztime=30s ./internal/dns
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

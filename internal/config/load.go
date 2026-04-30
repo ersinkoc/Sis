@@ -57,10 +57,26 @@ func (l *Loader) Save(c *Config) error {
 		_ = tmp.Close()
 		return err
 	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmpPath, l.Path)
+	if err := os.Rename(tmpPath, l.Path); err != nil {
+		return err
+	}
+	return syncDir(dir)
+}
+
+func syncDir(dir string) error {
+	f, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return f.Sync()
 }
 
 func applyDefaults(c *Config) {
@@ -77,7 +93,7 @@ func applyDefaults(c *Config) {
 		c.Server.DNS.RateLimitBurst = 400
 	}
 	if c.Server.HTTP.Listen == "" {
-		c.Server.HTTP.Listen = "0.0.0.0:8080"
+		c.Server.HTTP.Listen = "127.0.0.1:8080"
 	}
 	if c.Server.DataDir == "" {
 		c.Server.DataDir = "./data"
@@ -124,6 +140,9 @@ func applyDefaults(c *Config) {
 	if c.Auth.CookieName == "" {
 		c.Auth.CookieName = "sis_session"
 	}
+	if c.Server.HTTP.RateLimitPerMinute == 0 {
+		c.Server.HTTP.RateLimitPerMinute = 600
+	}
 }
 
 func applyEnvOverrides(c *Config) {
@@ -135,10 +154,13 @@ func applyEnvOverrides(c *Config) {
 	setString(os.Getenv("SIS_SERVER_HTTP_LISTEN"), &c.Server.HTTP.Listen)
 	setString(os.Getenv("SIS_HTTP_CERT_FILE"), &c.Server.HTTP.CertFile)
 	setString(os.Getenv("SIS_HTTP_KEY_FILE"), &c.Server.HTTP.KeyFile)
+	setInt(os.Getenv("SIS_HTTP_RATE_LIMIT_PER_MINUTE"), &c.Server.HTTP.RateLimitPerMinute)
+	setInt(os.Getenv("SIS_SERVER_HTTP_RATE_LIMIT_PER_MINUTE"), &c.Server.HTTP.RateLimitPerMinute)
 	setString(os.Getenv("SIS_TZ"), &c.Server.TZ)
 	setString(os.Getenv("SIS_PRIVACY_LOG_MODE"), &c.Privacy.LogMode)
 	setString(os.Getenv("SIS_PRIVACY_LOG_SALT"), &c.Privacy.LogSalt)
 	setString(os.Getenv("SIS_AUTH_COOKIE_NAME"), &c.Auth.CookieName)
+	setBool(os.Getenv("SIS_AUTH_SECURE_COOKIE"), &c.Auth.SecureCookie)
 
 	if v := os.Getenv("SIS_DNS_LISTEN"); v != "" {
 		c.Server.DNS.Listen = splitCSV(v)

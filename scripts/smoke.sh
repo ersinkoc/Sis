@@ -53,6 +53,14 @@ for _ in $(seq 1 50); do
     fi
     echo "smoke: readiness check passed"
 
+    metrics_out="$(curl -fsS "http://${http_addr}/metrics")"
+    if [[ "${metrics_out}" != *"# TYPE sis_dns_queries_total counter"* || "${metrics_out}" != *"sis_dns_queries_total"* ]]; then
+      echo "smoke: metrics endpoint failed" >&2
+      echo "${metrics_out}" >&2
+      exit 1
+    fi
+    echo "smoke: metrics endpoint passed"
+
     dns_out="$("${bin}" query -server "${dns_addr}" test localhost A)"
     if [[ "${dns_out}" != *"rcode=NOERROR"* ]]; then
       echo "smoke: DNS query failed" >&2
@@ -86,6 +94,23 @@ for _ in $(seq 1 50); do
       cat "${tmp}/cookies.txt" >&2
       exit 1
     fi
+
+    pprof_status="$(curl -sS -o "${tmp}/pprof-unauth.out" -w "%{http_code}" \
+      "http://${http_addr}/api/v1/system/pprof/goroutine?debug=1")"
+    if [[ "${pprof_status}" != "401" ]]; then
+      echo "smoke: unauthenticated pprof was not rejected: ${pprof_status}" >&2
+      cat "${tmp}/pprof-unauth.out" >&2
+      exit 1
+    fi
+    pprof_out="$(curl -fsS -b "${tmp}/cookies.txt" \
+      "http://${http_addr}/api/v1/system/pprof/goroutine?debug=1")"
+    if [[ "${pprof_out}" != *"goroutine profile:"* ]]; then
+      echo "smoke: authenticated pprof endpoint failed" >&2
+      echo "${pprof_out}" >&2
+      exit 1
+    fi
+    echo "smoke: authenticated pprof endpoint passed"
+
     cli_system_err="${tmp}/cli-system.err"
     if ! cli_system_out="$("${bin}" system -api "http://${http_addr}" -cookie "${session_cookie}" info 2>"${cli_system_err}")"; then
       echo "smoke: CLI API system info failed" >&2
