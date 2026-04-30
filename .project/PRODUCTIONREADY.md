@@ -233,7 +233,7 @@ Critical paths without enough visible coverage:
 - [x] Audit logs are separate.
 - [x] HTTP access logging exists.
 - [x] Request IDs are generated and returned.
-- [ ] Request IDs are included in access log lines.
+- [x] Request IDs are included in access log lines.
 - [x] Query log privacy modes exist.
 - [x] Log rotation exists.
 - [x] Panic logs include stack traces.

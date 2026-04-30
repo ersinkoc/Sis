@@ -37,6 +37,23 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestAccessLogIncludesRequestID(t *testing.T) {
+	var logs bytes.Buffer
+	s := New(testHolder(), slog.New(slog.NewTextHandler(&logs, nil)))
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	req.Header.Set("X-Request-ID", "request-log-test")
+	rec := httptest.NewRecorder()
+
+	s.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if got := logs.String(); !strings.Contains(got, "request_id=request-log-test") {
+		t.Fatalf("access log missing request id: %s", got)
+	}
+}
+
 func TestReadyzChecksRuntimeDependencies(t *testing.T) {
 	holder := validAPIConfig(t)
 	st, err := store.Open(holder.Get().Server.DataDir)
