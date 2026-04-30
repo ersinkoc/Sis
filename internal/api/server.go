@@ -147,7 +147,7 @@ func (s *Server) Start(ctx context.Context) error {
 	if s == nil || s.handler == nil {
 		return errors.New("api server handler is required")
 	}
-	addr := "0.0.0.0:8080"
+	addr := "127.0.0.1:8080"
 	httpCfg := config.HTTPServer{}
 	if s.cfg != nil && s.cfg.Get() != nil {
 		httpCfg = s.cfg.Get().Server.HTTP

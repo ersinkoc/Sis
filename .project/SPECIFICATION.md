@@ -450,7 +450,7 @@ server:
     udp_workers: 0          # 0 = NumCPU * 4
     tcp_workers: 0
   http:
-    listen: "0.0.0.0:8080"
+    listen: "127.0.0.1:8080"
     tls: false
     cert_file: ""
     key_file: ""

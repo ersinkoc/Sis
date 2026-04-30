@@ -122,7 +122,7 @@ Critical broken/unfinished flows:
 - [x] HSTS header exists when TLS is active or configured.
 - [x] CORS is not wildcard; no CORS headers are set.
 - [x] Origin/Referer CSRF mitigation exists for unsafe cookie-authenticated API methods.
-- [ ] HTTP listener defaults to `0.0.0.0:8080` in config defaults, though example uses localhost.
+- [x] HTTP listener defaults to localhost unless explicitly configured otherwise.
 
 ### 3.4 Secrets & Configuration
 

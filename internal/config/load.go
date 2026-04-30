@@ -93,7 +93,7 @@ func applyDefaults(c *Config) {
 		c.Server.DNS.RateLimitBurst = 400
 	}
 	if c.Server.HTTP.Listen == "" {
-		c.Server.HTTP.Listen = "0.0.0.0:8080"
+		c.Server.HTTP.Listen = "127.0.0.1:8080"
 	}
 	if c.Server.DataDir == "" {
 		c.Server.DataDir = "./data"

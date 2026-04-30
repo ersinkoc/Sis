@@ -36,7 +36,7 @@ sis config show -config /etc/sis/sis.yaml
 | `server.dns.udp_size` | integer | `1232` | `SIS_DNS_UDP_SIZE` | Maximum UDP response size. Must be between `0` and `65535`. |
 | `server.dns.rate_limit_qps` | integer | `200` | `SIS_DNS_RATE_LIMIT_QPS` | Per-client DNS query rate. `0` disables rate limiting. |
 | `server.dns.rate_limit_burst` | integer | `400` | `SIS_DNS_RATE_LIMIT_BURST` | Token bucket burst. Must be `>= 0`. |
-| `server.http.listen` | address | `0.0.0.0:8080` | `SIS_HTTP_LISTEN`, `SIS_SERVER_HTTP_LISTEN` | Keep on localhost unless a trusted network, firewall, TLS, or reverse proxy protects it. |
+| `server.http.listen` | address | `127.0.0.1:8080` | `SIS_HTTP_LISTEN`, `SIS_SERVER_HTTP_LISTEN` | Keep on localhost unless a trusted network, firewall, TLS, or reverse proxy protects it. |
 | `server.http.tls` | boolean | `false` | `SIS_HTTP_TLS` | Enables built-in HTTPS. |
 | `server.http.cert_file` | path | empty | `SIS_HTTP_CERT_FILE` | Required when `server.http.tls` is true. |
 | `server.http.key_file` | path | empty | `SIS_HTTP_KEY_FILE` | Required when `server.http.tls` is true. |

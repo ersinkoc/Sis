@@ -21,6 +21,14 @@ func TestLoadExample(t *testing.T) {
 	}
 }
 
+func TestDefaultsKeepHTTPManagementOnLocalhost(t *testing.T) {
+	cfg := &Config{}
+	applyDefaults(cfg)
+	if cfg.Server.HTTP.Listen != "127.0.0.1:8080" {
+		t.Fatalf("HTTP listen default = %q", cfg.Server.HTTP.Listen)
+	}
+}
+
 func TestEnvOverridePrecedence(t *testing.T) {
 	t.Setenv("SIS_HTTP_LISTEN", "127.0.0.1:9090")
 	t.Setenv("SIS_DNS_LISTEN", "127.0.0.1:5354,[::1]:5354")
