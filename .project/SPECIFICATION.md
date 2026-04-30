@@ -4,7 +4,7 @@
 
 - **Repository:** `github.com/ersinkoc/sis`
 - **License:** MIT
-- **Language:** Go 1.24
+- **Language:** Go 1.25.9
 - **Tagline:** *Sorgular siste, cevaplar berrak.* / *DNS in the fog. Answers in the clear.*
 
 ---
@@ -774,7 +774,7 @@ Targets verified via included benchmark harness (`sis bench`).
 
 ### 16.1 Runtime Dependencies
 
-- **Go 1.24+**
+- **Go 1.25.9+**
 - **`github.com/miekg/dns`** — DNS message parsing/serialization. Battle-tested, the de facto Go DNS library. Sis uses it for wire format only; all routing/policy logic is hand-written.
 - **`gopkg.in/yaml.v3`** — YAML parsing for the operator config.
 - **`modernc.org/sqlite`** — pure-Go SQLite backend.

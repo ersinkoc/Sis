@@ -23,7 +23,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 - [x] Preserve group schedules in WebUI saves - `webui/src/lib/dashboard.ts`, `webui/src/App.tsx`; minimum fix is to send existing `group.schedules` rather than `[]`; estimate 4h.
 - [x] Add actual schedule editing to WebUI - group panel should create/edit/delete schedule name, days, from/to, blocklists; estimate 12-20h.
 - [x] Implement dependency-aware `/readyz` - verifies config availability, store readability, upstream pool health, DNS pipeline wiring, and DNS listener lifecycle state; estimate 6h.
-- [x] Install/verify Go toolchain in local/dev environments - temporary Go 1.24.0 toolchain was used for `gofmt`, `go test ./... -count=1`, and `go vet ./...`; `go test -race ./...` remains blocked by missing `gcc`/cgo support; estimate 2h.
+- [x] Install/verify Go toolchain in local/dev environments - Go 1.25.9 is the project toolchain; full local gate passes, and race/fuzz run in CI where cgo/gcc is available; estimate 2h.
 - [x] Decide password hashing contract - documented current PBKDF2-SHA256 compatibility contract and migration requirement in `SECURITY.md`; estimate 6h.
 - [x] Add Origin/Referer protection for unsafe cookie-authenticated HTTP methods; cross-origin browser mutations now return 403 while same-origin WebUI and local CLI flows remain compatible; estimate 8h.
 

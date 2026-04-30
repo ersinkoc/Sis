@@ -27,13 +27,13 @@
 Estimated specified feature completion:
 
 - Current README/release scope: **~85% implemented**.
-- Original `.project/SPECIFICATION.md` v1 scope: **~75% implemented**.
+- Current `.project/SPECIFICATION.md` v1 scope: **~85% implemented**.
 
 Core feature status:
 
 - Complete: DNS UDP/TCP listener, pipeline, DoH forwarding, cache, policy engine, schedules backend, block/allow lists, custom lists, logging, stats counters/rollups, HTTP API, cookie sessions, config reload, JSON/SQLite stores, embedded WebUI, backup/restore, release scripts.
 - Partial: acceptance testing, production load targets, conformance tests, frontend accessibility, upstream cooldown semantics.
-- Missing: TUI, Unix-socket JSON-RPC, OpenAPI docs, full SPEC §19 integration suite, Prometheus metrics.
+- Missing or deferred: OpenAPI docs, full live SPEC §19 production validation, Prometheus metrics. TUI/Unix-socket JSON-RPC is explicitly deferred from current v1 scope.
 - Recently fixed: WebUI group saves now preserve schedules and expose schedule editing.
 
 ### 1.2 Critical Path Analysis
@@ -45,7 +45,7 @@ Critical broken/unfinished flows:
 - Group schedule management has WebUI create/edit/delete support and browser-regression coverage in CI.
 - `/readyz` now checks config, store readability, upstream health, DNS pipeline wiring, and DNS listener lifecycle state.
 - First-run/auth works; PBKDF2-SHA256 is documented as the current pre-v1 compatibility contract.
-- TUI workflow promised in spec is absent.
+- TUI workflow is absent by current scope decision and tracked as v2/deferred work.
 
 ### 1.3 Data Integrity
 
@@ -215,11 +215,11 @@ Critical paths without enough visible coverage:
 
 ### 5.3 Test Infrastructure
 
-- [x] Tests can run locally with `go test ./...` using temporary Go 1.24.0 tooling.
+- [x] Tests can run locally with Go 1.25.9 tooling.
 - [x] CI is configured to run Go/Node checks.
 - [x] WebUI build/lint runs locally.
 - [x] Test data/fixtures are mostly inline/tempdir based.
-- [ ] Race detector is enforced in CI. It is mentioned in tasks but not evident in `.github/workflows/ci.yml`.
+- [x] Race detector is enforced in CI for scheduled/manual quality runs.
 
 ## 6. Observability
 
@@ -300,16 +300,16 @@ Critical paths without enough visible coverage:
 
 ### Production Blockers
 
-1. Original v1 scope still promises TUI/Unix-socket JSON-RPC, which is absent.
-2. SPEC §19 local acceptance evidence is mapped, but production validation still needs real target host/router/LAN/client evidence.
-3. Broad-production posture still needs sustained production load evidence and final scope alignment.
+1. SPEC §19 local acceptance evidence is mapped, but production validation still needs real target host/router/LAN/client evidence.
+2. Broad-production posture still needs sustained production load evidence and final scope alignment.
+3. Deferred TUI/Unix-socket expectations should stay clearly out of v1 release messaging.
 
 ### High Priority
 
 1. Complete strict live-host production validation with real LAN DNS, authenticated API, diagnostics, and real-client observation.
-2. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
-3. Add alert definitions for key operational failures.
-4. Add sustained load evidence for DNS/API operation beyond short benchmark baselines.
+2. Add alert definitions for key operational failures.
+3. Add sustained load evidence for DNS/API operation beyond short benchmark baselines.
+4. Keep SPEC/IMPLEMENTATION/TASKS aligned if deferred TUI/socket scope changes.
 
 ### Recommendations
 
@@ -323,12 +323,12 @@ Critical paths without enough visible coverage:
 
 - From current state: **4-6 weeks** for conditional small-site production hardening.
 - Minimum viable production fixes only: **5-8 development days**.
-- Full production readiness against original v1 spec: **10-16 weeks**, mostly due to TUI/socket, integration testing, performance validation, and WebUI completion.
+- Full production readiness for broad managed-service claims: **8-12 weeks**, mostly due to live validation, sustained load testing, security review, and operational alerting.
 
 ### Go/No-Go Recommendation
 
 **CONDITIONAL GO** for a tightly controlled home/lab/small-office deployment where HTTP is localhost/trusted-network only, SQLite is preferred, operators take backups, and operators accept that live target-host validation is still pending.
 
-**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification/scope gaps for that posture today: missing TUI/socket scope, incomplete live production validation, and limited sustained-load evidence.
+**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification gaps for that posture today: incomplete live production validation, limited sustained-load evidence, and incomplete final security review.
 
-The honest read: Sis is not a toy, and the operational scaffolding is unusually serious for this stage. Recent work removed several production blockers: schedule data loss, shallow dependency readiness, undocumented auth hashing, missing browser-origin mutation checks, missing local Go test/vet evidence, missing CI race/fuzz evidence, and missing CI browser-smoke evidence. It is still not safe to present as fully production-ready until live production validation is recorded and the remaining v1 scope/documentation mismatch is resolved.
+The honest read: Sis is not a toy, and the operational scaffolding is unusually serious for this stage. Recent work removed several production blockers: schedule data loss, shallow dependency readiness, undocumented auth hashing, browser-origin mutation gaps, local Go test/vet gaps, CI race/fuzz gaps, CI browser-smoke gaps, and stale v1 TUI/socket expectations. It is still not safe to present as fully production-ready until live production validation is recorded and sustained load/security evidence is stronger.

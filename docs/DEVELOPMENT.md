@@ -6,7 +6,7 @@ This document lists the local tools needed to run the same checks that CI runs.
 
 | Tool | Version | Used by |
 | --- | --- | --- |
-| Go | From `go.mod`, currently `1.24.0` | Go tests, vet, build, release scripts, smoke tests |
+| Go | From `go.mod`, currently `1.25.9` | Go tests, vet, build, release scripts, smoke tests |
 | Node.js | `24` recommended | WebUI dependencies and Vite 8 toolchain |
 | npm | Bundled with Node 24 | `webui/package-lock.json`, WebUI build/lint/e2e |
 | curl | system package | HTTP health/readiness checks and smoke scripts |

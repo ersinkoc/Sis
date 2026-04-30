@@ -48,7 +48,7 @@ Notes:
 
 - **Scope:**
   - Create `cmd/sis/main.go` (empty `func main()`).
-  - `go.mod` with module `github.com/ersinkoc/sis`, Go 1.24.
+  - `go.mod` with module `github.com/ersinkoc/sis`, Go 1.25.9.
   - `LICENSE` (MIT).
   - `.gitignore`, `.editorconfig`.
   - `pkg/version` with `Version`, `Commit`, `Date` ldflag-injected vars.

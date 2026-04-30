@@ -40,7 +40,7 @@ Key metrics from discovery:
 | API routes registered | 47 |
 | TODO/FIXME/HACK markers | 0 in source/docs excluding generated artifacts |
 
-Overall health: **8/10 for small-site pre-v1 deployment, 5/10 against the full v1 specification**. The core DNS/API/storage architecture is coherent and surprisingly broad, with SQLite support, release scripts, CI, WebUI build/lint, and operational runbooks. The score is held down by missing original v1 surfaces (TUI and Unix-socket JSON-RPC), remaining live-host validation, security/spec deviations around password hashing and broad admin authorization, and lack of deeper conformance/load testing evidence.
+Overall health: **8/10 for small-site pre-v1 deployment, 6/10 against the current v1 specification**. The core DNS/API/storage architecture is coherent and surprisingly broad, with SQLite support, release scripts, CI, WebUI build/lint, and operational runbooks. The score is held down by remaining live-host validation, security/spec decisions around password hashing and broad admin authorization, deferred TUI/Unix-socket expectations, and lack of deeper conformance/load testing evidence.
 
 Top strengths:
 
@@ -50,9 +50,9 @@ Top strengths:
 
 Top concerns:
 
-- The original TUI/Unix-socket management surface is completely absent (`internal/tui` and `internal/api/sock.go` do not exist).
+- The local TUI/Unix-socket management surface is absent and explicitly deferred from current v1 scope.
 - Live production validation still needs target host/router/LAN/client evidence in `docs/PRODUCTION_VALIDATION.md`.
-- Security does not fully match the original spec: passwords use documented PBKDF2-SHA256 (`internal/api/password.go`) while the original SPEC required bcrypt, and all authenticated users are full admins.
+- Security remains simple: passwords use documented PBKDF2-SHA256 (`internal/api/password.go`), and all authenticated users are full admins.
 
 ## 2. Architecture Analysis
 
@@ -460,12 +460,12 @@ Frontend:
 ### 5.2 Architectural Deviations
 
 - **SQLite implemented though original IMPLEMENTATION said current backend was JSON and future SQLite.** This is a valuable improvement, backed by migration/export/verify scripts.
-- **TUI/Unix socket skipped.** This is a regression against SPEC/TASKS, not merely a simplification, because SPEC lists three management surfaces.
-- **CLI uses HTTP API rather than Unix socket JSON-RPC.** This simplifies implementation and aligns CLI/WebUI, but deviates from M9/M10 task plan.
-- **Password hashing changed from bcrypt to custom PBKDF2.** This is a security/spec deviation that should be deliberate and documented or corrected.
-- **No shadcn/ui or lucide-react.** WebUI uses native controls and Tailwind classes. This reduces dependency load but deviates from specified visual/component system.
+- **TUI/Unix socket deferred.** SPEC/IMPLEMENTATION/TASKS now treat this as v2/deferred scope; WebUI and HTTP-backed CLI are the supported v1 management surfaces.
+- **CLI uses HTTP API rather than Unix socket JSON-RPC.** This simplifies implementation and aligns CLI/WebUI with the current v1 scope.
+- **Password hashing uses documented PBKDF2-SHA256.** This is now the pre-v1 compatibility contract; future bcrypt/argon2 migration must preserve existing hashes long enough for rotation.
+- **No shadcn/ui or lucide-react.** WebUI uses native controls and Tailwind classes. This reduces dependency load but remains a visual/component-system tradeoff.
 - **No custom YAML subset parser.** Implementation uses `gopkg.in/yaml.v3`; this is a pragmatic improvement over a hand-rolled parser.
-- **Readiness check simplified to always-ready.** This is a production-readiness regression.
+- **Readiness is dependency-aware.** It now checks runtime dependencies, but live-host behavior still needs production validation.
 
 ### 5.3 Task Completion Assessment
 
@@ -473,18 +473,18 @@ Estimated task completion:
 
 - Complete or substantially complete: T001-T039, T041-T052, T055-T064 partial/complete, T069-T071 mostly via HTTP, T076-T078 mostly complete.
 - Partial: T040, T053, T054, T060-T064, T072-T075.
-- Missing: T065-T068 TUI/Unix socket milestone.
+- Deferred: T065-T068 TUI/Unix socket milestone.
 
 Approximate completion:
 
 - **Backend core/API/DNS/storage:** 85-90%.
-- **Original full v1 including TUI and hardening:** 70-75%.
-- **Task count rough completion:** about **60 of 78** fully/substantially complete, **10 partial**, **8 missing**, or roughly **77% task completion**.
+- **Current scoped v1 including hardening:** 80-85%.
+- **Task count rough completion:** about **60 of 78** fully/substantially complete, **10 partial**, **4 deferred**, **4 missing**, or roughly **77% task completion** before excluding deferred scope.
 
-Blocked/abandoned tasks:
+Deferred or incomplete tasks:
 
-- T065 Unix socket JSON-RPC: missing.
-- T066-T068 TUI: missing.
+- T065 Unix socket JSON-RPC: deferred from v1.
+- T066-T068 TUI: deferred from v1.
 - T054 shadcn/lucide integration: missing.
 - T073 integration tests: missing as a dedicated suite.
 - T074 conformance tests: partial only.
@@ -573,8 +573,8 @@ Strong:
 
 Weak/drift:
 
-- `.project/SPECIFICATION.md` still promises TUI, bcrypt, shadcn/lucide, and specific dependency choices that implementation does not match.
-- `.project/IMPLEMENTATION.md` still describes JSON as current backend in early sections, while README/CHANGELOG document SQLite as implemented.
+- `.project/SPECIFICATION.md`, `.project/IMPLEMENTATION.md`, and `.project/TASKS.md` now agree that TUI/Unix-socket work is deferred, but downstream release messaging must keep that explicit.
+- Password hashing and WebUI component choices are documented implementation decisions, but security/design review should revisit them before a stable v1 claim.
 - No OpenAPI/API reference document exists beyond README examples and route code.
 
 ### 7.3 Build & Deploy
@@ -601,14 +601,13 @@ CI/CD:
 | Location | Debt | Suggested fix | Effort |
 |---|---|---:|---:|
 | `docs/PRODUCTION_VALIDATION.md` | Live host/router/LAN/client evidence is still pending | Run strict production validation on the target host and import the report | Environment-dependent |
-| `internal/api/password.go:93-160` vs SPEC | Password hashing deviates from bcrypt requirement | Switch to `x/crypto/bcrypt` or update spec/security docs and add migration support | 4-8h |
-| `.project/SPECIFICATION.md` vs implementation | Original v1 TUI/Unix-socket scope is absent | Finish the scope or update v1 expectations | 12-24h |
+| `internal/api/password.go:93-160` | PBKDF2-SHA256 is documented but should get final security review before stable v1 | Keep compatibility or add bcrypt/argon2 migration support | 4-8h |
 
 ### Important (should fix before v1.0)
 
 | Location | Debt | Suggested fix | Effort |
 |---|---|---:|---:|
-| No `internal/tui`, no socket API | TUI/Unix socket tasks missing | Decide if removed from v1; update spec/tasks or implement | 24-40h |
+| No `internal/tui`, no socket API | TUI/Unix socket tasks are deferred from v1 | Keep release messaging explicit or reopen as v2 work | 24-40h |
 | `internal/api` errors | Plaintext error bodies inconsistent with JSON API | Standardize JSON error envelope | 4-8h |
 | `internal/dns/server.go:149-156` | UDP hot path allocates/copies per packet | Introduce buffer pool or benchmark current cost and document | 4-8h |
 | `internal/policy/engine.go:87-90` | Per-query map copy | Replace with immutable snapshot pointer or benchmark and document | 4-8h |
