@@ -34,9 +34,10 @@ cd webui
 npm ci
 ```
 
-Build and lint:
+Test, build, and lint:
 
 ```sh
+npm test
 npm run build
 npm run lint
 ```
@@ -102,7 +103,7 @@ The gate performs:
 - Clean tracked diff check.
 - Go doc comment check.
 - Release and production-validation smoke scripts.
-- WebUI install/build/lint.
+- WebUI install/test/build/lint.
 - WebUI embed synchronization check.
 - Coverage gate.
 - Source-level DNS/API integration subset.

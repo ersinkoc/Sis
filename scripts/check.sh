@@ -22,6 +22,7 @@ git diff --exit-code
 (
   cd webui
   "${webui_pm}" "${webui_install}"
+  "${webui_pm}" test
   "${webui_pm}" run build
   "${webui_pm}" run lint
 )
