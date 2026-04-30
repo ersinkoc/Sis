@@ -88,10 +88,10 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 
 ### Final production preparation
 
-- [ ] Run full CI locally and in GitHub Actions with Go available.
+- [x] Run full CI locally and in GitHub Actions with Go available.
 - [ ] Complete live host production validation record in `docs/PRODUCTION_VALIDATION.md`.
 - [ ] Run strict production validation with real LAN DNS and real client observation.
-- [ ] Verify release artifacts and optional checksum signing.
+- [x] Verify release artifacts and optional checksum signing through the release dry-run workflow.
 - [ ] Add rollback drill documentation from actual restore test.
 - [ ] Final security review of auth/session/cookie/config/backups.
 - [ ] Decide Docker posture: explicitly unsupported or add Dockerfile/compose.

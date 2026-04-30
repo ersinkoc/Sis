@@ -16,11 +16,11 @@ It separates covered source-level acceptance from remaining host/browser validat
 | 9 | Privacy mode | `TestSpec19DNSAcceptancePrivacyModeHashesClientIdentity` verifies hashed client key/IP logging. | Covered | Per-client stats hash aggregation is not isolated in this scenario. |
 | 10 | Restart persistence | `TestSpec19DNSAcceptanceRestartPersistence` verifies stored client group/name after restart; smoke verifies runtime restart persistence; `TestSetupPersistsConfigAndSessionAcrossRestart` verifies setup/session persistence. | Covered | Custom lists and stats recovery are covered by store/smoke tests, not a single named SPEC scenario test. |
 | 11 | Store verification | `scripts/smoke.sh` covers CLI/API store verification; `TestSystemStoreVerify` covers API JSON store verification. | Covered | WebUI store verification is only covered by Playwright smoke where browser execution is available. |
-| 12 | Production validation | `scripts/production-validation-preflight.sh`, `scripts/update-production-validation-record.sh`, docs runbooks, and script smoke tests exist. | Partial | Requires real target host/router/LAN/client evidence and cannot be completed in local unit tests. |
+| 12 | Production validation | `scripts/run-production-validation.sh` preflight mode, `scripts/update-production-validation-record.sh`, docs runbooks, and script smoke tests exist. | Partial | Requires real target host/router/LAN/client evidence and cannot be completed in local unit tests. |
 
 ## Cross-Cutting Gaps
 
-- Playwright browser execution is blocked on this host by unsupported Chromium package availability; mocked specs cover key WebUI flows for supported hosts.
-- Race testing is blocked locally because `go test -race` requires cgo and no C compiler is installed; CI has a scheduled/manual race job.
-- Seeded fuzz targets exist for blocklist parsing, domain normalization, and DNS edge cases; CI has scheduled/manual short fuzz campaigns.
+- Playwright browser execution is blocked on this host by unsupported Chromium package availability, but CI browser smoke passes on a supported runner.
+- Race testing is blocked locally because `go test -race` requires cgo and no C compiler is installed; CI scheduled/manual race testing passes.
+- Seeded fuzz targets exist for blocklist parsing, domain normalization, and DNS edge cases; CI scheduled/manual short fuzz campaigns pass.
 - Performance targets still need representative benchmarks before broad release claims.

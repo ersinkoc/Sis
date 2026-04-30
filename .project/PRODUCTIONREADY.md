@@ -42,7 +42,7 @@ A user can likely complete the primary happy path: install, start service, run s
 
 Critical broken/unfinished flows:
 
-- Group schedule management now has WebUI create/edit/delete support; it still needs automated browser/regression tests.
+- Group schedule management has WebUI create/edit/delete support and browser-regression coverage in CI.
 - `/readyz` now checks config, store readability, upstream health, DNS pipeline wiring, and DNS listener lifecycle state.
 - First-run/auth works; PBKDF2-SHA256 is documented as the current pre-v1 compatibility contract.
 - TUI workflow promised in spec is absent.
@@ -53,7 +53,7 @@ Critical broken/unfinished flows:
 - Migration/export commands exist for JSON-to-SQLite and SQLite-to-JSON.
 - Backup/restore commands and scripts exist.
 - Config mutation flow validates, stores history, and preserves omitted fields on PATCH handlers.
-- Risk: WebUI group schedule behavior still lacks automated frontend/e2e regression coverage.
+- WebUI group schedule behavior has mocked Playwright regression coverage; live production behavior still depends on target-host validation.
 - Config saves use temp-file fsync, atomic rename, and parent-directory fsync.
 
 ## 2. Reliability & Error Handling
@@ -179,10 +179,15 @@ Actually tested by local audit:
 - WebUI ESLint.
 - npm audit.
 
-Not locally testable:
+Not locally testable on this host:
 
 - Race detector. `go test -race ./...` requires cgo and failed because `gcc` is not installed.
 - Playwright browser execution. Chromium install failed because this Playwright build does not support the host `ubuntu26.04-x64` browser package.
+
+Verified in GitHub Actions:
+
+- Scheduled/manual quality job passes race detector and short fuzz campaigns.
+- Browser smoke runs on a supported CI host and covers the first-run and mocked management flows.
 
 Source tests present:
 
@@ -191,10 +196,10 @@ Source tests present:
 
 Critical paths without enough visible coverage:
 
-- SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation, browser execution, completed scheduled race/fuzz evidence, and performance evidence.
-- WebUI management flows now have mocked Playwright specs, but browser execution is blocked on this host.
+- SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation and deeper performance evidence.
+- WebUI management flows now have mocked Playwright specs and CI browser execution.
 - Real production install validation on target host.
-- CSRF/security behavior.
+- Final security review of auth/session/cookie/config/backup behavior.
 - Readiness dependency checks now have Go tests.
 
 ### 5.2 Test Categories Present
@@ -295,17 +300,16 @@ Critical paths without enough visible coverage:
 
 ### Production Blockers
 
-1. Race verification could not be performed locally because cgo needs a C compiler and `gcc` is not installed; CI now has a scheduled/manual race job.
-2. Playwright regression coverage exists for key WebUI flows, but browser execution is blocked on this host's unsupported Chromium package.
-3. Original v1 scope still promises TUI/Unix-socket JSON-RPC, which is absent.
-4. SPEC §19 local acceptance evidence is mapped, but production validation still needs real target host/router/LAN/client evidence.
+1. Original v1 scope still promises TUI/Unix-socket JSON-RPC, which is absent.
+2. SPEC §19 local acceptance evidence is mapped, but production validation still needs real target host/router/LAN/client evidence.
+3. Broad-production posture still needs deeper performance evidence and final scope alignment.
 
 ### High Priority
 
-1. Confirm the scheduled/manual CI quality job passes race and fuzz campaigns.
-2. Run browser e2e on a supported Playwright host and extend WebUI acceptance paths.
-3. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
-4. Add alert definitions for key operational failures.
+1. Complete strict live-host production validation with real LAN DNS, authenticated API, diagnostics, and real-client observation.
+2. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
+3. Add alert definitions for key operational failures.
+4. Add deeper performance/load evidence for sustained DNS/API operation.
 
 ### Recommendations
 
@@ -323,8 +327,8 @@ Critical paths without enough visible coverage:
 
 ### Go/No-Go Recommendation
 
-**CONDITIONAL GO** for a tightly controlled home/lab/small-office deployment where HTTP is localhost/trusted-network only, SQLite is preferred, operators take backups, and operators accept that race testing and browser-executed e2e evidence are still pending.
+**CONDITIONAL GO** for a tightly controlled home/lab/small-office deployment where HTTP is localhost/trusted-network only, SQLite is preferred, operators take backups, and operators accept that live target-host validation is still pending.
 
-**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification/scope gaps for that posture today: missing TUI/socket scope, incomplete acceptance testing, race testing blocked by missing compiler tooling, and Playwright browser execution blocked on this host.
+**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification/scope gaps for that posture today: missing TUI/socket scope, incomplete live production validation, and limited performance/load evidence.
 
-The honest read: Sis is not a toy, and the operational scaffolding is unusually serious for this stage. Recent work removed several production blockers: schedule data loss, shallow dependency readiness, undocumented auth hashing, missing browser-origin mutation checks, and missing local Go test/vet evidence. It is still not safe to present as fully production-ready until race/browser validation can run and the remaining v1 scope/documentation mismatch is resolved.
+The honest read: Sis is not a toy, and the operational scaffolding is unusually serious for this stage. Recent work removed several production blockers: schedule data loss, shallow dependency readiness, undocumented auth hashing, missing browser-origin mutation checks, missing local Go test/vet evidence, missing CI race/fuzz evidence, and missing CI browser-smoke evidence. It is still not safe to present as fully production-ready until live production validation is recorded and the remaining v1 scope/documentation mismatch is resolved.

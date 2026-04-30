@@ -6,11 +6,10 @@
 > Post-audit implementation update: this branch now preserves and edits group schedules in
 > the WebUI, makes `/readyz` dependency-aware, documents the PBKDF2-SHA256 password hashing
 > contract, and adds Origin/Referer checks for unsafe cookie-authenticated API methods.
-> Follow-up update: `/readyz` now also consumes DNS listener lifecycle state, Go 1.24.0
-> `gofmt`/`test`/`vet` were run successfully with a temporary toolchain, and a mocked
-> Playwright group schedule regression spec was added. Race testing is still blocked by
-> missing `gcc`; browser execution is blocked by unsupported Playwright Chromium install
-> on this host.
+> Follow-up update: `/readyz` now also consumes DNS listener lifecycle state, Go checks
+> pass with the project toolchain, mocked Playwright coverage was added for group and
+> management flows, and GitHub Actions now passes race, fuzz, browser smoke, vulnerability,
+> benchmark, and release dry-run gates.
 > Hardening update: API text errors are now returned as JSON envelopes with request IDs,
 > access logs include request IDs, and HSTS is emitted when TLS is active or configured.
 > Rate-limit update: authenticated API routes now have a configurable per-IP limiter via
@@ -41,7 +40,7 @@ Key metrics from discovery:
 | API routes registered | 47 |
 | TODO/FIXME/HACK markers | 0 in source/docs excluding generated artifacts |
 
-Overall health: **7/10 for small-site pre-v1 deployment, 5/10 against the full v1 specification**. The core DNS/API/storage architecture is coherent and surprisingly broad, with SQLite support, release scripts, CI, WebUI build/lint, and operational runbooks. The score is held down by missing original v1 surfaces (TUI and Unix-socket JSON-RPC), inability to verify Go build/tests in this environment, security/spec deviations around password hashing and CSRF, shallow readiness checks, incomplete WebUI schedule support, and lack of full integration/conformance/load testing evidence.
+Overall health: **8/10 for small-site pre-v1 deployment, 5/10 against the full v1 specification**. The core DNS/API/storage architecture is coherent and surprisingly broad, with SQLite support, release scripts, CI, WebUI build/lint, and operational runbooks. The score is held down by missing original v1 surfaces (TUI and Unix-socket JSON-RPC), remaining live-host validation, security/spec deviations around password hashing and broad admin authorization, and lack of deeper conformance/load testing evidence.
 
 Top strengths:
 
@@ -52,8 +51,8 @@ Top strengths:
 Top concerns:
 
 - The original TUI/Unix-socket management surface is completely absent (`internal/tui` and `internal/api/sock.go` do not exist).
-- WebUI group saves discard schedules: `webui/src/lib/dashboard.ts:480-486` sends `schedules: []`, while `webui/src/App.tsx:947-1048` exposes only name/blocklists/allowlist editing.
-- Security does not match the spec: passwords use custom PBKDF2-SHA256 (`internal/api/password.go:93-160`) while SPEC requires bcrypt; cookie-authenticated state-changing endpoints have no CSRF token/origin protection; only login is HTTP-rate-limited.
+- Live production validation still needs target host/router/LAN/client evidence in `docs/PRODUCTION_VALIDATION.md`.
+- Security does not fully match the original spec: passwords use documented PBKDF2-SHA256 (`internal/api/password.go`) while the original SPEC required bcrypt, and all authenticated users are full admins.
 
 ## 2. Architecture Analysis
 
@@ -239,13 +238,13 @@ Endpoint inventory from `internal/api/server.go:83-129`:
 API consistency:
 
 - Route organization is consistent around `/api/v1`.
-- Responses are mostly JSON on success and `http.Error` plaintext on failure. There is no uniform JSON error envelope.
+- Responses use JSON success payloads and JSON error envelopes with request IDs on API paths.
 - `decodeJSON` rejects oversized bodies, unknown fields, and trailing data (`internal/api/server.go:339+`, verified by tests in `internal/api/server_test.go:654-678`).
 - Auth model is local user/password with server-side sessions and sliding cookie renewal (`internal/api/auth.go:117-170`).
 - `authRequired` gates API routes except setup/login (`internal/api/server.go:254-286`).
 - No CORS support is present, which is acceptable if same-origin WebUI is the intended access model.
-- No CSRF defense is present for cookie-authenticated mutation routes.
-- Only login has HTTP rate limiting (`internal/api/server.go:80`, `internal/api/auth.go:71-75`); SPEC calls for wider HTTP rate limiting.
+- Unsafe cookie-authenticated mutation routes enforce Origin/Referer checks for browser requests.
+- Authenticated API routes have configurable per-IP rate limiting.
 
 ## 3. Code Quality Assessment
 
@@ -316,11 +315,11 @@ Accessibility:
 - No automated accessibility tests are present.
 - E2E smoke uses role/label selectors (`webui/e2e/smoke.spec.ts`), which is a positive sign.
 
-Critical frontend correctness issue:
+Resolved frontend correctness issue:
 
-- `webui/src/lib/dashboard.ts:480-486` always sends `schedules: []` on group update.
-- `webui/src/App.tsx:947-1048` lets users edit group name, blocklists, and allowlist only.
-- Result: saving any group through the WebUI can erase all schedules for that group. This directly violates SPEC schedule goals and is production-impacting for parental/work-hour policies.
+- Group updates now preserve schedule data and expose schedule create/edit/delete controls.
+- Resource edit drafts now preserve omitted fields for groups, blocklists, and upstreams.
+- Playwright coverage exercises group schedule preservation/editing and mocked management flows.
 
 Bundle:
 
@@ -363,11 +362,11 @@ Positive:
 Concerns:
 
 - Password hashing deviates from SPEC: custom PBKDF2-SHA256 instead of bcrypt (`internal/api/password.go:93-160`; SPEC §13.1 and §16.1 require bcrypt). PBKDF2 can be acceptable when tuned, but this is a spec and interoperability deviation.
-- No CSRF protection for cookie-authenticated `POST/PATCH/DELETE` endpoints.
-- No HSTS header when TLS is enabled.
-- No HTTP request rate limit outside login, despite SPEC calling for `/auth/*` and other endpoint limits.
+- Unsafe cookie-authenticated `POST/PATCH/DELETE` endpoints enforce Origin/Referer checks for browser requests.
+- HSTS is emitted when TLS is active or configured.
+- Authenticated API routes have configurable per-IP rate limiting.
 - No authorization roles; any authenticated user is full admin.
-- `/readyz` always returns ready (`internal/api/server.go:199-202`) and does not verify DNS listener, blocklists, or upstream health as specified.
+- `/readyz` verifies configured dependencies, including store/config, upstream health, DNS pipeline wiring, and DNS listener lifecycle state.
 - No explicit session token redaction in access logs is needed because cookies are not logged, but query/audit data remains sensitive and must be protected operationally.
 
 ## 4. Testing Assessment
@@ -439,7 +438,7 @@ Frontend:
 | Cache LRU/TTL | SPEC §3.4 | Complete | `internal/dns/cache.go` | Mutex/list/map; no sharding |
 | Per-client identity MAC/IP | SPEC §4 | Partial | `internal/dns/arp.go`, `client_id.go` | Linux ARP/NDP implemented; macOS/BSD/Windows convenience paths absent |
 | Auto-registration | SPEC §4.2 | Complete | `internal/dns/client_id.go` | Store-backed Touch with debounce |
-| Groups/policy/schedules | SPEC §5 | Complete backend | `internal/policy/*` | Backend supports schedules; WebUI can erase them |
+| Groups/policy/schedules | SPEC §5 | Complete backend + WebUI editing | `internal/policy/*`, `webui/src/App.tsx` | Live-host behavior still needs production validation |
 | Custom block/allow | SPEC §6.5 | Complete | `internal/api/allowlist.go`, `custom_blocklist.go`, `store` | Runtime + persisted |
 | Blocklist parser/fetch/sync | SPEC §6 | Complete | `internal/policy/parser.go`, `fetcher.go`, `sync.go` | Syncer exists |
 | DoH upstream forwarding | SPEC §7 | Complete | `internal/upstream/doh.go`, `pool.go` | Bootstrap dialer and sequential failover present |
@@ -448,11 +447,11 @@ Frontend:
 | Stats aggregation | SPEC §10.2 | Partial | `internal/stats/*`, `internal/store` | Counters/rollups exist; Top-K is simple sorted map, not count-min/min-heap |
 | CLI | SPEC §11.1 | Mostly complete | `cmd/sis/main.go`, `httpcli.go` | HTTP client based, not Unix socket; broad command set |
 | TUI | SPEC §11.2 | Missing | No `internal/tui` | Entire milestone absent |
-| React WebUI | SPEC §11.3 | Partial | `webui/src/*` | Broad dashboard/forms exist; not shadcn/lucide, no real routing/sidebar, schedules missing |
-| REST API | SPEC §12 | Mostly complete | `internal/api/*` | Extra endpoints for setup/store/history; errors not uniform JSON |
+| React WebUI | SPEC §11.3 | Partial | `webui/src/*` | Broad dashboard/forms exist; not shadcn/lucide, no real routing/sidebar |
+| REST API | SPEC §12 | Mostly complete | `internal/api/*` | Extra endpoints for setup/store/history; JSON error envelopes present |
 | bcrypt auth | SPEC §13.1 | Deviates | `internal/api/password.go` | PBKDF2-SHA256 instead |
-| HTTP rate limiting | SPEC §13.3 | Partial | `internal/api/ratelimit.go`, `auth.go` | Login only |
-| Readiness | SPEC §14.1 | Incomplete | `internal/api/server.go:199-202` | Always true |
+| HTTP rate limiting | SPEC §13.3 | Mostly complete | `internal/api/ratelimit.go`, `auth.go` | Login plus authenticated API limiter |
+| Readiness | SPEC §14.1 | Mostly complete | `internal/api/server.go` | Dependency-aware; live-host behavior still needs validation |
 | Prometheus exporter | SPEC §14.2 | Reserved v2 | N/A | Correctly absent |
 | Bench harness | SPEC §15 | Partial | `*_bench_test.go` | No `sis bench`; no perf target gate except CI benchmarks |
 | SQLite backend | Docs/CHANGELOG post-spec | Complete addition | `internal/store/sqlite.go`, `transfer.go` | Scope creep but valuable |
@@ -508,12 +507,10 @@ These additions are valuable for production operations, not gratuitous complexit
 
 Priority missing items:
 
-1. **WebUI schedule editor and preservation.** Current WebUI can erase schedules, undermining one of v1’s headline features.
-2. **Real readiness check.** `/readyz` must reflect DNS bind, blocklist state, and upstream health.
-3. **Go test/build verification in the audited environment.** CI likely covers this, but local audit could not.
-4. **Integration acceptance suite for SPEC §19.**
-5. **CSRF protection or equivalent origin enforcement for cookie-authenticated mutations.**
-6. **TUI/Unix socket if still considered v1 scope.**
+1. **Live production validation.** `docs/PRODUCTION_VALIDATION.md` still needs target host/router/LAN/client evidence.
+2. **TUI/Unix socket if still considered v1 scope.**
+3. **Performance/load evidence.** Benchmarks exist, but sustained production load evidence is still thin.
+4. **Authorization model.** Authenticated users are full admins; no role separation exists.
 
 ## 6. Performance & Scalability
 
@@ -603,11 +600,9 @@ CI/CD:
 
 | Location | Debt | Suggested fix | Effort |
 |---|---|---:|---:|
-| `webui/src/lib/dashboard.ts:480-486`, `webui/src/App.tsx:947-1048` | Group edits drop schedules by sending `schedules: []`; no schedule editor exists | Preserve existing schedules at minimum; then implement schedule CRUD UI | 8-16h |
-| `internal/api/server.go:199-202` | `/readyz` always returns ready | Check DNS server state, store readability, blocklist load state, and at least one healthy upstream | 4-8h |
-| Environment | Go toolchain unavailable, so build/test/vet/race could not be verified locally | Install Go matching `go.mod`; run full gate | 1-2h |
+| `docs/PRODUCTION_VALIDATION.md` | Live host/router/LAN/client evidence is still pending | Run strict production validation on the target host and import the report | Environment-dependent |
 | `internal/api/password.go:93-160` vs SPEC | Password hashing deviates from bcrypt requirement | Switch to `x/crypto/bcrypt` or update spec/security docs and add migration support | 4-8h |
-| API auth boundary | No CSRF protection for cookie-auth mutations | Add CSRF token or Origin/Referer enforcement for unsafe methods | 6-12h |
+| `.project/SPECIFICATION.md` vs implementation | Original v1 TUI/Unix-socket scope is absent | Finish the scope or update v1 expectations | 12-24h |
 
 ### Important (should fix before v1.0)
 
