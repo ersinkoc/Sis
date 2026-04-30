@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
@@ -38,15 +38,7 @@ describe("App", () => {
   });
 
   it("renders authenticated dashboard data from API responses", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      const path = input instanceof Request ? input.url : String(input);
-      const responses = dashboardResponses();
-      const body = responses[path];
-      if (body == null) {
-        return textResponse(`unhandled ${path}`, 500);
-      }
-      return jsonResponse(body);
-    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(mockDashboardFetch());
 
     renderApp();
 
@@ -57,7 +49,100 @@ describe("App", () => {
     expect(screen.getAllByText("blocked.example.com").length).toBeGreaterThan(0);
     expect(screen.getByText("cloudflare")).toBeInTheDocument();
   });
+
+  it("submits query tests with the selected type and client IP", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(mockDashboardFetch());
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Live Summary" });
+    const queryForm = screen.getByRole("heading", { name: "Query Test" }).closest("form");
+    expect(queryForm).not.toBeNull();
+
+    const query = within(queryForm as HTMLFormElement);
+    fireEvent.change(query.getByLabelText("Domain"), { target: { value: "blocked.example.com" } });
+    fireEvent.change(query.getByLabelText("Type"), { target: { value: "AAAA" } });
+    fireEvent.change(query.getByLabelText("Client IP"), { target: { value: "192.0.2.10" } });
+    fireEvent.click(query.getByRole("button", { name: "Run" }));
+
+    expect(await screen.findByText("cache")).toBeInTheDocument();
+    expect(screen.getByText("blocked.example.com. 60 IN AAAA ::")).toBeInTheDocument();
+
+    await waitFor(() => {
+      const request = findFetchCall(fetchMock, "/api/v1/query/test", "POST");
+      expect(request).toMatchObject({
+        domain: "blocked.example.com",
+        type: "AAAA",
+        client_ip: "192.0.2.10",
+      });
+    });
+  });
+
+  it("patches settings with edited cache and privacy values", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(mockDashboardFetch());
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Live Summary" });
+    const settingsForm = screen.getByRole("heading", { name: "Settings" }).closest("form");
+    expect(settingsForm).not.toBeNull();
+
+    const settings = within(settingsForm as HTMLFormElement);
+    fireEvent.change(settings.getByLabelText("Cache entries"), { target: { value: "2000" } });
+    fireEvent.change(settings.getByLabelText("Log mode"), { target: { value: "hashed" } });
+    fireEvent.click(settings.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const request = findFetchCall(fetchMock, "/api/v1/settings", "PATCH");
+      expect(request).toMatchObject({
+        cache: expect.objectContaining({ max_entries: 2000 }),
+        privacy: expect.objectContaining({ log_mode: "hashed" }),
+      });
+    });
+  });
 });
+
+function mockDashboardFetch() {
+  return async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = input instanceof Request ? input.url : String(input);
+    const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+
+    if (method === "POST" && path === "/api/v1/query/test") {
+      return jsonResponse({
+        domain: "blocked.example.com",
+        type: "AAAA",
+        rcode: "NOERROR",
+        source: "cache",
+        latency_us: 42,
+        answers: ["blocked.example.com. 60 IN AAAA ::"],
+      });
+    }
+    if (method === "PATCH" && path === "/api/v1/settings") {
+      return jsonResponse(JSON.parse(String(init?.body ?? "{}")));
+    }
+
+    const responses = dashboardResponses();
+    const body = responses[path];
+    if (body == null) {
+      return textResponse(`unhandled ${method} ${path}`, 500);
+    }
+    return jsonResponse(body);
+  };
+}
+
+function findFetchCall(
+  fetchMock: { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } },
+  path: string,
+  method: string,
+) {
+  const call = fetchMock.mock.calls.find(([input, init]) => {
+    const requestPath = input instanceof Request ? input.url : String(input);
+    const requestMethod = init?.method ?? (input instanceof Request ? input.method : "GET");
+    return requestPath === path && requestMethod === method;
+  });
+  expect(call).toBeDefined();
+  return JSON.parse(String(call?.[1]?.body ?? "{}"));
+}
 
 function dashboardResponses(): Record<string, unknown> {
   return {
