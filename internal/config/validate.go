@@ -7,12 +7,13 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
-)
+	"unicode"
+	"unicode/utf8"
 
-var domainPattern = regexp.MustCompile(`^(\*\.)?([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.?$`)
+	"golang.org/x/net/idna"
+)
 
 // Validate checks c for schema consistency and cross-reference errors.
 func Validate(c *Config) error {
@@ -299,7 +300,55 @@ func validClock(v string) bool {
 }
 
 func validDomainPattern(v string) bool {
-	return v != "" && domainPattern.MatchString(v)
+	v = strings.TrimSpace(v)
+	v = strings.TrimSuffix(v, ".")
+	if strings.HasPrefix(v, "*.") {
+		v = v[2:]
+	}
+	if !utf8.ValidString(v) || v == "" || strings.HasSuffix(v, ".") || containsSpace(v) {
+		return false
+	}
+	ascii, err := idna.Lookup.ToASCII(v)
+	if err != nil {
+		return false
+	}
+	ascii = strings.ToLower(strings.TrimSuffix(ascii, "."))
+	if ascii == "" || len(ascii) > 253 || containsSpace(ascii) {
+		return false
+	}
+	stable, err := idna.Lookup.ToASCII(ascii)
+	if err != nil || strings.ToLower(strings.TrimSuffix(stable, ".")) != ascii {
+		return false
+	}
+	for _, label := range strings.Split(ascii, ".") {
+		if !validDomainLabel(label) {
+			return false
+		}
+	}
+	return true
+}
+
+func validDomainLabel(label string) bool {
+	if label == "" || len(label) > 63 {
+		return false
+	}
+	if label[0] == '-' || label[len(label)-1] == '-' {
+		return false
+	}
+	for _, r := range label {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= '0' && r <= '9':
+		case r == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func containsSpace(s string) bool {
+	return strings.ContainsFunc(s, unicode.IsSpace)
 }
 
 func validCookieName(v string) bool {
