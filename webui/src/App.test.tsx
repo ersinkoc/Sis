@@ -110,6 +110,23 @@ describe("App", () => {
     expect(screen.getByText("timeseries unavailable")).toBeInTheDocument();
   });
 
+  it("shows system action errors without reloading dashboard data", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(
+      mockDashboardFetch({
+        "/api/v1/system/cache/flush": textResponse("cache flush failed", 500),
+      }),
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Live Summary" });
+    fireEvent.click(screen.getByRole("button", { name: "Flush cache" }));
+
+    expect(await screen.findByText("cache flush failed")).toBeInTheDocument();
+    expect(findRequestCall(fetchMock, "/api/v1/system/cache/flush", "POST")).toBeDefined();
+    expect(countFetchCalls(fetchMock, "/api/v1/stats/summary", "GET")).toBe(1);
+  });
+
   it("submits query tests with the selected type and client IP", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(mockDashboardFetch());
 
@@ -200,13 +217,33 @@ function findFetchCall(
   path: string,
   method: string,
 ) {
-  const call = fetchMock.mock.calls.find(([input, init]) => {
+  const call = findRequestCall(fetchMock, path, method);
+  expect(call).toBeDefined();
+  return JSON.parse(String(call?.[1]?.body ?? "{}"));
+}
+
+function findRequestCall(
+  fetchMock: { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } },
+  path: string,
+  method: string,
+) {
+  return fetchMock.mock.calls.find(([input, init]) => {
     const requestPath = input instanceof Request ? input.url : String(input);
     const requestMethod = init?.method ?? (input instanceof Request ? input.method : "GET");
     return requestPath === path && requestMethod === method;
   });
-  expect(call).toBeDefined();
-  return JSON.parse(String(call?.[1]?.body ?? "{}"));
+}
+
+function countFetchCalls(
+  fetchMock: { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } },
+  path: string,
+  method: string,
+) {
+  return fetchMock.mock.calls.filter(([input, init]) => {
+    const requestPath = input instanceof Request ? input.url : String(input);
+    const requestMethod = init?.method ?? (input instanceof Request ? input.method : "GET");
+    return requestPath === path && requestMethod === method;
+  }).length;
 }
 
 function dashboardResponses(): Record<string, unknown> {
