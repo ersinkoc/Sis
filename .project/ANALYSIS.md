@@ -9,7 +9,8 @@
 > Follow-up update: `/readyz` now also consumes DNS listener lifecycle state, Go checks
 > pass with the project toolchain, mocked Playwright coverage was added for group and
 > management flows, and GitHub Actions now passes race, fuzz, browser smoke, vulnerability,
-> benchmark, and release dry-run gates.
+> benchmark, and release dry-run gates. A longer local package benchmark baseline is
+> recorded in `docs/PERFORMANCE_BASELINE.md`.
 > Hardening update: API text errors are now returned as JSON envelopes with request IDs,
 > access logs include request IDs, and HSTS is emitted when TLS is active or configured.
 > Rate-limit update: authenticated API routes now have a configurable per-IP limiter via
@@ -40,7 +41,7 @@ Key metrics from discovery:
 | API routes registered | 47 |
 | TODO/FIXME/HACK markers | 0 in source/docs excluding generated artifacts |
 
-Overall health: **8/10 for small-site pre-v1 deployment, 6/10 against the current v1 specification**. The core DNS/API/storage architecture is coherent and surprisingly broad, with SQLite support, release scripts, CI, WebUI build/lint, and operational runbooks. The score is held down by remaining live-host validation, security/spec decisions around password hashing and broad admin authorization, deferred TUI/Unix-socket expectations, and lack of deeper conformance/load testing evidence.
+Overall health: **8/10 for small-site pre-v1 deployment, 6/10 against the current v1 specification**. The core DNS/API/storage architecture is coherent and surprisingly broad, with SQLite support, release scripts, CI, WebUI build/lint, and operational runbooks. The score is held down by remaining live-host validation, security/spec decisions around password hashing and broad admin authorization, deferred TUI/Unix-socket expectations, and lack of deeper conformance/sustained live-load testing evidence.
 
 Top strengths:
 
@@ -396,7 +397,7 @@ Coverage reality:
 - Unit tests exist for most core packages.
 - No `tests/integration/` directory exists.
 - SPEC §19-style DNS acceptance coverage now exists in `internal/dns/acceptance_test.go`, using fake DoH upstreams and real UDP/TCP DNS clients for default forwarding/blocking, allowlist override, active/inactive schedules, upstream failover, cache-hit logging, hashed privacy logging, per-client rename/group move, hot reload, and restart persistence. API integration coverage includes file-backed blocklist sync, setup/session restart persistence, and group schedule mutation through query/test HTTP endpoints. `.project/ACCEPTANCE_MATRIX.md` maps all SPEC §19 scenarios to evidence and remaining gaps.
-- No benchmark harness package exists; only package-level benchmarks for DNS cache and domain matching.
+- No `sis bench` harness exists; package-level benchmarks now cover DNS cache/pipeline, policy, blocklist parsing, DoH forwarding, and SQLite store paths.
 - Seeded Go fuzz targets exist for blocklist parsing, policy domain matching, API domain normalization, and DNS message edge cases; CI has a scheduled/manual quality job for race and short fuzz campaigns.
 - No frontend unit/component tests found.
 
@@ -509,7 +510,7 @@ Priority missing items:
 
 1. **Live production validation.** `docs/PRODUCTION_VALIDATION.md` still needs target host/router/LAN/client evidence.
 2. **TUI/Unix socket if still considered v1 scope.**
-3. **Sustained production load evidence.** Short benchmark baselines exist, but long-running production-like DNS/API load evidence is still thin.
+3. **Sustained production load evidence.** Short CI benchmarks and a longer local package baseline exist, but long-running production-like DNS/API load evidence is still thin.
 4. **Authorization model.** Authenticated users are full admins; no role separation exists.
 
 ## 6. Performance & Scalability

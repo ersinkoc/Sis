@@ -32,7 +32,7 @@ Estimated specified feature completion:
 Core feature status:
 
 - Complete: DNS UDP/TCP listener, pipeline, DoH forwarding, cache, policy engine, schedules backend, block/allow lists, custom lists, logging, stats counters/rollups, HTTP API, cookie sessions, config reload, JSON/SQLite stores, embedded WebUI, backup/restore, release scripts.
-- Partial: acceptance testing, production load targets, conformance tests, frontend accessibility, upstream cooldown semantics.
+- Partial: acceptance testing, sustained live production load targets, conformance tests, frontend accessibility, upstream cooldown semantics.
 - Missing or deferred: OpenAPI docs, full live SPEC §19 production validation, Prometheus metrics. TUI/Unix-socket JSON-RPC is explicitly deferred from current v1 scope.
 - Recently fixed: WebUI group saves now preserve schedules and expose schedule editing.
 
@@ -197,7 +197,7 @@ Source tests present:
 
 Critical paths without enough visible coverage:
 
-- SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation and sustained production load evidence.
+- SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation and sustained live production load evidence.
 - WebUI management flows now have mocked Playwright specs and CI browser execution.
 - Real production install validation on target host.
 - Live target-host rollback drill.
@@ -212,7 +212,7 @@ Critical paths without enough visible coverage:
 - [x] API/endpoint tests - concentrated in `internal/api/server_test.go`.
 - [ ] Frontend component tests - absent.
 - [x] E2E tests - 3 Playwright specs.
-- [x] Benchmark tests - DNS cache, policy evaluation, DNS pipeline, DoH forwarding, and SQLite store benchmarks.
+- [x] Benchmark tests - DNS cache, policy evaluation, DNS pipeline, DoH forwarding, and SQLite store benchmarks; longer local baseline is recorded in `docs/PERFORMANCE_BASELINE.md`.
 - [x] Fuzz tests - blocklist parsing, domain normalization, policy domain matching, and DNS message edge cases.
 - [ ] Load tests - absent.
 
@@ -304,14 +304,14 @@ Critical paths without enough visible coverage:
 ### Production Blockers
 
 1. SPEC §19 local acceptance evidence is mapped, but production validation still needs real target host/router/LAN/client evidence.
-2. Broad-production posture still needs sustained production load evidence and final scope alignment.
+2. Broad-production posture still needs sustained live production load evidence and final scope alignment.
 3. Deferred TUI/Unix-socket expectations should stay clearly out of v1 release messaging.
 
 ### High Priority
 
 1. Complete strict live-host production validation with real LAN DNS, authenticated API, diagnostics, and real-client observation.
 2. Add alert definitions for key operational failures.
-3. Add sustained load evidence for DNS/API operation beyond short benchmark baselines.
+3. Add sustained live-host DNS/API load evidence beyond package benchmark baselines.
 4. Keep SPEC/IMPLEMENTATION/TASKS aligned if deferred TUI/socket scope changes.
 
 ### Recommendations
@@ -332,6 +332,6 @@ Critical paths without enough visible coverage:
 
 **CONDITIONAL GO** for a tightly controlled home/lab/small-office deployment where HTTP is localhost/trusted-network only, SQLite is preferred, operators take backups, and operators accept that live target-host validation is still pending.
 
-**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification gaps for that posture today: incomplete live production validation, limited sustained-load evidence, and no external security review.
+**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification gaps for that posture today: incomplete live production validation, limited sustained live-load evidence, and no external security review.
 
 The honest read: Sis is not a toy, and the operational scaffolding is unusually serious for this stage. Recent work removed several production blockers: schedule data loss, shallow dependency readiness, undocumented auth hashing, browser-origin mutation gaps, local Go test/vet gaps, CI race/fuzz gaps, CI browser-smoke gaps, and stale v1 TUI/socket expectations. It is still not safe to present as fully production-ready until live production validation is recorded and sustained load/security evidence is stronger.

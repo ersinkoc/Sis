@@ -124,6 +124,9 @@ packages="$(go list ./... | grep -v '/webui/node_modules/')"
 go test -run '^$' -bench=. -benchmem -benchtime=100ms -count=1 ${packages}
 ```
 
+For the current longer local baseline and interpretation, see
+[PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md).
+
 For vulnerability scanning, CI runs:
 
 ```sh

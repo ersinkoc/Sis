@@ -281,6 +281,7 @@ mutation, query logs, stats, cache flush, and config reload/history.
 `COVERAGE_THRESHOLD` (`60.0` by default). CI also runs WebUI install/build/lint, Go vet,
 the same coverage gate, binary build, smoke test, and `govulncheck`.
 `make bench` runs the Go benchmark suite with allocation reporting; set `BENCHTIME` or `BENCHCOUNT` for longer local runs.
+The current local benchmark baseline is recorded in `docs/PERFORMANCE_BASELINE.md`.
 `make godoc` checks that exported Go declarations have GoDoc comments.
 `make preflight` verifies that required local tools such as Go, gofmt, and npm are installed.
 `make check` runs the full CI-style gate: Go formatting drift check, WebUI build/lint,
