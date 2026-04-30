@@ -31,9 +31,9 @@ Key metrics from discovery:
 | Source/ops files excluding generated/vendor artifacts | 180 |
 | Go files excluding `webui/node_modules` | 103 |
 | Go LOC excluding `webui/node_modules` and `vendor` | 17,440 |
-| Go test files | 33 |
+| Go test files | 41 |
 | Go package directories | 12 |
-| Frontend source/test TS/TSX files | 8 |
+| Frontend source/test TS/TSX files | 12 |
 | Frontend source/test LOC | 3,184 |
 | Runtime Go deps in `go.mod` | 3 direct, 13 indirect |
 | Frontend deps | 6 runtime, 9 dev, 172 lockfile packages |
@@ -177,7 +177,7 @@ Dev deps include TypeScript `^6.0.3`, ESLint `^10.2.1`, Playwright `^1.59.1`, Re
 
 Verification:
 
-- `npm run build` passed. Bundle: JS `258.24 kB` raw / `70.73 kB` gzip; CSS `15.87 kB` raw / `3.96 kB` gzip.
+- `npm run build` passed. Bundle: JS `262.37 kB` raw / `71.33 kB` gzip; CSS `16.03 kB` raw / `3.98 kB` gzip.
 - `npm run lint` passed.
 - `npm audit --omit=dev` and `npm audit` both reported `found 0 vulnerabilities`.
 
@@ -323,7 +323,7 @@ Resolved frontend correctness issue:
 
 Bundle:
 
-- Production build succeeded with JS `258.24 kB` raw / `70.73 kB` gzip and CSS `15.87 kB` raw / `3.96 kB` gzip.
+- Production build succeeded with JS `262.37 kB` raw / `71.33 kB` gzip and CSS `16.03 kB` raw / `3.98 kB` gzip.
 
 ### 3.3 Concurrency & Safety
 
@@ -509,7 +509,7 @@ Priority missing items:
 
 1. **Live production validation.** `docs/PRODUCTION_VALIDATION.md` still needs target host/router/LAN/client evidence.
 2. **TUI/Unix socket if still considered v1 scope.**
-3. **Performance/load evidence.** Benchmarks exist, but sustained production load evidence is still thin.
+3. **Sustained production load evidence.** Short benchmark baselines exist, but long-running production-like DNS/API load evidence is still thin.
 4. **Authorization model.** Authenticated users are full admins; no role separation exists.
 
 ## 6. Performance & Scalability
@@ -612,7 +612,7 @@ CI/CD:
 | `internal/api` errors | Plaintext error bodies inconsistent with JSON API | Standardize JSON error envelope | 4-8h |
 | `internal/dns/server.go:149-156` | UDP hot path allocates/copies per packet | Introduce buffer pool or benchmark current cost and document | 4-8h |
 | `internal/policy/engine.go:87-90` | Per-query map copy | Replace with immutable snapshot pointer or benchmark and document | 4-8h |
-| Tests | Browser/performance/live-host evidence remains partial | Run browser e2e where Playwright Chromium is supported; expand perf and live-host gates | 6-12h |
+| Tests | Sustained-load/live-host evidence remains partial | Run strict production validation and longer production-like DNS/API load tests | 6-12h |
 | Observability | No Prometheus/pprof endpoint, request ID not in access logs | Add request ID to logs and optional metrics/profiling endpoints | 8-16h |
 | API rate limits | Only login is limited | Add configurable limiter for other API endpoints | 4-8h |
 
@@ -634,7 +634,7 @@ CI/CD:
 | Total Go LOC | 17,440 |
 | Total Frontend Files | 8 |
 | Total Frontend LOC | 3,184 |
-| Test Files | 37 Go + 3 Playwright |
+| Test Files | 41 Go + 3 Playwright |
 | Test Coverage | Not measured in this audit |
 | External Go Dependencies | 3 direct, 13 indirect |
 | External Frontend Dependencies | 6 runtime, 9 dev, 172 lockfile packages |

@@ -23,4 +23,4 @@ It separates covered source-level acceptance from remaining host/browser validat
 - Playwright browser execution is blocked on this host by unsupported Chromium package availability, but CI browser smoke passes on a supported runner.
 - Race testing is blocked locally because `go test -race` requires cgo and no C compiler is installed; CI scheduled/manual race testing passes.
 - Seeded fuzz targets exist for blocklist parsing, domain normalization, and DNS edge cases; CI scheduled/manual short fuzz campaigns pass.
-- Performance targets still need representative benchmarks before broad release claims.
+- Short benchmark baselines now cover DNS cache, policy evaluation, DNS pipeline, DoH forwarding, and SQLite store paths; broad release claims still need sustained production-like load evidence.

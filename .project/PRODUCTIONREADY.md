@@ -32,7 +32,7 @@ Estimated specified feature completion:
 Core feature status:
 
 - Complete: DNS UDP/TCP listener, pipeline, DoH forwarding, cache, policy engine, schedules backend, block/allow lists, custom lists, logging, stats counters/rollups, HTTP API, cookie sessions, config reload, JSON/SQLite stores, embedded WebUI, backup/restore, release scripts.
-- Partial: acceptance testing, performance targets, conformance tests, frontend accessibility, upstream cooldown semantics.
+- Partial: acceptance testing, production load targets, conformance tests, frontend accessibility, upstream cooldown semantics.
 - Missing: TUI, Unix-socket JSON-RPC, OpenAPI docs, full SPEC §19 integration suite, Prometheus metrics.
 - Recently fixed: WebUI group saves now preserve schedules and expose schedule editing.
 
@@ -164,7 +164,7 @@ Go vulnerability status: not checked because `govulncheck` is unavailable.
 
 ### 4.3 Frontend Performance
 
-- JS bundle is modest at 70.73 kB gzip.
+- JS bundle is modest at 71.33 kB gzip.
 - No lazy route splitting because the app is a single screen/panel composition.
 - No image/media optimization concerns; UI is text/control heavy.
 - Core Web Vitals were not measured.
@@ -196,7 +196,7 @@ Source tests present:
 
 Critical paths without enough visible coverage:
 
-- SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation and deeper performance evidence.
+- SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation and sustained production load evidence.
 - WebUI management flows now have mocked Playwright specs and CI browser execution.
 - Real production install validation on target host.
 - Final security review of auth/session/cookie/config/backup behavior.
@@ -204,13 +204,13 @@ Critical paths without enough visible coverage:
 
 ### 5.2 Test Categories Present
 
-- [x] Unit tests - 37 Go test files.
+- [x] Unit tests - 41 Go test files.
 - [ ] Integration tests - no dedicated integration suite found.
 - [x] API/endpoint tests - concentrated in `internal/api/server_test.go`.
 - [ ] Frontend component tests - absent.
 - [x] E2E tests - 3 Playwright specs.
-- [x] Benchmark tests - DNS cache and domain matching benchmarks.
-- [ ] Fuzz tests - absent.
+- [x] Benchmark tests - DNS cache, policy evaluation, DNS pipeline, DoH forwarding, and SQLite store benchmarks.
+- [x] Fuzz tests - blocklist parsing, domain normalization, policy domain matching, and DNS message edge cases.
 - [ ] Load tests - absent.
 
 ### 5.3 Test Infrastructure
@@ -302,14 +302,14 @@ Critical paths without enough visible coverage:
 
 1. Original v1 scope still promises TUI/Unix-socket JSON-RPC, which is absent.
 2. SPEC §19 local acceptance evidence is mapped, but production validation still needs real target host/router/LAN/client evidence.
-3. Broad-production posture still needs deeper performance evidence and final scope alignment.
+3. Broad-production posture still needs sustained production load evidence and final scope alignment.
 
 ### High Priority
 
 1. Complete strict live-host production validation with real LAN DNS, authenticated API, diagnostics, and real-client observation.
 2. Update SPEC/IMPLEMENTATION/TASKS to match actual v1 scope or finish TUI/socket.
 3. Add alert definitions for key operational failures.
-4. Add deeper performance/load evidence for sustained DNS/API operation.
+4. Add sustained load evidence for DNS/API operation beyond short benchmark baselines.
 
 ### Recommendations
 
@@ -329,6 +329,6 @@ Critical paths without enough visible coverage:
 
 **CONDITIONAL GO** for a tightly controlled home/lab/small-office deployment where HTTP is localhost/trusted-network only, SQLite is preferred, operators take backups, and operators accept that live target-host validation is still pending.
 
-**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification/scope gaps for that posture today: missing TUI/socket scope, incomplete live production validation, and limited performance/load evidence.
+**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification/scope gaps for that posture today: missing TUI/socket scope, incomplete live production validation, and limited sustained-load evidence.
 
 The honest read: Sis is not a toy, and the operational scaffolding is unusually serious for this stage. Recent work removed several production blockers: schedule data loss, shallow dependency readiness, undocumented auth hashing, missing browser-origin mutation checks, missing local Go test/vet evidence, missing CI race/fuzz evidence, and missing CI browser-smoke evidence. It is still not safe to present as fully production-ready until live production validation is recorded and the remaining v1 scope/documentation mismatch is resolved.
