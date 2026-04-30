@@ -56,6 +56,9 @@ gpg --verify dist/SHA256SUMS.asc dist/SHA256SUMS
 - Run the packaged systemd unit where possible; it includes capability bounding and sandboxing.
 - Run `scripts/verify-linux-service.sh` after installation and upgrades.
 
+The current release-hardening source review is recorded in
+[`docs/SECURITY_REVIEW.md`](docs/SECURITY_REVIEW.md).
+
 ## Authentication Hashing Contract
 
 Sis currently stores local management passwords as `pbkdf2-sha256` hashes using a random

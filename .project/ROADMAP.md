@@ -93,7 +93,7 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 - [ ] Run strict production validation with real LAN DNS and real client observation.
 - [x] Verify release artifacts and optional checksum signing through the release dry-run workflow.
 - [ ] Add rollback drill documentation from actual restore test.
-- [ ] Final security review of auth/session/cookie/config/backups.
+- [x] Final security review of auth/session/cookie/config/backups.
 - [ ] Decide Docker posture: explicitly unsupported or add Dockerfile/compose.
 
 ## Beyond v1.0: Future Enhancements

@@ -26,8 +26,8 @@
 
 Estimated specified feature completion:
 
-- Current README/release scope: **~85% implemented**.
-- Current `.project/SPECIFICATION.md` v1 scope: **~85% implemented**.
+- Current README/release scope: **~86% implemented**.
+- Current `.project/SPECIFICATION.md` v1 scope: **~86% implemented**.
 
 Core feature status:
 
@@ -199,7 +199,8 @@ Critical paths without enough visible coverage:
 - SPEC §19 scenarios are mapped in `.project/ACCEPTANCE_MATRIX.md`; remaining gaps are live production validation and sustained production load evidence.
 - WebUI management flows now have mocked Playwright specs and CI browser execution.
 - Real production install validation on target host.
-- Final security review of auth/session/cookie/config/backup behavior.
+- Final security review of auth/session/cookie/config/backup behavior is recorded in
+  `docs/SECURITY_REVIEW.md`; external security testing is still pending.
 - Readiness dependency checks now have Go tests.
 
 ### 5.2 Test Categories Present
@@ -323,12 +324,12 @@ Critical paths without enough visible coverage:
 
 - From current state: **4-6 weeks** for conditional small-site production hardening.
 - Minimum viable production fixes only: **5-8 development days**.
-- Full production readiness for broad managed-service claims: **8-12 weeks**, mostly due to live validation, sustained load testing, security review, and operational alerting.
+- Full production readiness for broad managed-service claims: **8-12 weeks**, mostly due to live validation, sustained load testing, external security testing, and operational alerting.
 
 ### Go/No-Go Recommendation
 
 **CONDITIONAL GO** for a tightly controlled home/lab/small-office deployment where HTTP is localhost/trusted-network only, SQLite is preferred, operators take backups, and operators accept that live target-host validation is still pending.
 
-**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification gaps for that posture today: incomplete live production validation, limited sustained-load evidence, and incomplete final security review.
+**NO-GO** for broad production, managed-service, untrusted-network, or stable v1 claims. The project still has too many verification gaps for that posture today: incomplete live production validation, limited sustained-load evidence, and no external security review.
 
 The honest read: Sis is not a toy, and the operational scaffolding is unusually serious for this stage. Recent work removed several production blockers: schedule data loss, shallow dependency readiness, undocumented auth hashing, browser-origin mutation gaps, local Go test/vet gaps, CI race/fuzz gaps, CI browser-smoke gaps, and stale v1 TUI/socket expectations. It is still not safe to present as fully production-ready until live production validation is recorded and sustained load/security evidence is stronger.

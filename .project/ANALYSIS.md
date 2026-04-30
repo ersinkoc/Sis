@@ -601,7 +601,7 @@ CI/CD:
 | Location | Debt | Suggested fix | Effort |
 |---|---|---:|---:|
 | `docs/PRODUCTION_VALIDATION.md` | Live host/router/LAN/client evidence is still pending | Run strict production validation on the target host and import the report | Environment-dependent |
-| `internal/api/password.go:93-160` | PBKDF2-SHA256 is documented but should get final security review before stable v1 | Keep compatibility or add bcrypt/argon2 migration support | 4-8h |
+| `internal/api/password.go:93-160` | PBKDF2-SHA256 is documented and covered by release security review; future migration needs compatibility handling | Keep compatibility or add bcrypt/argon2 migration support | 4-8h |
 
 ### Important (should fix before v1.0)
 
