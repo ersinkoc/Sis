@@ -133,6 +133,13 @@ func NewWithDeps(opts Options) *Server {
 	mux.HandleFunc("POST /api/v1/system/cache/flush", s.cacheFlush)
 	mux.HandleFunc("GET /api/v1/system/config/history", s.configHistory)
 	mux.HandleFunc("POST /api/v1/system/config/reload", s.configReload)
+	mux.HandleFunc("GET /api/v1/system/pprof/", s.pprofIndex)
+	mux.HandleFunc("GET /api/v1/system/pprof/cmdline", s.pprofCmdline)
+	mux.HandleFunc("GET /api/v1/system/pprof/profile", s.pprofProfile)
+	mux.HandleFunc("POST /api/v1/system/pprof/symbol", s.pprofSymbol)
+	mux.HandleFunc("GET /api/v1/system/pprof/symbol", s.pprofSymbol)
+	mux.HandleFunc("GET /api/v1/system/pprof/trace", s.pprofTrace)
+	mux.HandleFunc("GET /api/v1/system/pprof/{name}", s.pprofNamed)
 	mux.Handle("/", webui.Handler())
 	s.handler = s.middleware(mux)
 	return s

@@ -238,6 +238,10 @@ collection-level record counts, and schema version without copying database cont
 Use [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common DNS bind, upstream DoH, first-run,
 and SQLite migration recovery flows.
 
+Authenticated pprof endpoints are available under `/api/v1/system/pprof/*` for short
+troubleshooting windows. Keep the HTTP management listener on localhost, VPN, or a trusted
+management network before collecting profiles over HTTP.
+
 ## Alerting
 
 Current v1 deployments should alert from service state, `/healthz`, `/readyz`, store

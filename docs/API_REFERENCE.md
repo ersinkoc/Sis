@@ -39,6 +39,21 @@ Error envelope:
 | `GET` | `/readyz` | no | Readiness check for config, store, upstreams, DNS pipeline, and DNS listener state. Returns `503` when not ready. |
 | `GET` | `/metrics` | no | Prometheus text exposition for live DNS, cache, rate-limit, malformed-packet, latency, and upstream counters. Returns `503` when stats are unavailable. |
 
+## Profiling
+
+The pprof endpoints are exposed under `/api/v1/system/pprof/*` and require the configured
+session cookie. They are intended for short troubleshooting windows on the management
+listener only.
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/system/pprof/` | yes | pprof index. |
+| `GET` | `/api/v1/system/pprof/{name}` | yes | Named pprof profile such as `goroutine`, `heap`, `allocs`, `threadcreate`, `mutex`, or `block`. |
+| `GET` | `/api/v1/system/pprof/cmdline` | yes | Process command line. |
+| `GET` | `/api/v1/system/pprof/profile` | yes | CPU profile. Supports the standard `seconds` query parameter. |
+| `GET`/`POST` | `/api/v1/system/pprof/symbol` | yes | Symbol lookup endpoint. |
+| `GET` | `/api/v1/system/pprof/trace` | yes | Runtime trace. Supports the standard `seconds` query parameter. |
+
 ## Auth
 
 | Method | Path | Auth | Body | Response |

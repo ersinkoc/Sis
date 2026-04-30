@@ -1255,6 +1255,7 @@ make release     # cross-compile for linux/amd64, linux/arm64, darwin/amd64, dar
 For development and field debugging:
 
 - `SIGUSR2` writes goroutine and heap profiles under `<data_dir>/dbg/`.
+- Authenticated HTTP pprof endpoints are exposed under `/api/v1/system/pprof/*`.
 - `scripts/collect-linux-diagnostics.sh` collects a support bundle without config,
   database, backup contents, or journal logs unless explicitly enabled.
 - Store verification is available locally and through the authenticated API/WebUI.

@@ -130,6 +130,45 @@ func TestMetricsWithoutStatsReturnsUnavailable(t *testing.T) {
 	}
 }
 
+func TestPprofRoutesRequireAuthentication(t *testing.T) {
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/system/pprof/goroutine?debug=1", nil)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestPprofNamedProfile(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s := NewWithDeps(Options{
+		Config: validAPIConfig(t),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Store:  st,
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/system/pprof/goroutine?debug=1", nil)
+	addSessionCookie(t, st, req)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/plain") {
+		t.Fatalf("content type = %q", got)
+	}
+	if !bytes.Contains(rec.Body.Bytes(), []byte("goroutine profile:")) {
+		t.Fatalf("unexpected pprof body: %s", rec.Body.String())
+	}
+}
+
 func TestReadyzChecksRuntimeDependencies(t *testing.T) {
 	holder := validAPIConfig(t)
 	st, err := store.Open(holder.Get().Server.DataDir)

@@ -253,7 +253,7 @@ Critical paths without enough visible coverage:
 - [ ] Distributed tracing exists.
 - [ ] Correlation IDs propagate across service boundaries.
 - [x] SIGUSR2 writes goroutine and heap profiles.
-- [ ] pprof HTTP endpoint exists.
+- [x] pprof HTTP endpoint exists.
 
 ## 7. Deployment Readiness
 
