@@ -26,6 +26,9 @@ Show the resolved config after defaults and environment overrides:
 sis config show -config /etc/sis/sis.yaml
 ```
 
+By default, `sis config show` redacts password hashes and `privacy.log_salt`. Use
+`-secrets` only when intentionally inspecting the raw sensitive values.
+
 ## Server
 
 | Field | Type | Default | Environment | Notes |

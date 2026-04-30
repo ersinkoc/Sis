@@ -56,8 +56,8 @@ edge.
 - Config saves use temp-file write, fsync, atomic rename, and parent-directory fsync.
 - `privacy.log_salt` is generated and persisted when hashed logging is enabled without an
   existing salt.
-- Config history redacts password hashes and `privacy.log_salt` before exposing snapshots
-  through the API.
+- Config history and default `sis config show` output redact password hashes and
+  `privacy.log_salt`.
 - Config files are documented as sensitive because they can contain password hashes,
   privacy salts, upstream settings, and operational policy.
 

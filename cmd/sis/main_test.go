@@ -125,20 +125,26 @@ func TestRunQueryRejectsInvalidProto(t *testing.T) {
 	}
 }
 
-func TestRedactHelpers(t *testing.T) {
-	users := []config.User{{Username: "admin", PasswordHash: "secret-hash"}}
-	redacted := redactUsers(users)
-	if users[0].PasswordHash != "secret-hash" {
-		t.Fatalf("input users mutated: %#v", users)
+func TestRunConfigShowRedactsSecretsByDefault(t *testing.T) {
+	path := writeSecretTestConfig(t)
+	out := captureStdout(t, func() error {
+		return runConfig([]string{"show", "-config", path})
+	})
+	if strings.Contains(out, "secret-hash") || strings.Contains(out, "secret-salt") {
+		t.Fatalf("config show leaked secrets:\n%s", out)
 	}
-	if redacted[0].PasswordHash != "redacted" {
-		t.Fatalf("redacted users = %#v", redacted)
+	if !strings.Contains(out, "password_hash: redacted") || !strings.Contains(out, "log_salt: redacted") {
+		t.Fatalf("config show did not redact expected fields:\n%s", out)
 	}
-	if redactString("") != "" {
-		t.Fatal("empty string should stay empty")
-	}
-	if redactString("salt") != "redacted" {
-		t.Fatal("non-empty string should be redacted")
+}
+
+func TestRunConfigShowSecretsFlagIncludesSecrets(t *testing.T) {
+	path := writeSecretTestConfig(t)
+	out := captureStdout(t, func() error {
+		return runConfig([]string{"show", "-config", path, "-secrets"})
+	})
+	if !strings.Contains(out, "secret-hash") || !strings.Contains(out, "secret-salt") {
+		t.Fatalf("config show -secrets did not include secrets:\n%s", out)
 	}
 }
 
@@ -527,4 +533,48 @@ func writeUserTestConfig(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func writeSecretTestConfig(t *testing.T) string {
+	t.Helper()
+	path := writeUserTestConfig(t)
+	cfg, err := (&config.Loader{Path: path}).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Privacy.LogMode = "hashed"
+	cfg.Privacy.LogSalt = "secret-salt"
+	cfg.Auth.FirstRun = false
+	cfg.Auth.Users = []config.User{{Username: "admin", PasswordHash: "secret-hash"}}
+	if err := (&config.Loader{Path: path}).Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func captureStdout(t *testing.T, fn func() error) string {
+	t.Helper()
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	defer func() {
+		os.Stdout = oldStdout
+	}()
+	defer r.Close()
+	if err := fn(); err != nil {
+		_ = w.Close()
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = oldStdout
+	raw, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
 }

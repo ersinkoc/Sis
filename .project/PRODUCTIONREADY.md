@@ -131,6 +131,7 @@ Critical broken/unfinished flows:
 - [x] Config/backups are documented as sensitive.
 - [x] Privacy salt generation exists.
 - [x] Git history secret scan evidence is recorded in `docs/SECRET_SCAN.md`.
+- [x] Config history and default `sis config show` output redact password hashes and `privacy.log_salt`.
 - [ ] Sensitive config masking in all logs was not exhaustively verified.
 
 ### 3.5 Security Vulnerabilities Found
