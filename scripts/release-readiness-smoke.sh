@@ -2,6 +2,7 @@
 set -euo pipefail
 
 tmp="$(mktemp -d)"
+release_branch="$(git branch --show-current)"
 cleanup() {
   rm -rf "${tmp}"
 }
@@ -96,6 +97,7 @@ complete_out="${tmp}/complete.out"
 stable_out="${tmp}/stable.out"
 
 if SIS_RELEASE_ALLOW_DIRTY=1 \
+  SIS_RELEASE_BRANCH="${release_branch}" \
   SIS_RELEASE_READINESS_PRECHECK_ONLY=1 \
   SIS_RELEASE_SKIP_REMOTE_TAG_CHECK=1 \
   SIS_RELEASE_VALIDATION_RECORD="${pending_record}" \
@@ -112,6 +114,7 @@ if ! grep -q 'release-candidate-check: v0.0.0-rc.1 is blocked' "${pending_out}";
 fi
 
 SIS_RELEASE_ALLOW_DIRTY=1 \
+  SIS_RELEASE_BRANCH="${release_branch}" \
   SIS_RELEASE_READINESS_PRECHECK_ONLY=1 \
   SIS_RELEASE_SKIP_REMOTE_TAG_CHECK=1 \
   SIS_RELEASE_VALIDATION_RECORD="${complete_record}" \
@@ -124,6 +127,7 @@ if ! grep -q 'release-candidate-check: v0.0.0-rc.1 has recorded production valid
 fi
 
 SIS_RELEASE_ALLOW_DIRTY=1 \
+  SIS_RELEASE_BRANCH="${release_branch}" \
   SIS_RELEASE_READINESS_PRECHECK_ONLY=1 \
   SIS_RELEASE_SKIP_REMOTE_TAG_CHECK=1 \
   SIS_RELEASE_VALIDATION_RECORD="${pending_record}" \

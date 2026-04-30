@@ -2,6 +2,7 @@
 set -euo pipefail
 
 tag="v0.0.0-rc.1"
+release_branch="$(git branch --show-current)"
 tmp="$(mktemp -d)"
 cleanup() {
   rm -rf "${tmp}"
@@ -48,7 +49,7 @@ EOF
 pending_out="${tmp}/pending.out"
 complete_out="${tmp}/complete.out"
 
-if SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_VALIDATION_RECORD="${pending_record}" ./scripts/release-candidate-check.sh "${tag}" >"${pending_out}" 2>&1; then
+if SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_BRANCH="${release_branch}" SIS_RELEASE_VALIDATION_RECORD="${pending_record}" ./scripts/release-candidate-check.sh "${tag}" >"${pending_out}" 2>&1; then
   echo "release-candidate-check-smoke: pending record unexpectedly passed" >&2
   cat "${pending_out}" >&2
   exit 1
@@ -103,11 +104,11 @@ cat > "${complete_record}" <<'EOF'
 | Diagnostics bundle generated | Pass | |
 EOF
 
-SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_VALIDATION_RECORD="${complete_record}" ./scripts/release-candidate-check.sh "${tag}" >"${complete_out}"
+SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_BRANCH="${release_branch}" SIS_RELEASE_VALIDATION_RECORD="${complete_record}" ./scripts/release-candidate-check.sh "${tag}" >"${complete_out}"
 
 sed '/| Real client query observed |/d' "${complete_record}" > "${missing_result_record}"
 missing_result_out="${tmp}/missing-result.out"
-if SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_VALIDATION_RECORD="${missing_result_record}" ./scripts/release-candidate-check.sh "${tag}" >"${missing_result_out}" 2>&1; then
+if SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_BRANCH="${release_branch}" SIS_RELEASE_VALIDATION_RECORD="${missing_result_record}" ./scripts/release-candidate-check.sh "${tag}" >"${missing_result_out}" 2>&1; then
   echo "release-candidate-check-smoke: missing result record unexpectedly passed" >&2
   cat "${missing_result_out}" >&2
   exit 1
@@ -121,7 +122,7 @@ fi
 
 sed '/^- Validation API URL:/d' "${complete_record}" > "${missing_metadata_record}"
 missing_metadata_out="${tmp}/missing-metadata.out"
-if SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_VALIDATION_RECORD="${missing_metadata_record}" ./scripts/release-candidate-check.sh "${tag}" >"${missing_metadata_out}" 2>&1; then
+if SIS_RELEASE_ALLOW_DIRTY=1 SIS_RELEASE_BRANCH="${release_branch}" SIS_RELEASE_VALIDATION_RECORD="${missing_metadata_record}" ./scripts/release-candidate-check.sh "${tag}" >"${missing_metadata_out}" 2>&1; then
   echo "release-candidate-check-smoke: missing metadata record unexpectedly passed" >&2
   cat "${missing_metadata_out}" >&2
   exit 1
