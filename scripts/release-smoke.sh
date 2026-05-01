@@ -64,6 +64,7 @@ bash -n ./scripts/update-production-validation-record.sh
 bash -n ./scripts/update-production-validation-record-smoke.sh
 bash -n ./scripts/release-readiness-smoke.sh
 bash -n ./scripts/validate-real-client.sh
+bash -n ./scripts/local-load.sh
 
 for path in \
   "${tmp}/etc/sis/sis.yaml" \

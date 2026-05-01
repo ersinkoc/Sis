@@ -20,9 +20,29 @@ type node struct {
 	terminal bool
 }
 
+func (n node) clone() node {
+	clone := node{terminal: n.terminal}
+	if len(n.children) > 0 {
+		clone.children = make(map[string]*node, len(n.children))
+		for label, child := range n.children {
+			childClone := child.clone()
+			clone.children[label] = &childClone
+		}
+	}
+	return clone
+}
+
 // NewDomains creates an empty domain set.
 func NewDomains() *Domains {
 	return &Domains{}
+}
+
+// Clone returns an independent copy of the domain set.
+func (d *Domains) Clone() *Domains {
+	if d == nil {
+		return NewDomains()
+	}
+	return &Domains{root: d.root.clone(), size: d.size}
 }
 
 // Add inserts a domain or wildcard suffix into the set.

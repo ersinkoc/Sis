@@ -928,7 +928,11 @@ type Counters struct {
 
 ### 9.2 Top-K
 
-A bounded min-heap with size N (default 200), refreshed every minute. Domains below the heap floor are tracked in a count-min sketch and only promoted into the heap when their estimate exceeds the floor. This keeps memory bounded regardless of domain cardinality.
+The current implementation keeps exact in-memory maps for domains, blocked domains, and
+clients, then sorts those maps when top rows are requested. To avoid unbounded memory growth
+under high-cardinality traffic, each map is capped and pruned by removing low-frequency
+entries when it reaches the cap. A count-min sketch plus min-heap remains a possible future
+refinement if production profiles need tighter memory/error guarantees.
 
 ### 9.3 Aggregator
 

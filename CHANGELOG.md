@@ -13,6 +13,23 @@ that require careful upgrade notes.
 - Added an interactive root `install.sh` that resolves the latest GitHub release, verifies
   release artifacts, writes managed service environment overrides, and installs the Linux
   systemd service.
+- Added `scripts/local-load.sh` and `make local-load` for short local DNS/API load smoke
+  checks against a temporary Sis instance.
+
+### Changed
+
+- Reduced DNS UDP ingress allocations with pooled read buffers.
+- Reworked policy snapshots to avoid per-query blocklist map copies and use copy-on-write
+  custom allow/block mutations.
+- Bounded live top-domain/client maps with low-frequency pruning for high-cardinality
+  traffic.
+- Made DNS server shutdown idempotent under concurrent calls.
+- Made operational signal log rotation tolerate nil query/audit log handles.
+
+### Security
+
+- Redacted sensitive audit payload fields such as password, salt, token, cookie, and secret
+  values before writing administrative audit logs.
 
 ## v0.1.2 - 2026-04-30
 

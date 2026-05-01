@@ -1179,8 +1179,12 @@ func watchOperationalSignals(ctx context.Context, dataDir string, queryLog *sisl
 		case sig := <-ch:
 			switch sig {
 			case syscall.SIGUSR1:
-				_ = queryLog.Rotate()
-				_ = auditLog.Rotate()
+				if queryLog != nil {
+					_ = queryLog.Rotate()
+				}
+				if auditLog != nil {
+					_ = auditLog.Rotate()
+				}
 			case syscall.SIGUSR2:
 				_ = dumpDebug(dataDir)
 			}

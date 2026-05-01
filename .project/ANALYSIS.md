@@ -19,8 +19,8 @@
 > exposed in live stats, persisted rollups, and the WebUI summary.
 > DNS error visibility update: malformed DNS packets increment `malformed_total`, which is
 > exposed in live stats, persisted rollups, and the WebUI summary.
-> Alerting update: key operational alert conditions are documented in `docs/ALERTING.md`
-> for the current non-Prometheus v1 posture.
+> Alerting update: key operational alert conditions and `/metrics` scraping guidance are
+> documented in `docs/ALERTING.md`.
 
 ## 1. Executive Summary
 
@@ -38,7 +38,7 @@ Key metrics from discovery:
 | Go package directories | 12 |
 | Frontend source/test TS/TSX files | 12 |
 | Frontend source/test LOC | 3,184 |
-| Runtime Go deps in `go.mod` | 3 direct, 13 indirect |
+| Runtime Go deps in `go.mod` | 4 direct, 14 indirect |
 | Frontend deps | 6 runtime, 9 dev, 172 lockfile packages |
 | API routes registered | 47 |
 | TODO/FIXME/HACK markers | 0 in source/docs excluding generated artifacts |
@@ -107,9 +107,9 @@ Browser/CLI/curl
 Concurrency model:
 
 - `cmd/sis/main.go:1155-1163` starts background goroutines for SIGHUP, ARP refresh, blocklist sync, upstream health probing, stats aggregation, session cleanup, and operational signal handling.
-- `internal/dns/server.go:34-88` starts UDP and TCP listeners for every configured DNS address.
-- UDP packets use a bounded worker pool (`internal/dns/workers.go:292-360`); overflow drops work without response.
-- TCP accepts one goroutine per connection but gates concurrency with `tcpSlots` (`internal/dns/server.go:203-277`).
+- `internal/dns/server.go` starts UDP and TCP listeners for every configured DNS address.
+- UDP packets use pooled read buffers and a bounded worker pool (`internal/dns/workers.go`); overflow drops work without response.
+- TCP accepts one goroutine per connection but gates concurrency with `tcpSlots` (`internal/dns/server.go`).
 - HTTP uses the standard `net/http` server with timeouts (`internal/api/server.go:175-183`).
 - Shared runtime state uses mutexes, atomics, or atomic pointers: config holder, DNS cache, policy engine, SQLite/file stores, stats counters, log fanout.
 
@@ -125,7 +125,7 @@ Go packages and responsibilities:
 | `internal/dns` | 19 | DNS listeners, worker pool, cache, pipeline, identity, ECS, special/synthetic responses, rate limiting | Cohesive |
 | `internal/log` | 6 | Query/audit logs, rotation, privacy, SSE fanout | Cohesive |
 | `internal/policy` | 18 | Domain tree, parser/fetch/sync, groups/schedules, engine, store resolver | Cohesive |
-| `internal/stats` | 5 | Atomic counters, histograms, persisted rollups | Cohesive but simplified vs spec Top-K |
+| `internal/stats` | 5 | Atomic counters, histograms, bounded top counters, persisted rollups | Cohesive; approximate Top-K remains a future refinement |
 | `internal/store` | 8 | Store interfaces, JSON backend, SQLite backend, migrations, transfer, verify | Cohesive but `sqlite.go` is large at 1,498 LOC |
 | `internal/tools/sbom` | 2 | SPDX SBOM generator | Cohesive tool package |
 | `internal/upstream` | 4 | DoH client and sequential health/failover pool | Cohesive |
@@ -160,10 +160,12 @@ Go dependencies from `go.mod`:
 
 Dependency hygiene:
 
-- `go` is unavailable in this environment, so `go mod tidy`, `go list -m`, `govulncheck`, `go test`, `go vet`, and `staticcheck` could not be run.
+- Go is available at `$HOME/.local/go/bin/go`; `go test`, `go vet`, build, `govulncheck`,
+  and the full local check gate have been run with that PATH adjustment.
 - `staticcheck` is unavailable.
-- No evidence of unused Go deps could be confirmed without the Go toolchain.
-- Spec says bcrypt via `golang.org/x/crypto/bcrypt`, but `x/crypto` is absent and the code implements PBKDF2 manually.
+- Go dependency usage is covered by `go test`/`go vet`; `go mod tidy` drift is not currently a dedicated gate.
+- Password hashing is implemented locally as the documented PBKDF2-SHA256 compatibility
+  contract; no direct password-hashing dependency is used.
 
 Frontend dependencies:
 
@@ -340,10 +342,10 @@ Strengths:
 
 Risks:
 
-- `internal/dns/server.go:122-134` launches a goroutine on every `Shutdown` call. Tests cover idempotence, but concurrent repeated shutdowns could race on fields without a top-level mutex.
-- UDP serve loop allocates a new buffer and copies packet per read (`internal/dns/server.go:149-158`); SPEC wanted `sync.Pool`.
-- Policy `For` copies the list map per query (`internal/policy/engine.go:87-90`), which is simple but adds hot-path allocation under load.
-- `cmd/sis/main.go:1198-1199` assumes query/audit log pointers are non-nil; current composition creates them, but the function signature accepts nil and would panic if reused incorrectly.
+- DNS shutdown is idempotent and serializes concurrent cleanup calls.
+- UDP ingress read buffers are pooled, but DNS message unpacking and response packing still allocate.
+- Policy snapshots now reuse immutable list map references; custom allow/block mutations use copy-on-write snapshots.
+- Operational signal handling tolerates nil query/audit log pointers.
 
 Resource management:
 
@@ -364,7 +366,9 @@ Positive:
 
 Concerns:
 
-- Password hashing deviates from SPEC: custom PBKDF2-SHA256 instead of bcrypt (`internal/api/password.go:93-160`; SPEC §13.1 and §16.1 require bcrypt). PBKDF2 can be acceptable when tuned, but this is a spec and interoperability deviation.
+- Password hashing uses the documented PBKDF2-SHA256 compatibility contract
+  (`internal/api/password.go`); any future bcrypt/argon2 migration needs deliberate
+  compatibility handling.
 - Unsafe cookie-authenticated `POST/PATCH/DELETE` endpoints enforce Origin/Referer checks for browser requests.
 - HSTS is emitted when TLS is active or configured.
 - Authenticated API routes have configurable per-IP rate limiting.
@@ -379,18 +383,17 @@ Concerns:
 
 Test files:
 
-- 33 Go `_test.go` files across CLI, API, config, DNS, log, policy, stats, store, SBOM, upstream.
+- 41 Go `_test.go` files across CLI, API, config, DNS, log, policy, stats, store, SBOM, upstream.
 - Frontend has Playwright specs for first-run smoke, group schedule editing, and mocked management flows.
 
-Could not run:
+Local limitations:
 
-- `go test ./... -count=1`: failed with `/bin/bash: go: command not found`.
-- `go vet ./...`: failed with `/bin/bash: go: command not found`.
-- `staticcheck ./...`: failed with `/bin/bash: staticcheck: command not found`.
-- `go test -race`: impossible without Go.
+- `staticcheck ./...`: unavailable locally because `staticcheck` is not installed.
+- `go test -race`: not run locally because this host lacks `gcc`/cgo support; CI is expected to keep race coverage.
 
 Ran successfully:
 
+- `go test ./...`, `go vet ./...`, and `CGO_ENABLED=0 go build -trimpath -o bin/sis ./cmd/sis`.
 - `npm run build`.
 - `npm run lint`.
 - `npm audit` and `npm audit --omit=dev`.
@@ -400,7 +403,7 @@ Coverage reality:
 - Unit tests exist for most core packages.
 - No `tests/integration/` directory exists.
 - SPEC §19-style DNS acceptance coverage now exists in `internal/dns/acceptance_test.go`, using fake DoH upstreams and real UDP/TCP DNS clients for default forwarding/blocking, allowlist override, active/inactive schedules, upstream failover, cache-hit logging, hashed privacy logging, per-client rename/group move, hot reload, and restart persistence. API integration coverage includes file-backed blocklist sync, setup/session restart persistence, and group schedule mutation through query/test HTTP endpoints. `.project/ACCEPTANCE_MATRIX.md` maps all SPEC §19 scenarios to evidence and remaining gaps.
-- No `sis bench` harness exists; package-level benchmarks now cover DNS cache/pipeline, policy, blocklist parsing, DoH forwarding, and SQLite store paths.
+- No `sis bench` harness exists; package-level benchmarks now cover DNS cache/pipeline, policy, blocklist parsing, DoH forwarding, and SQLite store paths, and `scripts/local-load.sh` provides a short local DNS/API load smoke.
 - Seeded Go fuzz targets exist for blocklist parsing, policy domain matching, API domain normalization, and DNS message edge cases; CI has a scheduled/manual quality job for race and short fuzz campaigns.
 - Frontend component tests now cover first-run setup, authenticated dashboard rendering, login failure handling, required dashboard API failures, optional panel API failures, query test submission, settings PATCH payloads, system mutation failure handling, and group creation failure handling with Vitest/Testing Library.
 
@@ -420,7 +423,7 @@ CI:
 Scripts:
 
 - `scripts/check.sh` gates gofmt, clean git diff, godoc, release/production validation smoke scripts, WebUI install/build/lint, embed sync, coverage, `go vet`, build, and smoke.
-- `scripts/coverage.sh` exists but could not be executed without Go.
+- `scripts/coverage.sh` has been run locally with the project Go toolchain; latest observed total was 68.3%.
 
 Frontend:
 
@@ -439,7 +442,7 @@ Frontend:
 | DNS pipeline | SPEC §2.1 | Mostly complete | `internal/dns/pipeline.go` | Covers rate limit, identity, special, policy, cache, upstream, logs, stats |
 | ECS stripping | SPEC §3.3 | Complete | `internal/dns/edns.go`, `pipeline.go:138-140` | Configurable |
 | Special names/private PTR | SPEC §3.2 | Complete/partial | `internal/dns/special.go` | Local zones not implemented; spec mentions `policy.HasLocalZoneFor` concept |
-| Cache LRU/TTL | SPEC §3.4 | Complete | `internal/dns/cache.go` | Mutex/list/map; no sharding |
+| Cache LRU/TTL | SPEC §3.4 | Complete | `internal/dns/cache.go` | Mutex/list/map; sharding deferred until live contention evidence |
 | Per-client identity MAC/IP | SPEC §4 | Partial | `internal/dns/arp.go`, `client_id.go` | Linux ARP/NDP implemented; macOS/BSD/Windows convenience paths absent |
 | Auto-registration | SPEC §4.2 | Complete | `internal/dns/client_id.go` | Store-backed Touch with debounce |
 | Groups/policy/schedules | SPEC §5 | Complete backend + WebUI editing | `internal/policy/*`, `webui/src/App.tsx` | Live-host behavior still needs production validation |
@@ -448,15 +451,15 @@ Frontend:
 | DoH upstream forwarding | SPEC §7 | Complete | `internal/upstream/doh.go`, `pool.go` | Bootstrap dialer and sequential failover present |
 | Upstream cooldown | SPEC §7.3 | Partial | `internal/upstream/pool.go` | Three failures mark unhealthy; no explicit cooldown timestamp |
 | Query/audit logging | SPEC §8 | Complete | `internal/log/*` | Privacy modes present |
-| Stats aggregation | SPEC §10.2 | Partial | `internal/stats/*`, `internal/store` | Counters/rollups exist; Top-K is simple sorted map, not count-min/min-heap |
+| Stats aggregation | SPEC §10.2 | Partial | `internal/stats/*`, `internal/store` | Counters/rollups exist; Top-K uses bounded exact maps with pruning, not count-min/min-heap |
 | CLI | SPEC §11.1 | Mostly complete | `cmd/sis/main.go`, `httpcli.go` | HTTP client based, not Unix socket; broad command set |
 | TUI | SPEC §11.2 | Missing | No `internal/tui` | Entire milestone absent |
 | React WebUI | SPEC §11.3 | Partial | `webui/src/*` | Broad dashboard/forms exist; not shadcn/lucide, no real routing/sidebar |
 | REST API | SPEC §12 | Mostly complete | `internal/api/*` | Extra endpoints for setup/store/history; JSON error envelopes present |
-| bcrypt auth | SPEC §13.1 | Deviates | `internal/api/password.go` | PBKDF2-SHA256 instead |
+| Password hashing | SPEC §13.1 | Complete | `internal/api/password.go` | Documented PBKDF2-SHA256 compatibility contract |
 | HTTP rate limiting | SPEC §13.3 | Mostly complete | `internal/api/ratelimit.go`, `auth.go` | Login plus authenticated API limiter |
 | Readiness | SPEC §14.1 | Mostly complete | `internal/api/server.go` | Dependency-aware; live-host behavior still needs validation |
-| Prometheus exporter | SPEC §14.2 | Reserved v2 | N/A | Correctly absent |
+| Prometheus exporter | SPEC §14.2 | Complete | `internal/api/metrics.go` | Prometheus text endpoint exists |
 | Bench harness | SPEC §15 | Partial | `*_bench_test.go` | No `sis bench`; no perf target gate except CI benchmarks |
 | SQLite backend | Docs/CHANGELOG post-spec | Complete addition | `internal/store/sqlite.go`, `transfer.go` | Scope creep but valuable |
 | Release automation | T078 | Complete | `.github/workflows/ci.yml`, scripts | Strong |
@@ -513,7 +516,7 @@ Priority missing items:
 
 1. **Live production validation.** `docs/PRODUCTION_VALIDATION.md` still needs target host/router/LAN/client evidence.
 2. **TUI/Unix socket if still considered v1 scope.**
-3. **Sustained production load evidence.** Short CI benchmarks and a longer local package baseline exist, but long-running production-like DNS/API load evidence is still thin.
+3. **Sustained production load evidence.** Short CI benchmarks, a local package baseline, and a local load smoke exist, but long-running production-like DNS/API load evidence is still thin.
 4. **Authorization model.** Authenticated users are full admins; role separation is deferred
    beyond current v1 small-site scope.
 
@@ -531,11 +534,9 @@ Hot paths:
 
 Potential bottlenecks:
 
-- Policy map copy per query in `Engine.For` (`internal/policy/engine.go:87-90`).
-- Single mutex DNS cache; no sharding.
-- UDP allocates/copies per packet instead of sync.Pool (`internal/dns/server.go:149-156`).
+- Single mutex DNS cache; sharding is deferred until live contention evidence appears.
 - JSON store writes the whole database for each mutation (`internal/store/file.go:213-227`), acceptable for small sites but poor at high write churn.
-- Stats top-domain/client implementation uses exact maps and sorting, not the specified count-min sketch/min-heap.
+- Stats top-domain/client implementation uses bounded exact maps and sorting, not the specified count-min sketch/min-heap.
 
 Good patterns:
 
@@ -566,8 +567,9 @@ README is extensive and practical. A developer can understand `make check`, rele
 
 Local environment issue from this audit:
 
-- `go` is not installed/on PATH in the current workspace, so Go onboarding is blocked here.
-- Node/npm is available and WebUI build/lint works.
+- Go is installed at `$HOME/.local/go/bin/go`; shell sessions need that directory on `PATH`.
+- With that PATH adjustment, the full local `scripts/check.sh` gate passes with Go 1.26.2.
+- Node/npm is available and WebUI test/build/lint works.
 
 ### 7.2 Documentation Quality
 
@@ -617,12 +619,7 @@ CI/CD:
 | Location | Debt | Suggested fix | Effort |
 |---|---|---:|---:|
 | No `internal/tui`, no socket API | TUI/Unix socket tasks are deferred from v1 | Keep release messaging explicit or reopen as v2 work | 24-40h |
-| `internal/api` errors | Plaintext error bodies inconsistent with JSON API | Standardize JSON error envelope | 4-8h |
-| `internal/dns/server.go:149-156` | UDP hot path allocates/copies per packet | Introduce buffer pool or benchmark current cost and document | 4-8h |
-| `internal/policy/engine.go:87-90` | Per-query map copy | Replace with immutable snapshot pointer or benchmark and document | 4-8h |
 | Tests | Sustained-load/live-host evidence remains partial | Run strict production validation and longer production-like DNS/API load tests | 6-12h |
-| Observability | No Prometheus/pprof endpoint, request ID not in access logs | Add request ID to logs and optional metrics/profiling endpoints | 8-16h |
-| API rate limits | Only login is limited | Add configurable limiter for other API endpoints | 4-8h |
 
 ### Minor (nice to fix, not urgent)
 

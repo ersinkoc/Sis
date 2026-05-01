@@ -45,9 +45,27 @@ Representative ranges from the local 3-run baseline:
 | SQLite config history append/list | `BenchmarkSQLiteConfigHistoryAppendList` | 133-134 us/op |
 | In-process DoH forward | `BenchmarkDoHClientForward` | 64.4-66.4 us/op |
 
+## Post-Optimization Spot Check
+
+After replacing per-query policy list-map copies with copy-on-write engine snapshots,
+`BenchmarkPolicySnapshotWithManyLists` was rerun on the same CPU with Go 1.26.2. UDP
+ingress read buffers are also pooled after this baseline; the package benchmarks below do
+not exercise socket read-loop allocation behavior directly.
+
+| Path | Benchmark | Range |
+|---|---|---:|
+| Policy snapshot with many lists | `BenchmarkPolicySnapshotWithManyLists` | 47.4-54.5 ns/op, 48 B/op, 1 alloc/op |
+| Policy evaluate | `BenchmarkPolicyEvaluate` | 4.44-5.68 us/op, 490 B/op, 10 allocs/op |
+
 ## Interpretation
 
-- DNS cache/pipeline and policy hot paths are comfortably sub-2 us/op in process on this host.
+- DNS cache and pipeline cache-hit paths are comfortably sub-2 us/op in process on this host;
+  policy evaluation remains in the low-single-digit microsecond range depending on query mix
+  and toolchain.
+- Cache sharding is not implemented because the current package benchmark baseline does not
+  show lock contention; revisit with sustained live-host concurrency profiles.
+- Live top-domain/client maps are bounded with low-frequency pruning to avoid unbounded memory
+  growth under very high-cardinality traffic.
 - SQLite operational writes are sub-140 us/op in isolated package benchmarks.
 - Blocklist parsing remains the slowest measured local path and is background/sync-time work,
   not per-query work.
@@ -56,7 +74,8 @@ Representative ranges from the local 3-run baseline:
 
 ## Remaining Load Work
 
-1. Run sustained DNS UDP/TCP and authenticated API load against a real target host.
-2. Record QPS, latency percentiles, CPU, memory, goroutine count, and error/rate-limit totals.
-3. Repeat against both JSON and SQLite backends when store-heavy API paths are in scope.
-4. Import live results into `docs/PRODUCTION_VALIDATION.md` before any broad production claim.
+1. Use `scripts/local-load.sh` for a repeatable local DNS/API load smoke while developing.
+2. Run sustained DNS UDP/TCP and authenticated API load against a real target host.
+3. Record QPS, latency percentiles, CPU, memory, goroutine count, and error/rate-limit totals.
+4. Repeat against both JSON and SQLite backends when store-heavy API paths are in scope.
+5. Import live results into `docs/PRODUCTION_VALIDATION.md` before any broad production claim.

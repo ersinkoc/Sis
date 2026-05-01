@@ -3,6 +3,7 @@ package log
 import (
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -75,7 +76,7 @@ func (a *Audit) Write(e *AuditEntry) error {
 func (a *Audit) Auditf(action, target string, before, after any) error {
 	return a.Write(&AuditEntry{
 		Actor: "system", Action: action, Target: target,
-		Before: before, After: after,
+		Before: redactAuditPayload(before), After: redactAuditPayload(after),
 	})
 }
 
@@ -107,4 +108,52 @@ func (a *Audit) Close() error {
 	a.enc = nil
 	a.enabled = false
 	return rotator.Close()
+}
+
+func redactAuditPayload(value any) any {
+	if value == nil {
+		return nil
+	}
+	switch typed := value.(type) {
+	case *config.Config:
+		return config.RedactedCopy(typed)
+	case config.Config:
+		return config.RedactedCopy(&typed)
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return value
+	}
+	var decoded any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return value
+	}
+	redactAuditJSON(decoded)
+	return decoded
+}
+
+func redactAuditJSON(value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, nested := range typed {
+			if sensitiveAuditKey(key) {
+				typed[key] = "redacted"
+				continue
+			}
+			redactAuditJSON(nested)
+		}
+	case []any:
+		for _, nested := range typed {
+			redactAuditJSON(nested)
+		}
+	}
+}
+
+func sensitiveAuditKey(key string) bool {
+	normalized := strings.ToLower(key)
+	return strings.Contains(normalized, "password") ||
+		strings.Contains(normalized, "secret") ||
+		strings.Contains(normalized, "token") ||
+		strings.Contains(normalized, "cookie") ||
+		strings.Contains(normalized, "salt")
 }

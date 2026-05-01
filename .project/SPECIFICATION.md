@@ -723,9 +723,16 @@ Base path: `/api/v1`. All requests after `/auth/login` require a valid session c
 - `GET /healthz` — liveness, returns 200 OK if process is up.
 - `GET /readyz` — readiness, 200 OK if config, store, upstream pool, DNS pipeline, and DNS listener lifecycle checks pass.
 
-### 14.2 Internal Metrics (Exposed via API)
+### 14.2 Internal Metrics
 
-Counters maintained in-memory and exposed via `/api/v1/stats/*`:
+Counters are maintained in-memory and exposed through both JSON stats endpoints and the
+Prometheus text endpoint:
+
+- `GET /api/v1/stats/summary`
+- `GET /api/v1/stats/top`
+- `GET /metrics`
+
+Metric coverage includes:
 
 - `dns.queries.total{proto,rcode}`
 - `dns.cache.hits.total`, `dns.cache.misses.total`, `dns.cache.size`
@@ -734,9 +741,7 @@ Counters maintained in-memory and exposed via `/api/v1/stats/*`:
 - `dns.upstream.latency.histogram{upstream}`
 - `dns.rate_limited.total`
 - `dns.malformed.total`
-- `process.goroutines`, `process.memory.heap`
-
-Prometheus exporter is reserved for v2.
+- `process.goroutines`, `process.memory.heap` where available in the API surface
 
 ### 14.3 Build Info
 

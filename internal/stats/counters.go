@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+const (
+	maxTrackedTopItems = 10000
+	pruneTopItemsTo    = 8000
+)
+
 // Counters holds live in-memory counters for DNS and upstream activity.
 type Counters struct {
 	QueryTotal       atomic.Uint64
@@ -126,15 +131,9 @@ func (c *Counters) AddDomain(domain string, blocked bool) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.domains == nil {
-		c.domains = make(map[string]uint64)
-	}
-	c.domains[domain]++
+	c.domains = incrementTopCounter(c.domains, domain)
 	if blocked {
-		if c.blockedDomains == nil {
-			c.blockedDomains = make(map[string]uint64)
-		}
-		c.blockedDomains[domain]++
+		c.blockedDomains = incrementTopCounter(c.blockedDomains, domain)
 	}
 }
 
@@ -145,10 +144,7 @@ func (c *Counters) AddClient(client string) {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.clients == nil {
-		c.clients = make(map[string]uint64)
-	}
-	c.clients[client]++
+	c.clients = incrementTopCounter(c.clients, client)
 }
 
 // TopItem is one ranked counter row for a domain or client.
@@ -238,6 +234,36 @@ func topN(values map[string]uint64, n int) []TopItem {
 		items = items[:n]
 	}
 	return items
+}
+
+func incrementTopCounter(values map[string]uint64, key string) map[string]uint64 {
+	if values == nil {
+		values = make(map[string]uint64)
+	}
+	if _, ok := values[key]; !ok && len(values) >= maxTrackedTopItems {
+		pruneTopCounters(values, pruneTopItemsTo)
+	}
+	values[key]++
+	return values
+}
+
+func pruneTopCounters(values map[string]uint64, target int) {
+	if len(values) <= target {
+		return
+	}
+	items := make([]TopItem, 0, len(values))
+	for key, count := range values {
+		items = append(items, TopItem{Key: key, Count: count})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Count == items[j].Count {
+			return items[i].Key > items[j].Key
+		}
+		return items[i].Count < items[j].Count
+	})
+	for _, item := range items[:len(items)-target] {
+		delete(values, item.Key)
+	}
 }
 
 // IncRequest increments upstream request count.

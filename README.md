@@ -284,8 +284,7 @@ backup contents.
 Docker and Kubernetes deployments are not supported for the current v1 release scope. Use
 the packaged Linux binaries and systemd install/upgrade/verify scripts for production
 validation.
-Operator alert definitions for the current non-Prometheus v1 posture are in
-`docs/ALERTING.md`.
+Operator alert definitions and `/metrics` scraping guidance are in `docs/ALERTING.md`.
 `scripts/smoke.sh` starts `bin/sis` with a temporary local config and verifies health/readiness,
 DNS queries, blocklist enforcement, auth setup, CLI API access, inventory APIs, custom blocklist
 mutation, query logs, stats, cache flush, and config reload/history.
@@ -294,6 +293,9 @@ mutation, query logs, stats, cache flush, and config reload/history.
 the same coverage gate, binary build, smoke test, and `govulncheck`.
 `make bench` runs the Go benchmark suite with allocation reporting; set `BENCHTIME` or `BENCHCOUNT` for longer local runs.
 The current local benchmark baseline is recorded in `docs/PERFORMANCE_BASELINE.md`.
+`make local-load` or `scripts/local-load.sh` starts a temporary local Sis instance and runs a short concurrent
+DNS/API load smoke; it is useful for development checks, not a substitute for live-host
+production validation.
 `make godoc` checks that exported Go declarations have GoDoc comments.
 `make preflight` verifies that required local tools such as Go, gofmt, and npm are installed.
 `make check` runs the full CI-style gate: Go formatting drift check, WebUI build/lint,

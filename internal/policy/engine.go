@@ -84,12 +84,8 @@ func (e *Engine) For(id Identity) *Policy {
 	if group == nil {
 		group = e.groups["default"]
 	}
-	lists := make(map[string]*Domains, len(e.lists))
-	for id, domains := range e.lists {
-		lists[id] = domains
-	}
 	return &Policy{
-		group: group, lists: lists, custom: e.custom,
+		group: group, lists: e.lists, custom: e.custom,
 		allowlist: e.allowlist, customAllow: e.customAllow, tz: e.tz,
 	}
 }
@@ -98,11 +94,14 @@ func (e *Engine) For(id Identity) *Policy {
 func (e *Engine) ReplaceList(id string, domains *Domains) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	lists := cloneListMap(e.lists)
 	if domains == nil {
-		delete(e.lists, id)
+		delete(lists, id)
+		e.lists = lists
 		return
 	}
-	e.lists[id] = domains
+	lists[id] = domains
+	e.lists = lists
 }
 
 // ListEntries returns searchable entries for a compiled blocklist.
@@ -123,28 +122,44 @@ func (e *Engine) ListEntries(id, query string, limit int) ([]string, bool) {
 func (e *Engine) AddCustomBlock(domain string) bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.custom.Add(domain)
+	custom := e.custom.Clone()
+	if !custom.Add(domain) {
+		return false
+	}
+	e.custom = custom
+	return true
 }
 
 // RemoveCustomBlock removes a domain from the runtime custom blocklist.
 func (e *Engine) RemoveCustomBlock(domain string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.custom.Delete(domain)
+	custom := e.custom.Clone()
+	if custom.Delete(domain) {
+		e.custom = custom
+	}
 }
 
 // AddCustomAllow adds a domain to the runtime custom allowlist.
 func (e *Engine) AddCustomAllow(domain string) bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.customAllow.Add(domain)
+	customAllow := e.customAllow.Clone()
+	if !customAllow.Add(domain) {
+		return false
+	}
+	e.customAllow = customAllow
+	return true
 }
 
 // RemoveCustomAllow removes a domain from the runtime custom allowlist.
 func (e *Engine) RemoveCustomAllow(domain string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.customAllow.Delete(domain)
+	customAllow := e.customAllow.Clone()
+	if customAllow.Delete(domain) {
+		e.customAllow = customAllow
+	}
 }
 
 // ReloadConfig recompiles config-derived policy while preserving downloaded and custom lists.
@@ -220,9 +235,24 @@ func (e *Engine) removeDisabledListsLocked(c *config.Config) {
 			enabled[list.ID] = struct{}{}
 		}
 	}
-	for id := range e.lists {
+	lists := e.lists
+	cloned := false
+	for id := range lists {
 		if _, ok := enabled[id]; !ok {
-			delete(e.lists, id)
+			if !cloned {
+				lists = cloneListMap(e.lists)
+				cloned = true
+			}
+			delete(lists, id)
 		}
 	}
+	e.lists = lists
+}
+
+func cloneListMap(lists map[string]*Domains) map[string]*Domains {
+	clone := make(map[string]*Domains, len(lists))
+	for id, domains := range lists {
+		clone[id] = domains
+	}
+	return clone
 }

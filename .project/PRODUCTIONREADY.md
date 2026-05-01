@@ -1,7 +1,7 @@
 # Production Readiness Assessment
 
 > Comprehensive evaluation of whether Sis is ready for production deployment.
-> Assessment Date: 2026-04-29
+> Assessment Date: 2026-05-01
 > Verdict: Yellow CONDITIONALLY READY
 
 ## Overall Verdict & Score
@@ -80,7 +80,7 @@ Critical broken/unfinished flows:
 - DNS and HTTP servers shut down with a 10-second timeout.
 - Background goroutines observe context.
 - Store/log close paths exist.
-- This is generally good, though repeated/concurrent shutdown field mutation deserves race verification.
+- DNS shutdown is idempotent and serializes concurrent cleanup calls; CI race coverage remains the stronger guard.
 
 ### 2.4 Recovery
 
@@ -132,7 +132,7 @@ Critical broken/unfinished flows:
 - [x] Privacy salt generation exists.
 - [x] Git history secret scan evidence is recorded in `docs/SECRET_SCAN.md`.
 - [x] Config history and default `sis config show` output redact password hashes and `privacy.log_salt`.
-- [ ] Sensitive config masking in all logs was not exhaustively verified.
+- [x] Audit payload redaction masks password, salt, token, cookie, and secret fields before writing administrative logs.
 
 ### 3.5 Security Vulnerabilities Found
 
@@ -145,17 +145,17 @@ Critical broken/unfinished flows:
 
 NPM audit: `found 0 vulnerabilities`.
 
-Go vulnerability status: not checked because `govulncheck` is unavailable.
+Go vulnerability status: `govulncheck@v1.3.0` found no vulnerabilities on 2026-05-01.
 
 ## 4. Performance Assessment
 
 ### 4.1 Known Performance Issues
 
-- UDP allocates and copies per packet.
-- Policy snapshot copies list map per query.
-- DNS cache is single-mutex.
+- UDP ingress read buffers are pooled; DNS message unpacking and response packing still allocate.
+- Policy snapshots now reuse an immutable list map; custom allow/block mutations use copy-on-write.
+- DNS cache is single-mutex; short local benchmarks do not yet justify sharding without live contention evidence.
 - JSON backend rewrites whole store per mutation.
-- Exact top-domain/client maps can grow without the specified approximate Top-K design.
+- Top-domain/client maps are bounded with low-frequency pruning; approximate Top-K remains a future refinement if needed.
 
 ### 4.2 Resource Management
 
@@ -178,9 +178,13 @@ Go vulnerability status: not checked because `govulncheck` is unavailable.
 
 Actually tested by local audit:
 
-- WebUI TypeScript build.
-- WebUI ESLint.
-- npm audit.
+- Full `scripts/check.sh` gate passed before local edits; after the current edits, the same
+  major gates were rerun individually because `scripts/check.sh` requires a clean tracked diff.
+- Go unit tests, integration subset, `go vet`, coverage gate at 68.3%, static build, and runtime smoke.
+- WebUI TypeScript build, Vitest component tests, ESLint, and npm audit.
+- Secret scan, godoc, release-readiness smoke, release-candidate smoke, production-validation
+  preflight smoke, WebUI embed synchronization, and update-production-validation-record smoke.
+- `govulncheck@v1.3.0` vulnerability scan.
 
 Not locally testable on this host:
 
@@ -225,11 +229,13 @@ Critical paths without enough visible coverage:
 - [x] E2E tests - 3 Playwright specs in `webui/e2e/`.
 - [x] Benchmark tests - DNS cache, policy evaluation, DNS pipeline, DoH forwarding, and SQLite store benchmarks; longer local baseline is recorded in `docs/PERFORMANCE_BASELINE.md`.
 - [x] Fuzz tests - blocklist parsing, domain normalization, policy domain matching, and DNS message edge cases.
-- [ ] Load tests - absent.
+- [x] Local load smoke helper - `scripts/local-load.sh` runs short concurrent DNS/API checks.
+- [ ] Sustained live-host load evidence - absent.
 
 ### 5.3 Test Infrastructure
 
-- [x] Tests can run locally with Go 1.25.9 tooling.
+- [x] Tests can run locally with a Go toolchain compatible with the `go.mod` target; this
+  host's follow-up checks used Go 1.26.2 from `$HOME/.local/go/bin/go`.
 - [x] CI is configured to run Go/Node checks.
 - [x] WebUI build/lint runs locally.
 - [x] Test data/fixtures are mostly inline/tempdir based.

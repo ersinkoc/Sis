@@ -137,6 +137,16 @@ go test -run '^$' -bench=. -benchmem -benchtime=100ms -count=1 ${packages}
 For the current longer local baseline and interpretation, see
 [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md).
 
+For a short local DNS/API load smoke against a temporary service:
+
+```sh
+./scripts/build.sh
+SIS_LOAD_DURATION_SECONDS=30 SIS_LOAD_DNS_WORKERS=4 SIS_LOAD_API_WORKERS=2 ./scripts/local-load.sh
+```
+
+This is a development signal only. Sustained production evidence still belongs in the live
+host validation record.
+
 For vulnerability scanning, CI runs:
 
 ```sh

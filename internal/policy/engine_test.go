@@ -90,6 +90,54 @@ func TestPolicyReloadRemovesDisabledBlocklists(t *testing.T) {
 	}
 }
 
+func TestPolicySnapshotsAreStableAcrossListReplacement(t *testing.T) {
+	engine := mustEngine(t, []config.Group{{Name: "default", Blocklists: []string{"ads"}}}, config.Allowlist{})
+	ads := NewDomains()
+	ads.Add("old.example.com")
+	engine.ReplaceList("ads", ads)
+	before := engine.For(Identity{Key: "client"})
+
+	nextAds := NewDomains()
+	nextAds.Add("new.example.com")
+	engine.ReplaceList("ads", nextAds)
+	after := engine.For(Identity{Key: "client"})
+
+	now := time.Now()
+	if decision := before.Evaluate("old.example.com", 1, now); !decision.Blocked {
+		t.Fatalf("previous snapshot should retain old list, got %#v", decision)
+	}
+	if decision := before.Evaluate("new.example.com", 1, now); decision.Blocked {
+		t.Fatalf("previous snapshot should not see replacement, got %#v", decision)
+	}
+	if decision := after.Evaluate("new.example.com", 1, now); !decision.Blocked {
+		t.Fatalf("new snapshot should see replacement, got %#v", decision)
+	}
+}
+
+func TestPolicyCustomSnapshotsAreStableAcrossMutation(t *testing.T) {
+	engine := mustEngine(t, []config.Group{{Name: "default"}}, config.Allowlist{})
+	engine.AddCustomBlock("old.example.com")
+	before := engine.For(Identity{Key: "client"})
+
+	engine.AddCustomBlock("new.example.com")
+	engine.RemoveCustomBlock("old.example.com")
+	after := engine.For(Identity{Key: "client"})
+
+	now := time.Now()
+	if decision := before.Evaluate("old.example.com", 1, now); !decision.Blocked {
+		t.Fatalf("previous snapshot should retain old custom block, got %#v", decision)
+	}
+	if decision := before.Evaluate("new.example.com", 1, now); decision.Blocked {
+		t.Fatalf("previous snapshot should not see later custom block, got %#v", decision)
+	}
+	if decision := after.Evaluate("old.example.com", 1, now); decision.Blocked {
+		t.Fatalf("new snapshot should see custom removal, got %#v", decision)
+	}
+	if decision := after.Evaluate("new.example.com", 1, now); !decision.Blocked {
+		t.Fatalf("new snapshot should see custom add, got %#v", decision)
+	}
+}
+
 func TestPolicyEngineRequiresConfig(t *testing.T) {
 	if _, err := NewEngine(nil, StaticClientResolver{}); err == nil || !strings.Contains(err.Error(), "config") {
 		t.Fatalf("new engine err = %v", err)

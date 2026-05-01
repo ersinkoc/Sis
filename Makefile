@@ -10,7 +10,7 @@ GO_PACKAGES ?= $(shell go list ./... 2>/dev/null | grep -v '/webui/node_modules/
 BENCHTIME ?= 100ms
 BENCHCOUNT ?= 1
 
-.PHONY: preflight build test test-integration coverage bench godoc lint fmt webui webui-check check all release release-smoke clean
+.PHONY: preflight build test test-integration coverage bench local-load godoc lint fmt webui webui-check check all release release-smoke clean
 
 preflight:
 	./scripts/preflight.sh
@@ -29,6 +29,9 @@ coverage:
 
 bench:
 	go test -run '^$$' -bench=. -benchmem -benchtime=$(BENCHTIME) -count=$(BENCHCOUNT) $(GO_PACKAGES)
+
+local-load: build
+	./scripts/local-load.sh
 
 godoc:
 	./scripts/godoc.sh

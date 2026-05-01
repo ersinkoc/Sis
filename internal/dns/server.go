@@ -16,16 +16,19 @@ import (
 
 // Server listens for classic DNS over UDP and TCP.
 type Server struct {
-	mu       sync.RWMutex
-	cfg      *config.Holder
-	pipeline *Pipeline
-	workers  *workerPool
-	tcpSlots chan struct{}
-	udpConns []*net.UDPConn
-	tcpLns   []*net.TCPListener
-	cancel   context.CancelFunc
-	ready    bool
-	wg       sync.WaitGroup
+	mu           sync.RWMutex
+	shutdownMu   sync.Mutex
+	cfg          *config.Holder
+	pipeline     *Pipeline
+	workers      *workerPool
+	tcpSlots     chan struct{}
+	udpPool      *sync.Pool
+	udpConns     []*net.UDPConn
+	tcpLns       []*net.TCPListener
+	cancel       context.CancelFunc
+	shutdownDone chan struct{}
+	ready        bool
+	wg           sync.WaitGroup
 }
 
 // NewServer creates a DNS server using cfg and pipeline.
@@ -35,6 +38,9 @@ func NewServer(cfg *config.Holder, pipeline *Pipeline) *Server {
 
 // Start binds configured UDP/TCP listeners and begins serving DNS queries.
 func (s *Server) Start(ctx context.Context) error {
+	s.shutdownMu.Lock()
+	s.shutdownDone = nil
+	s.shutdownMu.Unlock()
 	runCtx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
 	started := false
@@ -55,6 +61,8 @@ func (s *Server) Start(ctx context.Context) error {
 		workers = runtime.NumCPU() * 4
 	}
 	s.workers = newWorkerPool(runCtx, workers, workers*8)
+	udpSize := udpPacketSize(cfg)
+	s.udpPool = newUDPBufferPool(udpSize)
 	tcpWorkers := cfg.Server.DNS.TCPWorkers
 	if tcpWorkers <= 0 {
 		tcpWorkers = runtime.NumCPU() * 4
@@ -71,7 +79,7 @@ func (s *Server) Start(ctx context.Context) error {
 		}
 		s.udpConns = append(s.udpConns, udpConn)
 		s.wg.Add(1)
-		go s.serveUDP(runCtx, udpConn)
+		go s.serveUDP(runCtx, udpConn, udpSize)
 
 		tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 		if err != nil {
@@ -111,6 +119,7 @@ func (s *Server) cleanupStarted() {
 		s.workers.Close()
 		s.workers = nil
 	}
+	s.udpPool = nil
 	s.udpConns = nil
 	s.tcpLns = nil
 	s.tcpSlots = nil
@@ -128,6 +137,19 @@ func (s *Server) Ready() bool {
 
 // Shutdown closes listeners and waits for active workers to finish.
 func (s *Server) Shutdown(ctx context.Context) error {
+	s.shutdownMu.Lock()
+	if s.shutdownDone != nil {
+		done := s.shutdownDone
+		s.shutdownMu.Unlock()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-done:
+			return nil
+		}
+	}
+	done := make(chan struct{})
+	s.shutdownDone = done
 	s.mu.Lock()
 	s.ready = false
 	s.mu.Unlock()
@@ -140,19 +162,22 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	for _, ln := range s.tcpLns {
 		_ = ln.Close()
 	}
-	done := make(chan struct{})
 	go func() {
 		s.wg.Wait()
+		s.shutdownMu.Lock()
+		defer s.shutdownMu.Unlock()
 		if s.workers != nil {
 			s.workers.Close()
 			s.workers = nil
 		}
+		s.udpPool = nil
 		s.udpConns = nil
 		s.tcpLns = nil
 		s.tcpSlots = nil
 		s.cancel = nil
 		close(done)
 	}()
+	s.shutdownMu.Unlock()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -161,22 +186,22 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	}
 }
 
-func (s *Server) serveUDP(ctx context.Context, conn *net.UDPConn) {
+func (s *Server) serveUDP(ctx context.Context, conn *net.UDPConn, size int) {
 	defer s.wg.Done()
-	size := s.cfg.Get().Server.DNS.UDPSize
-	if size <= 0 {
-		size = 1232
-	}
 	for {
-		buf := make([]byte, size)
+		buf := s.getUDPBuffer(size)
 		n, addr, err := conn.ReadFromUDP(buf)
 		if err != nil {
+			s.putUDPBuffer(buf, size)
 			return
 		}
-		packet := append([]byte(nil), buf[:n]...)
-		_ = s.workers.Submit(func() {
+		packet := buf[:n]
+		if !s.workers.Submit(func() {
+			defer s.putUDPBuffer(buf, size)
 			s.handleUDP(ctx, conn, addr, packet)
-		}, false)
+		}, false) {
+			s.putUDPBuffer(buf, size)
+		}
 	}
 }
 
@@ -220,6 +245,37 @@ func packUDPResponse(msg *mdns.Msg, maxSize int) ([]byte, error) {
 	minimal.Response = true
 	minimal.Truncated = true
 	return minimal.Pack()
+}
+
+func udpPacketSize(cfg *config.Config) int {
+	if cfg == nil || cfg.Server.DNS.UDPSize <= 0 {
+		return 1232
+	}
+	return cfg.Server.DNS.UDPSize
+}
+
+func newUDPBufferPool(size int) *sync.Pool {
+	return &sync.Pool{New: func() any {
+		return make([]byte, size)
+	}}
+}
+
+func (s *Server) getUDPBuffer(size int) []byte {
+	if s == nil || s.udpPool == nil {
+		return make([]byte, size)
+	}
+	buf, ok := s.udpPool.Get().([]byte)
+	if !ok || cap(buf) < size {
+		return make([]byte, size)
+	}
+	return buf[:size]
+}
+
+func (s *Server) putUDPBuffer(buf []byte, size int) {
+	if s == nil || s.udpPool == nil || cap(buf) < size {
+		return
+	}
+	s.udpPool.Put(buf[:size])
 }
 
 func (s *Server) serveTCP(ctx context.Context, ln *net.TCPListener) {

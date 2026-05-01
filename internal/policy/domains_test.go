@@ -42,6 +42,23 @@ func TestDomainsNormalizeIDNToALabel(t *testing.T) {
 	}
 }
 
+func TestDomainsCloneIsIndependent(t *testing.T) {
+	d := NewDomains()
+	d.Add("example.com")
+	clone := d.Clone()
+	if !clone.Match("www.example.com") {
+		t.Fatal("clone should preserve existing entries")
+	}
+	clone.Add("blocked.example")
+	clone.Delete("example.com")
+	if !d.Match("www.example.com") {
+		t.Fatal("clone delete should not affect original")
+	}
+	if d.Match("blocked.example") {
+		t.Fatal("clone add should not affect original")
+	}
+}
+
 func TestDomainsRejectsOverlongDomain(t *testing.T) {
 	d := NewDomains()
 	long := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa." +

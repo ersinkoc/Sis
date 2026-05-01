@@ -3,7 +3,9 @@ package dns
 import (
 	"context"
 	"net"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/ersinkoc/sis/internal/config"
 	"github.com/ersinkoc/sis/internal/stats"
@@ -51,6 +53,40 @@ func TestServerShutdownIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestServerShutdownConcurrentIsIdempotent(t *testing.T) {
+	cfg := config.NewHolder(&config.Config{
+		Server: config.Server{
+			DNS: config.DNSServer{Listen: []string{"127.0.0.1:0"}},
+		},
+	})
+	s := NewServer(cfg, NewPipeline(nil))
+	if err := s.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 16)
+	for i := 0; i < cap(errs); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			errs <- s.Shutdown(ctx)
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("shutdown err = %v", err)
+		}
+	}
+	if s.Ready() {
+		t.Fatal("server should not be ready after concurrent shutdown")
+	}
+}
+
 func TestServerReadyTracksListenerLifecycle(t *testing.T) {
 	cfg := config.NewHolder(&config.Config{
 		Server: config.Server{
@@ -83,6 +119,24 @@ func TestServerCountsMalformedUDPPackets(t *testing.T) {
 	s.handleUDP(context.Background(), nil, &net.UDPAddr{IP: net.ParseIP("192.0.2.10")}, []byte{0x01})
 	if got := counters.Snapshot().MalformedTotal; got != 1 {
 		t.Fatalf("malformed total = %d", got)
+	}
+}
+
+func TestUDPBufferPoolFallbacks(t *testing.T) {
+	if got := udpPacketSize(nil); got != 1232 {
+		t.Fatalf("nil config UDP size = %d", got)
+	}
+	if got := udpPacketSize(&config.Config{Server: config.Server{DNS: config.DNSServer{UDPSize: 4096}}}); got != 4096 {
+		t.Fatalf("configured UDP size = %d", got)
+	}
+
+	s := &Server{udpPool: newUDPBufferPool(512)}
+	s.putUDPBuffer(make([]byte, 128), 512)
+	if got := s.getUDPBuffer(512); len(got) != 512 {
+		t.Fatalf("pooled buffer len = %d", len(got))
+	}
+	if got := s.getUDPBuffer(1024); len(got) != 1024 {
+		t.Fatalf("fallback buffer len = %d", len(got))
 	}
 }
 

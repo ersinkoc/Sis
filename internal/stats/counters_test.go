@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -71,6 +72,31 @@ func TestTopDomainsAndClients(t *testing.T) {
 	clients := c.TopClients(1)
 	if len(clients) != 1 || clients[0].Key != "client-a" || clients[0].Count != 2 {
 		t.Fatalf("clients = %#v", clients)
+	}
+}
+
+func TestTopCountersPruneLowFrequencyItems(t *testing.T) {
+	c := New()
+	for i := 0; i < 50; i++ {
+		c.AddDomain("hot.example.", true)
+		c.AddClient("hot-client")
+	}
+	for i := 0; i < maxTrackedTopItems+50; i++ {
+		c.AddDomain(fmt.Sprintf("unique-%05d.example.", i), true)
+		c.AddClient(fmt.Sprintf("client-%05d", i))
+	}
+
+	if len(c.domains) > maxTrackedTopItems || len(c.blockedDomains) > maxTrackedTopItems || len(c.clients) > maxTrackedTopItems {
+		t.Fatalf("top maps were not pruned: domains=%d blocked=%d clients=%d", len(c.domains), len(c.blockedDomains), len(c.clients))
+	}
+	if got := c.TopDomains(1, false); len(got) != 1 || got[0].Key != "hot.example." || got[0].Count != 50 {
+		t.Fatalf("domains = %#v", got)
+	}
+	if got := c.TopDomains(1, true); len(got) != 1 || got[0].Key != "hot.example." || got[0].Count != 50 {
+		t.Fatalf("blocked domains = %#v", got)
+	}
+	if got := c.TopClients(1); len(got) != 1 || got[0].Key != "hot-client" || got[0].Count != 50 {
+		t.Fatalf("clients = %#v", got)
 	}
 }
 

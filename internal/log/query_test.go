@@ -2,6 +2,7 @@ package log
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"os"
@@ -212,6 +213,40 @@ func TestAuditSeparateFile(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(cfg.Server.DataDir, "logs", "sis-query.log")); !os.IsNotExist(err) {
 		t.Fatalf("query log should not be created by audit write, stat err=%v", err)
+	}
+}
+
+func TestAuditfRedactsSensitivePayloadFields(t *testing.T) {
+	cfg := testConfig(t)
+	a, err := OpenAudit(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	before := &config.Config{
+		Privacy: config.Privacy{LogSalt: "audit-salt"},
+		Auth:    config.Auth{Users: []config.User{{Username: "admin", PasswordHash: "audit-hash"}}},
+	}
+	after := map[string]any{
+		"nested": map[string]any{
+			"api_token": "token-value",
+			"safe":      "visible",
+		},
+	}
+	if err := a.Auditf("config.update", "settings", before, after); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(cfg.Server.DataDir, "logs", "sis-audit.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, secret := range []string{"audit-salt", "audit-hash", "token-value"} {
+		if bytes.Contains(raw, []byte(secret)) {
+			t.Fatalf("audit log leaked %q: %s", secret, raw)
+		}
+	}
+	if !bytes.Contains(raw, []byte(`"safe":"visible"`)) {
+		t.Fatalf("audit log lost safe payload: %s", raw)
 	}
 }
 

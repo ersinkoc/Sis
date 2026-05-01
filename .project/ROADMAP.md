@@ -66,11 +66,11 @@ What is working well: modular Go package layout, strong operational scripts, SQL
 ### Performance tuning and optimization
 
 - [x] Benchmark DNS cache, policy evaluation, DNS pipeline packet handling, and DoH forwarding under representative in-process loads.
-- [ ] Replace per-query policy list-map copy with immutable snapshot pointer if benchmarks show pressure.
-- [ ] Add UDP buffer pooling if allocation profile warrants it.
-- [ ] Evaluate cache sharding if lock contention appears.
+- [x] Replace per-query policy list-map copy with immutable snapshot pointer after benchmarks showed pressure.
+- [x] Add UDP read buffer pooling to reduce ingress hot-path allocations.
+- [x] Evaluate cache sharding; current short benchmarks do not justify sharding before live contention evidence.
 - [x] Add SQLite write/read benchmarks for sessions, stats, clients, and config history.
-- [ ] Consider exact-map top stats limits/eviction or implement specified count-min/min-heap.
+- [x] Bound exact-map top stats with low-frequency pruning for pathological high-cardinality traffic.
 - [x] Track frontend bundle budget; current JS is 71.33 kB gzip.
 
 ## Phase 6: Documentation & DX (Week 13-14)

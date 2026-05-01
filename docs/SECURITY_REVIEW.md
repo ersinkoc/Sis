@@ -58,12 +58,14 @@ edge.
   existing salt.
 - Config history and default `sis config show` output redact password hashes and
   `privacy.log_salt`.
+- Audit payloads redact password, salt, token, cookie, and secret fields before
+  administrative events are written.
 - Config files are documented as sensitive because they can contain password hashes,
   privacy salts, upstream settings, and operational policy.
 
-Open risk: sensitive masking in every possible log line was not exhaustively proven by this
-review. Operators should continue treating diagnostics and logs as potentially sensitive
-when sharing incident evidence.
+Open risk: query logs and audit logs can still contain sensitive operational metadata such
+as domains, client identifiers, upstream IDs, and policy names. Operators should continue
+protecting diagnostics and logs when sharing incident evidence.
 
 ## Backups, Restore, And Diagnostics
 
@@ -80,12 +82,14 @@ password hashes, and privacy salts. Backups must be stored and transferred as se
 
 ## Evidence
 
-- Local release gate passed with `./scripts/check.sh` using Go 1.25.9 before this review.
+- Local release gate passed with `./scripts/check.sh` using a Go toolchain compatible with
+  the `go.mod` target; follow-up checks on this host used Go 1.26.2 from
+  `$HOME/.local/go/bin/go`.
 - GitHub Actions run `25148590600` passed unit, lint, vulnerability audit, Playwright smoke,
   benchmarks, race detector, fuzz campaigns, and release dry-run jobs before this review.
 - Existing focused tests cover setup/login/logout, session renewal, secure cookie behavior,
   same-origin rejection for unsafe cookie-authenticated requests, config history redaction,
-  config validation, backup/restore flows, and store verification.
+  audit payload redaction, config validation, backup/restore flows, and store verification.
 
 ## Remaining Security Work
 

@@ -18,6 +18,7 @@ git diff --exit-code
 ./scripts/release-readiness-smoke.sh
 ./scripts/production-validation-preflight-smoke.sh
 ./scripts/update-production-validation-record-smoke.sh
+bash -n ./scripts/local-load.sh
 
 (
   cd webui
