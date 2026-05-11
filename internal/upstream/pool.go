@@ -12,14 +12,17 @@ import (
 
 // Pool holds configured DoH clients and forwards through healthy upstreams.
 type Pool struct {
-	mu      sync.RWMutex
-	clients []*pooledClient
+	mu           sync.RWMutex
+	clients      []*pooledClient
+	probeInterval time.Duration
 }
 
 type pooledClient struct {
-	client  *DoHClient
-	healthy bool
-	errors  int
+	client         *DoHClient
+	healthy        bool
+	errors         int
+	threshold      int
+	probeTimeout   time.Duration
 }
 
 // Attempt records the outcome of one upstream forwarding attempt.
@@ -44,12 +47,30 @@ func (p *Pool) Replace(upstreams []config.Upstream) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.clients = nil
+	p.probeInterval = time.Minute // default
 	for _, upstream := range upstreams {
-		p.clients = append(p.clients, &pooledClient{client: NewDoHClient(upstream), healthy: true})
+		threshold := 3
+		if upstream.CircuitBreakerThreshold > 0 {
+			threshold = upstream.CircuitBreakerThreshold
+		}
+		probeTimeout := 10 * time.Second
+		if upstream.HealthProbeTimeout.Duration > 0 {
+			probeTimeout = upstream.HealthProbeTimeout.Duration
+		}
+		if upstream.HealthProbeInterval.Duration > 0 && p.probeInterval <= 0 {
+			p.probeInterval = upstream.HealthProbeInterval.Duration
+		}
+		p.clients = append(p.clients, &pooledClient{
+			client:       NewDoHClient(upstream),
+			healthy:       true,
+			threshold:     threshold,
+			probeTimeout:  probeTimeout,
+		})
 	}
 }
 
 // Forward tries each healthy upstream until one returns a DNS response.
+// It retries failed upstreams with exponential backoff (maxRetries per upstream).
 func (p *Pool) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, string, []Attempt, error) {
 	if p == nil {
 		return nil, "", nil, fmt.Errorf("upstream pool is not configured")
@@ -65,18 +86,32 @@ func (p *Pool) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, string, [
 		}
 	}
 	p.mu.RUnlock()
+
+	const maxRetries = 2
+	const baseDelay = 50 * time.Millisecond
+	attempts := make([]Attempt, 0, len(candidates)*(maxRetries+1))
 	var lastErr error
-	attempts := make([]Attempt, 0, len(candidates))
-	for _, candidate := range candidates {
-		resp, err := candidate.Forward(ctx, msg)
-		if err == nil {
-			p.markSuccess(candidate.ID())
-			attempts = append(attempts, Attempt{ID: candidate.ID(), OK: true, Healthy: true})
-			return resp, candidate.ID(), attempts, nil
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		for _, candidate := range candidates {
+			resp, err := candidate.Forward(ctx, msg)
+			if err == nil {
+				p.markSuccess(candidate.ID())
+				attempts = append(attempts, Attempt{ID: candidate.ID(), OK: true, Healthy: true})
+				return resp, candidate.ID(), attempts, nil
+			}
+			lastErr = err
+			p.markFailure(candidate.ID())
+			attempts = append(attempts, Attempt{ID: candidate.ID(), OK: false, Healthy: p.IsHealthy(candidate.ID())})
 		}
-		lastErr = err
-		p.markFailure(candidate.ID())
-		attempts = append(attempts, Attempt{ID: candidate.ID(), OK: false, Healthy: p.IsHealthy(candidate.ID())})
+		if attempt < maxRetries {
+			delay := baseDelay * time.Duration(1<<attempt)
+			select {
+			case <-ctx.Done():
+				return nil, "", attempts, ctx.Err()
+			case <-time.After(delay):
+			}
+		}
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("no healthy upstreams")
@@ -135,29 +170,28 @@ func (p *Pool) ProbeUnhealthy(ctx context.Context) {
 	if p == nil {
 		return
 	}
-	for _, client := range p.unhealthyClients() {
-		probeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		_, err := probeClient(probeCtx, client)
+	p.mu.RLock()
+	var probs []struct {
+		client     *DoHClient
+		probeTimeout time.Duration
+	}
+	for _, pc := range p.clients {
+		if !pc.healthy {
+			probs = append(probs, struct {
+				client     *DoHClient
+				probeTimeout time.Duration
+			}{client: pc.client, probeTimeout: pc.probeTimeout})
+		}
+	}
+	p.mu.RUnlock()
+	for _, pr := range probs {
+		probeCtx, cancel := context.WithTimeout(ctx, pr.probeTimeout)
+		_, err := probeClient(probeCtx, pr.client)
 		cancel()
 		if err == nil {
-			p.markSuccess(client.ID())
+			p.markSuccess(pr.client.ID())
 		}
 	}
-}
-
-func (p *Pool) unhealthyClients() []*DoHClient {
-	if p == nil {
-		return nil
-	}
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	out := make([]*DoHClient, 0)
-	for _, candidate := range p.clients {
-		if !candidate.healthy {
-			out = append(out, candidate.client)
-		}
-	}
-	return out
 }
 
 func probeClient(ctx context.Context, client *DoHClient) (*mdns.Msg, error) {
@@ -190,7 +224,7 @@ func (p *Pool) markFailure(id string) {
 	for _, candidate := range p.clients {
 		if candidate.client.ID() == id {
 			candidate.errors++
-			if candidate.errors >= 3 {
+			if candidate.errors >= candidate.threshold {
 				candidate.healthy = false
 			}
 			return
@@ -241,4 +275,17 @@ func (p *Pool) IsHealthy(id string) bool {
 		}
 	}
 	return false
+}
+
+// ProbeInterval returns the configured health probe interval.
+func (p *Pool) ProbeInterval() time.Duration {
+	if p == nil {
+		return time.Minute
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.probeInterval <= 0 {
+		return time.Minute
+	}
+	return p.probeInterval
 }

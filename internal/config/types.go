@@ -81,21 +81,24 @@ type Config struct {
 
 // Server groups listener, storage, and timezone settings.
 type Server struct {
-	DNS          DNSServer  `yaml:"dns" json:"dns"`
-	HTTP         HTTPServer `yaml:"http" json:"http"`
-	DataDir      string     `yaml:"data_dir" json:"data_dir"`
-	StoreBackend string     `yaml:"store_backend" json:"store_backend"`
-	TZ           string     `yaml:"tz" json:"tz"`
+	DNS        DNSServer  `yaml:"dns" json:"dns"`
+	HTTP       HTTPServer `yaml:"http" json:"http"`
+	GoMaxProcs int        `yaml:"go_max_procs" json:"go_max_procs"`
+	DataDir    string     `yaml:"data_dir" json:"data_dir"`
+	StoreBackend string    `yaml:"store_backend" json:"store_backend"`
+	TZ         string     `yaml:"tz" json:"tz"`
 }
 
 // DNSServer configures classic DNS listeners and throttling.
 type DNSServer struct {
-	Listen         []string `yaml:"listen" json:"listen"`
-	UDPWorkers     int      `yaml:"udp_workers" json:"udp_workers"`
-	TCPWorkers     int      `yaml:"tcp_workers" json:"tcp_workers"`
-	UDPSize        int      `yaml:"udp_size" json:"udp_size"`
-	RateLimitQPS   int      `yaml:"rate_limit_qps" json:"rate_limit_qps"`
-	RateLimitBurst int      `yaml:"rate_limit_burst" json:"rate_limit_burst"`
+	Listen            []string  `yaml:"listen" json:"listen"`
+	UDPWorkers        int       `yaml:"udp_workers" json:"udp_workers"`
+	TCPWorkers        int       `yaml:"tcp_workers" json:"tcp_workers"`
+	UDPSize           int       `yaml:"udp_size" json:"udp_size"`
+	RateLimitQPS      int       `yaml:"rate_limit_qps" json:"rate_limit_qps"`
+	RateLimitBurst    int       `yaml:"rate_limit_burst" json:"rate_limit_burst"`
+	RateLimitMaxBuckets int     `yaml:"rate_limit_max_buckets" json:"rate_limit_max_buckets"`
+	TCPReadDeadline   Duration  `yaml:"tcp_read_deadline" json:"tcp_read_deadline"`
 }
 
 // HTTPServer configures the management API and WebUI listener.
@@ -142,11 +145,14 @@ type Block struct {
 
 // Upstream configures one DNS-over-HTTPS resolver.
 type Upstream struct {
-	ID        string   `yaml:"id" json:"id"`
-	Name      string   `yaml:"name" json:"name"`
-	URL       string   `yaml:"url" json:"url"`
-	Bootstrap []string `yaml:"bootstrap" json:"bootstrap"`
-	Timeout   Duration `yaml:"timeout" json:"timeout"`
+	ID                     string   `yaml:"id" json:"id"`
+	Name                   string   `yaml:"name" json:"name"`
+	URL                    string   `yaml:"url" json:"url"`
+	Bootstrap              []string `yaml:"bootstrap" json:"bootstrap"`
+	Timeout                Duration `yaml:"timeout" json:"timeout"`
+	CircuitBreakerThreshold int     `yaml:"circuit_breaker_threshold" json:"circuit_breaker_threshold"`
+	HealthProbeTimeout     Duration `yaml:"health_probe_timeout" json:"health_probe_timeout"`
+	HealthProbeInterval    Duration `yaml:"health_probe_interval" json:"health_probe_interval"`
 }
 
 // Blocklist configures one managed blocklist source.

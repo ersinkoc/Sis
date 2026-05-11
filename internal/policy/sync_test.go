@@ -29,7 +29,7 @@ func TestSyncerForceSyncReplacesPolicyList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	syncer := NewSyncer(holder, NewFetcher(filepath.Join(dir, "cache")), engine, nil)
+	syncer := NewSyncer(holder, NewFetcher(filepath.Join(dir, "cache"), 0), engine, nil)
 	result, err := syncer.ForceSync(context.Background(), "ads")
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestSyncerForceSyncUnknownList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	syncer := NewSyncer(holder, NewFetcher(t.TempDir()), engine, nil)
+	syncer := NewSyncer(holder, NewFetcher(t.TempDir(), 0), engine, nil)
 	if _, err := syncer.ForceSync(context.Background(), "missing"); err == nil {
 		t.Fatal("expected unknown list error")
 	}
@@ -68,7 +68,7 @@ func TestSyncerForceSyncDisabledList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	syncer := NewSyncer(holder, NewFetcher(t.TempDir()), engine, nil)
+	syncer := NewSyncer(holder, NewFetcher(t.TempDir(), 0), engine, nil)
 	if _, err := syncer.ForceSync(context.Background(), "ads"); err == nil {
 		t.Fatal("expected disabled list error")
 	}

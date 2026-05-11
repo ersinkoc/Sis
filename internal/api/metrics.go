@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -35,6 +36,9 @@ func prometheusMetrics(snapshot stats.Snapshot) string {
 	writeMetricHelp(&b, "sis_dns_malformed_packets_total", "counter", "Total malformed DNS packets.")
 	writeMetricCounter(&b, "sis_dns_malformed_packets_total", snapshot.MalformedTotal)
 	writeLatencyMetrics(&b, "sis_dns_latency", "", snapshot.Latency)
+
+	// Go runtime metrics
+	writeGoRuntimeMetrics(&b, snapshot)
 
 	writeMetricHelp(&b, "sis_upstream_requests_total", "counter", "Total upstream resolver requests.")
 	writeMetricHelp(&b, "sis_upstream_errors_total", "counter", "Total upstream resolver errors.")
@@ -103,4 +107,17 @@ func escapePrometheusLabel(value string) string {
 	value = strings.ReplaceAll(value, `\`, `\\`)
 	value = strings.ReplaceAll(value, "\n", `\n`)
 	return strings.ReplaceAll(value, `"`, `\"`)
+}
+
+func writeGoRuntimeMetrics(b *strings.Builder, snapshot stats.Snapshot) {
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	fmt.Fprintf(b, "# HELP sis_go_goroutines Current number of goroutines.\n# TYPE sis_go_goroutines gauge\n")
+	fmt.Fprintf(b, "sis_go_goroutines %d\n", runtime.NumGoroutine())
+	fmt.Fprintf(b, "# HELP sis_go_mem_alloc_bytes Current allocated heap objects in bytes.\n# TYPE sis_go_mem_alloc_bytes gauge\n")
+	fmt.Fprintf(b, "sis_go_mem_alloc_bytes %d\n", ms.Alloc)
+	fmt.Fprintf(b, "# HELP sis_go_mem_sys_bytes Current reserved memory in bytes.\n# TYPE sis_go_mem_sys_bytes gauge\n")
+	fmt.Fprintf(b, "sis_go_mem_sys_bytes %d\n", ms.Sys)
+	fmt.Fprintf(b, "# HELP sis_go_gc_total Total number of GC cycles performed.\n# TYPE sis_go_gc_total counter\n")
+	fmt.Fprintf(b, "sis_go_gc_total %d\n", ms.NumGC)
 }

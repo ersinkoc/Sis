@@ -174,6 +174,9 @@ func Validate(c *Config) error {
 	if c.Server.DNS.RateLimitBurst < 0 {
 		errf("server.dns.rate_limit_burst", "must be >= 0")
 	}
+	if c.Server.DNS.RateLimitQPS > 0 && c.Server.DNS.RateLimitBurst < c.Server.DNS.RateLimitQPS {
+		errf("server.dns.rate_limit_burst", "must be >= rate_limit_qps")
+	}
 	if c.Server.HTTP.RateLimitPerMinute < 0 {
 		errf("server.http.rate_limit_per_minute", "must be >= 0")
 	}
@@ -216,6 +219,12 @@ func Validate(c *Config) error {
 	}
 	if c.Cache.NegativeTTL.Duration < 0 {
 		errf("cache.negative_ttl", "must be >= 0")
+	}
+	if c.Cache.MinTTL.Duration > 0 && c.Cache.MaxTTL.Duration > 0 && c.Cache.NegativeTTL.Duration > c.Cache.MaxTTL.Duration {
+		errf("cache.negative_ttl", "must be <= cache.max_ttl")
+	}
+	if c.Cache.NegativeTTL.Duration > 0 && c.Cache.MinTTL.Duration > 0 && c.Cache.NegativeTTL.Duration < c.Cache.MinTTL.Duration {
+		errf("cache.negative_ttl", "must be >= cache.min_ttl")
 	}
 	if c.Block.ResponseTTL.Duration < 0 {
 		errf("block.response_ttl", "must be >= 0")

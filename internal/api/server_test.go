@@ -1917,7 +1917,7 @@ func TestBlocklistSyncEndpointUpdatesPolicyEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	syncer := policy.NewSyncer(holder, policy.NewFetcher(filepath.Join(dir, "cache")), engine, nil)
+	syncer := policy.NewSyncer(holder, policy.NewFetcher(filepath.Join(dir, "cache"), 0), engine, nil)
 	s := NewWithDeps(Options{
 		Config: holder,
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),

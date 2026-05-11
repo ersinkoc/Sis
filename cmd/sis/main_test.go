@@ -449,7 +449,7 @@ func TestCreateBackupReturnsOutputAndStoreErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := createBackup(path, cfg.Server.DataDir, cfg.Server.StoreBackend, filepath.Join(t.TempDir(), "missing", "backup.tar.gz")); err == nil {
+	if err := createBackup(path, cfg.Server.DataDir, cfg.Server.StoreBackend, filepath.Join(t.TempDir(), "missing", "backup.tar.gz"), ""); err == nil {
 		t.Fatal("backup in missing output directory succeeded, want error")
 	}
 
@@ -457,7 +457,7 @@ func TestCreateBackupReturnsOutputAndStoreErrors(t *testing.T) {
 	if err := os.MkdirAll(dbDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := createBackup(path, cfg.Server.DataDir, cfg.Server.StoreBackend, filepath.Join(t.TempDir(), "sis-backup.tar.gz")); err == nil {
+	if err := createBackup(path, cfg.Server.DataDir, cfg.Server.StoreBackend, filepath.Join(t.TempDir(), "sis-backup.tar.gz"), ""); err == nil {
 		t.Fatal("directory store file succeeded, want error")
 	}
 }

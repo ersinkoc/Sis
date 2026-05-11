@@ -14,6 +14,10 @@ import (
 
 type requestIDKey struct{}
 
+// requestIDContextKey is the string key used to store request ID in context.
+// Using a string key allows cross-package context propagation.
+const requestIDCtxKey = "sis_request_id"
+
 func requestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get("X-Request-ID")
@@ -22,6 +26,7 @@ func requestID(next http.Handler) http.Handler {
 		}
 		w.Header().Set("X-Request-ID", id)
 		ctx := context.WithValue(r.Context(), requestIDKey{}, id)
+		ctx = context.WithValue(ctx, requestIDCtxKey, id)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

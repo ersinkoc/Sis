@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
 	"strings"
 	"syscall"
@@ -22,12 +23,14 @@ import (
 	"github.com/ersinkoc/sis/internal/config"
 	sisdns "github.com/ersinkoc/sis/internal/dns"
 	sislog "github.com/ersinkoc/sis/internal/log"
+	"github.com/ersinkoc/sis/internal/otel"
 	"github.com/ersinkoc/sis/internal/policy"
 	"github.com/ersinkoc/sis/internal/stats"
 	"github.com/ersinkoc/sis/internal/store"
 	"github.com/ersinkoc/sis/internal/upstream"
 	"github.com/ersinkoc/sis/pkg/version"
 	mdns "github.com/miekg/dns"
+	"filippo.io/age"
 	"gopkg.in/yaml.v3"
 )
 
@@ -688,11 +691,12 @@ func runBackupCreate(args []string) error {
 	fs := flag.NewFlagSet("backup create", flag.ExitOnError)
 	path := fs.String("config", defaultConfigPath(), "config file path")
 	out := fs.String("out", "", "backup output path")
+	encrypt := fs.String("encrypt", "", "passphrase for AES-256-GCM encryption")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if fs.NArg() != 0 {
-		return fmt.Errorf("usage: sis backup create [-config path] [-out path]")
+		return fmt.Errorf("usage: sis backup create [-config path] [-out path] [-encrypt passphrase]")
 	}
 	cfg, err := (&config.Loader{Path: *path}).Load()
 	if err != nil {
@@ -702,7 +706,7 @@ func runBackupCreate(args []string) error {
 	if outPath == "" {
 		outPath = "sis-backup-" + time.Now().UTC().Format("20060102-150405") + ".tar.gz"
 	}
-	if err := createBackup(*path, cfg.Server.DataDir, cfg.Server.StoreBackend, outPath); err != nil {
+	if err := createBackup(*path, cfg.Server.DataDir, cfg.Server.StoreBackend, outPath, *encrypt); err != nil {
 		return err
 	}
 	fmt.Printf("backup written to %s\n", outPath)
@@ -755,7 +759,7 @@ func runBackupRestore(args []string) error {
 	return nil
 }
 
-func createBackup(configPath, dataDir, backend, outPath string) error {
+func createBackup(configPath, dataDir, backend, outPath string, passphrase string) error {
 	out, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
@@ -763,13 +767,37 @@ func createBackup(configPath, dataDir, backend, outPath string) error {
 	defer out.Close()
 
 	gz := gzip.NewWriter(out)
-	tw := tar.NewWriter(gz)
-	closeArchive := func() error {
-		if err := tw.Close(); err != nil {
-			_ = gz.Close()
-			return err
+	var tw *tar.Writer
+	var closeArchive func() error
+
+	if passphrase != "" {
+		recipient, err := age.NewScryptRecipient(passphrase)
+		if err != nil {
+			return fmt.Errorf("failed to create encryption recipient: %w", err)
 		}
-		return gz.Close()
+		encryptedOut, err := age.Encrypt(gz, recipient)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt backup: %w", err)
+		}
+		tw = tar.NewWriter(encryptedOut)
+		closeArchive = func() error {
+			if err := tw.Close(); err != nil {
+				return err
+			}
+			if err := encryptedOut.Close(); err != nil {
+				return err
+			}
+			return gz.Close()
+		}
+	} else {
+		tw = tar.NewWriter(gz)
+		closeArchive = func() error {
+			if err := tw.Close(); err != nil {
+				_ = gz.Close()
+				return err
+			}
+			return gz.Close()
+		}
 	}
 
 	manifest := map[string]string{
@@ -844,12 +872,62 @@ func readBackupArchive(path string) (*backupArchive, error) {
 		return nil, err
 	}
 	defer f.Close()
+
+	// Detect encrypted backup by reading magic bytes
+	magic := make([]byte, 4)
+	if n, err := f.Read(magic); err == nil && n == 4 && string(magic) == "age-" {
+		// Encrypted - rewind and decrypt
+		if _, err := f.Seek(0, 0); err != nil {
+			return nil, err
+		}
+		return readEncryptedBackup(f)
+	}
+
+	// Unencrypted backup
+	if _, err := f.Seek(0, 0); err != nil {
+		return nil, err
+	}
 	gz, err := gzip.NewReader(f)
 	if err != nil {
 		return nil, err
 	}
 	defer gz.Close()
-	tr := tar.NewReader(gz)
+	return readBackupFromReader(gz)
+}
+
+func readEncryptedBackup(f *os.File) (*backupArchive, error) {
+	identities, err := parsePassphraseIdentities()
+	if err != nil {
+		return nil, err
+	}
+	decrypted, err := age.Decrypt(f, identities...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt backup: %w", err)
+	}
+	gz, err := gzip.NewReader(decrypted)
+	if err != nil {
+		return nil, err
+	}
+	defer gz.Close()
+	return readBackupFromReader(gz)
+}
+
+func parsePassphraseIdentities() ([]age.Identity, error) {
+ fmt.Print("Enter backup passphrase: ")
+ var passphrase string
+ _, err := fmt.Scanln(&passphrase)
+ if err != nil {
+	 return nil, err
+ }
+ identity, err := age.NewScryptIdentity(passphrase)
+ if err != nil {
+	 return nil, err
+ }
+ return []age.Identity{identity}, nil
+}
+
+func readBackupFromReader(r io.Reader) (*backupArchive, error) {
+	tr := tar.NewReader(r)
 	backup := &backupArchive{}
 	seen := map[string]bool{}
 	for {
@@ -1039,6 +1117,10 @@ func runServe(args []string) error {
 	if err != nil {
 		return err
 	}
+	if cfg.Server.GoMaxProcs > 0 {
+		old := runtime.GOMAXPROCS(cfg.Server.GoMaxProcs)
+		slog.Info("GOMAXPROCS changed", "old", old, "new", cfg.Server.GoMaxProcs)
+	}
 	if changed, err := config.EnsureLogSalt(cfg); err != nil {
 		return err
 	} else if changed {
@@ -1058,6 +1140,16 @@ func runServe(args []string) error {
 		}
 		return nil
 	})
+
+	shutdownTracer, err := otel.InitTracer(context.Background(), slog.Default(), "sis")
+	if err != nil {
+		return fmt.Errorf("failed to initialize OpenTelemetry: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = shutdownTracer(shutdownCtx)
+	}()
 
 	st, err := store.OpenBackend(cfg.Server.StoreBackend, cfg.Server.DataDir)
 	if err != nil {
@@ -1097,13 +1189,13 @@ func runServe(args []string) error {
 		MinTTL:     cfg.Cache.MinTTL.Duration, MaxTTL: cfg.Cache.MaxTTL.Duration,
 		NegativeTTL: cfg.Cache.NegativeTTL.Duration,
 	})
-	limiter := sisdns.NewRateLimiter(cfg.Server.DNS.RateLimitQPS, cfg.Server.DNS.RateLimitBurst)
+	limiter := sisdns.NewRateLimiterWithMaxBuckets(cfg.Server.DNS.RateLimitQPS, cfg.Server.DNS.RateLimitBurst, cfg.Server.DNS.RateLimitMaxBuckets)
 	pipeline := sisdns.NewPipelineWithDeps(sisdns.PipelineOptions{
 		Config: holder, Cache: cache, Policy: engine, Upstream: pool,
 		Log: queryLog, Stats: counters, ClientID: clientID, Limiter: limiter,
 	})
 	dnsServer := sisdns.NewServer(holder, pipeline)
-	fetcher := policy.NewFetcher(filepath.Join(cfg.Server.DataDir, "blocklists"))
+	fetcher := policy.NewFetcher(filepath.Join(cfg.Server.DataDir, "blocklists"), 30*time.Second)
 	syncer := policy.NewSyncer(holder, fetcher, engine, auditLog)
 	apiServer := api.NewWithDeps(api.Options{
 		Config: holder, Logger: slog.Default(), QueryLog: queryLog,
@@ -1141,10 +1233,21 @@ func runServe(args []string) error {
 	go reloader.WatchSIGHUP(ctx, slog.Default())
 	go arp.Run(ctx)
 	go syncer.Run(ctx)
-	go pool.RunHealthProber(ctx, time.Minute)
+	go pool.RunHealthProber(ctx, pool.ProbeInterval())
 	go aggregator.Run(ctx)
 	go cleanupSessions(ctx, st)
 	go watchOperationalSignals(ctx, cfg.Server.DataDir, queryLog, auditLog)
+
+	slog.Info("sis started",
+		"version", version.Version,
+		"commit", version.Commit,
+		"upstreams", len(cfg.Upstreams),
+		"dns_listen", cfg.Server.DNS.Listen,
+		"http_listen", cfg.Server.HTTP.Listen,
+		"store", cfg.Server.StoreBackend,
+		"go_max_procs", cfg.Server.GoMaxProcs,
+	)
+
 	if err := dnsServer.Start(ctx); err != nil {
 		return err
 	}

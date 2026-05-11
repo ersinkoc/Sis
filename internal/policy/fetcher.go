@@ -38,10 +38,16 @@ type cacheMeta struct {
 	FetchedAt    time.Time `json:"fetched_at"`
 }
 
+const defaultFetcherTimeout = 30 * time.Second
+
 // NewFetcher creates a blocklist fetcher using cacheDir for content and metadata.
-func NewFetcher(cacheDir string) *Fetcher {
+// If timeout is 0, the default (30s) is used.
+func NewFetcher(cacheDir string, timeout time.Duration) *Fetcher {
+	if timeout <= 0 {
+		timeout = defaultFetcherTimeout
+	}
 	return &Fetcher{
-		Client:   &http.Client{Timeout: 30 * time.Second},
+		Client:   &http.Client{Timeout: timeout},
 		CacheDir: cacheDir,
 	}
 }

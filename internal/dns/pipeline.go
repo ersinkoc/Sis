@@ -15,12 +15,28 @@ import (
 	mdns "github.com/miekg/dns"
 )
 
+type requestIDContextKey struct{}
+
+func extractRequestID(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if id, ok := ctx.Value("sis_request_id").(string); ok && id != "" {
+		return id
+	}
+	if id, ok := ctx.Value(requestIDContextKey{}).(string); ok && id != "" {
+		return id
+	}
+	return ""
+}
+
 // Request is the normalized DNS query input consumed by the pipeline.
 type Request struct {
 	Msg       *mdns.Msg
 	SrcIP     net.IP
 	Proto     string
 	StartedAt time.Time
+	RequestID string
 }
 
 // Response is the pipeline result returned to a DNS transport.
@@ -83,13 +99,16 @@ func (p *Pipeline) Reconfigure(c *config.Config) {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.limiter = NewRateLimiter(c.Server.DNS.RateLimitQPS, c.Server.DNS.RateLimitBurst)
+	p.limiter = NewRateLimiterWithMaxBuckets(c.Server.DNS.RateLimitQPS, c.Server.DNS.RateLimitBurst, c.Server.DNS.RateLimitMaxBuckets)
 }
 
 // Handle processes one DNS request and returns the response to write, if any.
 func (p *Pipeline) Handle(ctx context.Context, r *Request) *Response {
 	if r == nil || r.Msg == nil {
 		return &Response{Msg: synthServerFailure(nil), Source: "synthetic"}
+	}
+	if r.RequestID == "" {
+		r.RequestID = extractRequestID(ctx)
 	}
 	if r.StartedAt.IsZero() {
 		r.StartedAt = time.Now()
@@ -190,7 +209,7 @@ func (p *Pipeline) finish(r *Request, id Identity, msg *mdns.Msg, source string,
 			clientName, clientGroup = p.clientID.Metadata(id.Key)
 		}
 		_ = p.log.Write(&sislog.Entry{
-			TS: time.Now().UTC(), ClientKey: id.Key, ClientIP: id.IP.String(),
+			TS: time.Now().UTC(), RequestID: r.RequestID, ClientKey: id.Key, ClientIP: id.IP.String(),
 			ClientName: clientName, ClientGroup: clientGroup,
 			QName: q.Name, QType: qtypeString(q.Qtype), QClass: qclassString(q.Qclass),
 			RCode: mdns.RcodeToString[msg.Rcode], Answers: answerStrings(msg),

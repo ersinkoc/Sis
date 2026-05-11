@@ -18,6 +18,8 @@ import (
 
 const maxDNSMessageSize = 65535
 
+const bootstrapRetryDelay = 100 * time.Millisecond
+
 // DoHClient forwards DNS messages to a single DNS-over-HTTPS upstream.
 type DoHClient struct {
 	id        string
@@ -48,6 +50,10 @@ func (c *DoHClient) ID() string {
 
 func (c *DoHClient) transport() http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxIdleConns = 100
+	transport.MaxIdleConnsPerHost = 10
+	transport.IdleConnTimeout = 90 * time.Second
+	transport.ForceAttemptHTTP2 = true
 	host := dohHost(c.url)
 	if host == "" || len(c.bootstrap) == 0 {
 		return transport
@@ -60,12 +66,19 @@ func (c *DoHClient) transport() http.RoundTripper {
 			return dialer.DialContext(ctx, network, address)
 		}
 		var lastErr error
-		for _, ip := range c.bootstrap {
+		for i, ip := range c.bootstrap {
 			conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip, port))
 			if err == nil {
 				return conn, nil
 			}
 			lastErr = err
+			if i < len(c.bootstrap)-1 {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(bootstrapRetryDelay):
+				}
+			}
 		}
 		if lastErr == nil {
 			lastErr = fmt.Errorf("no bootstrap IPs configured for %s", host)
@@ -96,12 +109,7 @@ func (c *DoHClient) Forward(ctx context.Context, msg *mdns.Msg) (*mdns.Msg, erro
 		return nil, fmt.Errorf("dns message is required")
 	}
 	if c.client == nil {
-		timeout := c.timeout
-		if timeout <= 0 {
-			timeout = 3 * time.Second
-		}
-		c.timeout = timeout
-		c.client = &http.Client{Timeout: timeout, Transport: c.transport()}
+		c.client = &http.Client{Timeout: c.timeout, Transport: c.transport()}
 	}
 	wire, err := msg.Pack()
 	if err != nil {

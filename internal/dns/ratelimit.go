@@ -27,13 +27,22 @@ type rateBucket struct {
 
 // NewRateLimiter creates a token bucket limiter, or nil when disabled.
 func NewRateLimiter(qps, burst int) *RateLimiter {
+	return NewRateLimiterWithMaxBuckets(qps, burst, 0)
+}
+
+// NewRateLimiterWithMaxBuckets creates a token bucket limiter with explicit max bucket count.
+// If maxBuckets is 0, the default (10000) is used.
+func NewRateLimiterWithMaxBuckets(qps, burst, maxBuckets int) *RateLimiter {
 	if qps <= 0 || burst <= 0 {
 		return nil
+	}
+	if maxBuckets <= 0 {
+		maxBuckets = defaultRateLimiterMaxBuckets
 	}
 	return &RateLimiter{
 		qps:        qpsToFloat(qps),
 		burst:      qpsToFloat(burst),
-		maxBuckets: defaultRateLimiterMaxBuckets,
+		maxBuckets: maxBuckets,
 		buckets:    make(map[string]*rateBucket),
 		now:        time.Now,
 	}

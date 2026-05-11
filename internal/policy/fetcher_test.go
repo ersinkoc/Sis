@@ -24,7 +24,7 @@ func TestFetcherHTTPNotModifiedLoadsCache(t *testing.T) {
 	}))
 	defer server.Close()
 
-	fetcher := NewFetcher(t.TempDir())
+	fetcher := NewFetcher(t.TempDir(), 0)
 	first, err := fetcher.Fetch(context.Background(), "ads", server.URL)
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ func TestFetcherFileURL(t *testing.T) {
 	if err := os.WriteFile(path, []byte("0.0.0.0 file.example.com\n"), 0o640); err != nil {
 		t.Fatal(err)
 	}
-	fetcher := NewFetcher(filepath.Join(dir, "cache"))
+	fetcher := NewFetcher(filepath.Join(dir, "cache"), 0)
 	result, err := fetcher.Fetch(context.Background(), "local", "file://"+path)
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +65,7 @@ func TestFetcherRejectsNilAndMissingInputs(t *testing.T) {
 	if _, err := fetcher.Fetch(context.Background(), "ads", "https://example.test/list.txt"); err == nil {
 		t.Fatal("expected nil fetcher error")
 	}
-	fetcher = NewFetcher(t.TempDir())
+	fetcher = NewFetcher(t.TempDir(), 0)
 	if _, err := fetcher.Fetch(context.Background(), "", "https://example.test/list.txt"); err == nil {
 		t.Fatal("expected missing id error")
 	}
@@ -77,7 +77,7 @@ func TestFetcherAcceptsNilContext(t *testing.T) {
 	if err := os.WriteFile(path, []byte("nil-context.example.com\n"), 0o640); err != nil {
 		t.Fatal(err)
 	}
-	fetcher := NewFetcher(filepath.Join(dir, "cache"))
+	fetcher := NewFetcher(filepath.Join(dir, "cache"), 0)
 	result, err := fetcher.Fetch(nil, "local", "file://"+path)
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func TestFetcherCacheFilesUseRestrictedModeWithoutTempLeftovers(t *testing.T) {
 	if err := os.WriteFile(path, []byte("0.0.0.0 file.example.com\n"), 0o640); err != nil {
 		t.Fatal(err)
 	}
-	fetcher := NewFetcher(filepath.Join(dir, "cache"))
+	fetcher := NewFetcher(filepath.Join(dir, "cache"), 0)
 	if _, err := fetcher.Fetch(context.Background(), "local", "file://"+path); err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestFetcherRejectsOversizedHTTPBlocklist(t *testing.T) {
 	}))
 	defer server.Close()
 
-	fetcher := NewFetcher(t.TempDir())
+	fetcher := NewFetcher(t.TempDir(), 0)
 	if _, err := fetcher.Fetch(context.Background(), "ads", server.URL); err == nil {
 		t.Fatal("expected oversized blocklist error")
 	}
@@ -135,7 +135,7 @@ func TestFetcherRejectsOversizedFileBlocklist(t *testing.T) {
 	if err := os.WriteFile(path, make([]byte, maxBlocklistBytes+1), 0o640); err != nil {
 		t.Fatal(err)
 	}
-	fetcher := NewFetcher(filepath.Join(dir, "cache"))
+	fetcher := NewFetcher(filepath.Join(dir, "cache"), 0)
 	if _, err := fetcher.Fetch(context.Background(), "local", "file://"+path); err == nil {
 		t.Fatal("expected oversized file blocklist error")
 	}

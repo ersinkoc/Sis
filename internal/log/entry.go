@@ -5,6 +5,7 @@ import "time"
 // Entry is one structured DNS query log record.
 type Entry struct {
 	TS          time.Time `json:"ts"`
+	RequestID   string    `json:"request_id,omitempty"`
 	ClientKey   string    `json:"client_key,omitempty"`
 	ClientName  string    `json:"client_name,omitempty"`
 	ClientGroup string    `json:"client_group,omitempty"`

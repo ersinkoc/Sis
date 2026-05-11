@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -223,6 +224,8 @@ func setDuration(v string, target *Duration) {
 	d, err := time.ParseDuration(v)
 	if err == nil {
 		target.Duration = d
+	} else {
+		slog.Warn("invalid duration value, ignoring", "value", v, "error", err)
 	}
 }
 

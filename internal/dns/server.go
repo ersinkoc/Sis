@@ -16,24 +16,34 @@ import (
 
 // Server listens for classic DNS over UDP and TCP.
 type Server struct {
-	mu           sync.RWMutex
-	shutdownMu   sync.Mutex
-	cfg          *config.Holder
-	pipeline     *Pipeline
-	workers      *workerPool
-	tcpSlots     chan struct{}
-	udpPool      *sync.Pool
-	udpConns     []*net.UDPConn
-	tcpLns       []*net.TCPListener
-	cancel       context.CancelFunc
-	shutdownDone chan struct{}
-	ready        bool
-	wg           sync.WaitGroup
+	mu              sync.RWMutex
+	shutdownMu      sync.Mutex
+	cfg             *config.Holder
+	pipeline        *Pipeline
+	workers         *workerPool
+	tcpSlots        chan struct{}
+	udpPool         *sync.Pool
+	udpConns        []*net.UDPConn
+	tcpLns          []*net.TCPListener
+	cancel          context.CancelFunc
+	shutdownDone    chan struct{}
+	ready           bool
+	wg              sync.WaitGroup
+	tcpReadDeadline time.Duration
 }
 
 // NewServer creates a DNS server using cfg and pipeline.
 func NewServer(cfg *config.Holder, pipeline *Pipeline) *Server {
-	return &Server{cfg: cfg, pipeline: pipeline}
+	s := &Server{cfg: cfg, pipeline: pipeline}
+	if cfg != nil && cfg.Get() != nil {
+		s.tcpReadDeadline = cfg.Get().Server.DNS.TCPReadDeadline.Duration
+		if s.tcpReadDeadline <= 0 {
+			s.tcpReadDeadline = 30 * time.Second
+		}
+	} else {
+		s.tcpReadDeadline = 30 * time.Second
+	}
+	return s
 }
 
 // Start binds configured UDP/TCP listeners and begins serving DNS queries.
@@ -298,7 +308,7 @@ func (s *Server) handleTCPConn(ctx context.Context, conn *net.TCPConn) {
 	defer s.wg.Done()
 	defer s.releaseTCPSlot()
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
+	_ = conn.SetDeadline(time.Now().Add(s.tcpReadDeadline))
 	for {
 		var lenBuf [2]byte
 		if _, err := io.ReadFull(conn, lenBuf[:]); err != nil {

@@ -90,9 +90,12 @@ func TestForwardReportsAttempts(t *testing.T) {
 	if resp == nil || id != "good" {
 		t.Fatalf("response id = %q resp=%#v", id, resp)
 	}
+	// Exponential backoff retries all candidates on each round; since "good" succeeds on round 0
+	// after "bad" fails, we get exactly 2 attempts (bad fails + good succeeds).
 	if len(attempts) != 2 || attempts[0].ID != "bad" || attempts[0].OK || attempts[1].ID != "good" || !attempts[1].OK {
 		t.Fatalf("attempts = %#v", attempts)
 	}
+	// bad is called exactly once since good succeeds on first round and causes early return
 	if firstCalls.Load() != 1 {
 		t.Fatalf("bad upstream calls = %d", firstCalls.Load())
 	}
